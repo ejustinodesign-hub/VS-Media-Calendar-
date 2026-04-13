@@ -1,50 +1,35 @@
-import { auth } from "@/auth"
-import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-export default auth(function middleware(req) {
+// Simple cookie-based middleware for edge runtime
+// Full auth validation happens in each route/layout
+export function middleware(req: NextRequest) {
   const { nextUrl } = req
-  const session = (req as any).auth
   const pathname = nextUrl.pathname
 
-  // Public paths
+  // Public paths — always allowed
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
-    pathname === "/api/webhooks/stripe"
+    pathname === "/api/webhooks/stripe" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/public")
   ) {
     return NextResponse.next()
   }
 
-  if (!session) {
-    return NextResponse.redirect(new URL("/login", req.url))
-  }
+  // Check for NextAuth session cookie
+  const sessionToken =
+    req.cookies.get("next-auth.session-token") ||
+    req.cookies.get("__Secure-next-auth.session-token")
 
-  const role = session?.user?.role as string | undefined
-
-  if (pathname.startsWith("/admin") && role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/login", req.url))
-  }
-
-  if (
-    pathname.startsWith("/videographer") &&
-    role !== "VIDEOGRAPHER" &&
-    role !== "ADMIN"
-  ) {
-    return NextResponse.redirect(new URL("/login", req.url))
-  }
-
-  if (
-    pathname.startsWith("/consultant") &&
-    role !== "CONSULTANT" &&
-    role !== "ADMIN"
-  ) {
+  if (!sessionToken) {
     return NextResponse.redirect(new URL("/login", req.url))
   }
 
   return NextResponse.next()
-})
+}
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
 }
