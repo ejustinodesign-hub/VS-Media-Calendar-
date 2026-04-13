@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth (NextAuth v5) ────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core Domain ──────────────────────────────────────────────────────────
+
+enum Role {
+  CONSULTANT
+  VIDEOGRAPHER
+  ADMIN
+}
+
+enum TeamType {
+  INTERNAL
+  EXTERNAL
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  PAID
+  PENDING_ACCEPTANCE
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  IN_PROGRESS
+  FILE_DELIVERED
+  COMPLETED
+}
+
+enum ServiceType {
+  VIDEO_STANDARD
+  VIDEO_DRONE
+  PHOTO_DRONE
+  PHOTO_T1_T2
+  PHOTO_T3_T4
+  PHOTO_T5_PLUS
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  PAYMENT_COMPLETED
+  BOOKING_PENDING
+  SERVICE_ACCEPTED
+  SERVICE_REJECTED
+  BOOKING_CANCELLED
+  FILE_UPLOADED
+  SERVICE_COMPLETED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(CONSULTANT)
+  teamType      TeamType  @default(INTERNAL)
+  teamId        String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  team          Team?           @relation(fields: [teamId], references: [id])
+
+  bookingsAsConsultant   Booking[] @relation("ConsultantBookings")
+  bookingsAsVideographer Booking[] @relation("VideographerBookings")
+
+  weeklyCapacity      Int?    @default(10)
+  googleCalendarId    String?
+  videographerProfile VideographerProfile?
+
+  notifications Notification[]
+}
+
+model VideographerProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  displayName    String
+  bio            String?
+  weeklyCapacity Int      @default(5)
+  acceptingWork  Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  type        TeamType @default(INTERNAL)
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members      User[]
+  pricingRules PricingRule[]
+}
+
+// ─── Pricing ──────────────────────────────────────────────────────────────
+
+model PricingRule {
+  id          String      @id @default(cuid())
+  teamId      String?
+  teamType    TeamType?
+  serviceType ServiceType
+  basePrice   Float
+  description String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id])
+}
+
+model TravelFeeRule {
+  id             String   @id @default(cuid())
+  originAddress  String   @default("Metropolitan Business Center, Odivelas")
+  thresholdHours Float    @default(1.0)
+  feeAmount      Float    @default(50.0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ─── Booking ──────────────────────────────────────────────────────────────
+
+model Booking {
+  id                    String        @id @default(cuid())
+  consultantId          String
+  videographerId        String
+  status                BookingStatus @default(PENDING_PAYMENT)
+  scheduledAt           DateTime
+  durationMinutes       Int           @default(90)
+  propertyAddress       String
+  propertyLat           Float?
+  propertyLng           Float?
+  travelTimeMinutes     Int?
+  hasTravelFee          Boolean       @default(false)
+  travelFeeAmount       Float         @default(0)
+  additionalIntros      Int           @default(0)
+  notes                 String?
+  googleCalendarEventId String?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  completedAt           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  consultant   User @relation("ConsultantBookings", fields: [consultantId], references: [id])
+  videographer User @relation("VideographerBookings", fields: [videographerId], references: [id])
+
+  services      BookingService[]
+  payment       Payment?
+  deliverables  Deliverable[]
+  notifications Notification[]
+}
+
+model BookingService {
+  id          String      @id @default(cuid())
+  bookingId   String
+  serviceType ServiceType
+  price       Float
+  createdAt   DateTime    @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+// ─── Payment ──────────────────────────────────────────────────────────────
+
+model Payment {
+  id                    String    @id @default(cuid())
+  bookingId             String    @unique
+  stripePaymentIntentId String?   @unique
+  stripeSessionId       String?   @unique
+  amount                Float
+  currency              String    @default("eur")
+  status                String    @default("pending")
+  paidAt                DateTime?
+  refundedAt            DateTime?
+  refundId              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+// ─── Deliverables ─────────────────────────────────────────────────────────
+
+model Deliverable {
+  id          String   @id @default(cuid())
+  bookingId   String
+  fileName    String
+  fileUrl     String
+  fileSize    Int?
+  mimeType    String?
+  uploadedBy  String
+  description String?
+  createdAt   DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  bookingId String?
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  emailSent Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+}
+
+// ─── Availability Blocks ──────────────────────────────────────────────────
+
+model AvailabilityBlock {
+  id             String   @id @default(cuid())
+  videographerId String
+  startAt        DateTime
+  endAt          DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+}

@@ -1,0 +1,15 @@
+# Dependencies
+vs-media-calendar/node_modules/
+
+# Build
+vs-media-calendar/.next/
+
+# Env
+vs-media-calendar/.env
+vs-media-calendar/.env.local
+
+# Uploads
+vs-media-calendar/public/uploads/
+
+# OS
+.DS_Store
