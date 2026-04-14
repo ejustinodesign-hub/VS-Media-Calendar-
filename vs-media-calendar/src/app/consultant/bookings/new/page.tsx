@@ -8,7 +8,7 @@ export default async function NewBookingPage() {
   const user = session?.user as any
 
   const videographers = await prisma.user.findMany({
-    where: { role: "VIDEOGRAPHER", active: true },
+    where: { role: { in: ["VIDEOGRAPHER", "ADMIN"] }, active: true },
     select: {
       id: true,
       name: true,
