@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// Simple cookie-based middleware for edge runtime
+// Cookie-based auth check for edge runtime
 // Full auth validation happens in each route/layout
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { nextUrl } = req
   const pathname = nextUrl.pathname
 
