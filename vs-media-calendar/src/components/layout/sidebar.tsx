@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -46,17 +47,52 @@ const adminNav: NavItem[] = [
   { href: "/admin/settings", label: "Configurações", icon: Settings },
 ]
 
+type ViewRole = "ADMIN" | "CONSULTANT" | "VIDEOGRAPHER"
+
+const ROLE_VIEWS: { key: ViewRole; label: string; short: string }[] = [
+  { key: "ADMIN", label: "Admin", short: "A" },
+  { key: "CONSULTANT", label: "Consultor", short: "C" },
+  { key: "VIDEOGRAPHER", label: "Videógrafo", short: "V" },
+]
+
+const ROLE_DASHBOARDS: Record<ViewRole, string> = {
+  ADMIN: "/admin/dashboard",
+  CONSULTANT: "/consultant/dashboard",
+  VIDEOGRAPHER: "/videographer/dashboard",
+}
+
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { data: session } = useSession()
   const role = (session?.user as any)?.role as string | undefined
+  const isAdmin = role === "ADMIN"
+
+  const [viewAs, setViewAs] = useState<ViewRole>("ADMIN")
+
+  // Persist view preference in localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("vs_admin_view") as ViewRole | null
+    if (saved && isAdmin) setViewAs(saved)
+  }, [isAdmin])
+
+  function switchView(v: ViewRole) {
+    setViewAs(v)
+    localStorage.setItem("vs_admin_view", v)
+    router.push(ROLE_DASHBOARDS[v])
+  }
+
+  const activeView = isAdmin ? viewAs : (role as ViewRole) ?? "CONSULTANT"
 
   const navItems =
-    role === "ADMIN"
+    activeView === "ADMIN"
       ? adminNav
-      : role === "VIDEOGRAPHER"
+      : activeView === "VIDEOGRAPHER"
       ? videographerNav
       : consultantNav
+
+  const roleLabel =
+    activeView === "ADMIN" ? "Administrador" : activeView === "VIDEOGRAPHER" ? "Videógrafo" : "Consultor"
 
   return (
     <aside className="w-64 min-h-screen bg-[#0f172a] flex flex-col">
@@ -65,10 +101,35 @@ export function Sidebar() {
         <VsMediaLogo variant="white" size="md" subtitle="Calendar" />
       </div>
 
+      {/* Role switcher — admin only */}
+      {isAdmin && (
+        <div className="px-3 pt-3 pb-2">
+          <p className="text-[10px] text-slate-600 uppercase tracking-widest font-medium px-1 mb-1.5">
+            Ver como
+          </p>
+          <div className="flex gap-1 bg-white/5 rounded-lg p-1">
+            {ROLE_VIEWS.map((v) => (
+              <button
+                key={v.key}
+                onClick={() => switchView(v.key)}
+                className={cn(
+                  "flex-1 text-xs font-semibold py-1.5 rounded-md transition-all duration-150",
+                  viewAs === v.key
+                    ? "bg-[#e94560] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Role Badge */}
-      <div className="px-6 py-3 border-b border-white/10">
+      <div className="px-6 py-2.5 border-b border-white/10">
         <span className="text-xs text-slate-500 uppercase tracking-wider font-medium">
-          {role === "ADMIN" ? "Administrador" : role === "VIDEOGRAPHER" ? "Videógrafo" : "Consultor"}
+          {roleLabel}
         </span>
       </div>
 
