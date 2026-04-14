@@ -1,8 +1,9 @@
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined
 }
 
 function createClient(): PrismaClient {
@@ -17,6 +18,15 @@ function createClient(): PrismaClient {
   })
 }
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient()
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+// Lazy proxy: the PrismaClient is only instantiated on the first actual
+// database call, not at module-import time. This prevents build failures
+// when DATABASE_URL is not available during static page generation.
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    if (!global.__prisma) {
+      global.__prisma = createClient()
+    }
+    const value = (global.__prisma as any)[prop]
+    return typeof value === "function" ? value.bind(global.__prisma) : value
+  },
+})
