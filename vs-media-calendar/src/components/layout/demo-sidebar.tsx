@@ -8,14 +8,13 @@ import {
   CalendarPlus,
   Calendar,
   Users,
-  Settings,
-  Video,
   DollarSign,
   BarChart3,
   FileVideo,
   ChevronRight,
   ArrowLeft,
 } from "lucide-react"
+import { VsMediaLogo } from "@/components/logo"
 
 interface NavItem {
   href: string
@@ -62,16 +61,8 @@ export function DemoSidebar({ role }: { role: DemoRole }) {
   return (
     <aside className="w-64 min-h-screen bg-[#0f172a] flex flex-col">
       {/* Logo */}
-      <div className="px-6 py-6 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-[#e94560] flex items-center justify-center">
-            <Video className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-white font-bold text-base leading-none">VS.Media</h1>
-            <p className="text-slate-400 text-xs mt-0.5">Calendar</p>
-          </div>
-        </div>
+      <div className="px-6 py-5 border-b border-white/10">
+        <VsMediaLogo variant="white" size="md" subtitle="Calendar" />
       </div>
 
       {/* Demo banner */}

@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { Video, Users, Camera, Shield } from "lucide-react"
+import { Users, Camera, Shield } from "lucide-react"
+import { VsMediaLogo } from "@/components/logo"
 
 export default function DemoPage() {
   return (
@@ -7,14 +8,8 @@ export default function DemoPage() {
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-[#e94560] flex items-center justify-center">
-              <Video className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-left">
-              <h1 className="text-white font-bold text-2xl leading-none">VS.Media</h1>
-              <p className="text-slate-400 text-sm">Calendar</p>
-            </div>
+          <div className="flex justify-center mb-5">
+            <VsMediaLogo variant="white" size="xl" subtitle="Calendar" />
           </div>
           <div className="inline-flex items-center gap-2 bg-[#e94560]/20 border border-[#e94560]/30 rounded-full px-4 py-1.5 mb-4">
             <span className="w-1.5 h-1.5 bg-[#e94560] rounded-full animate-pulse" />

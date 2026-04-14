@@ -4,7 +4,7 @@ import { SessionProvider } from "next-auth/react"
 import { auth } from "@/auth"
 
 export const metadata: Metadata = {
-  title: "VS.Media Calendar",
+  title: "VS.MEDIA Calendar",
   description: "Plataforma de agendamento de serviços de vídeo e fotografia imobiliária",
 }
 
