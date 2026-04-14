@@ -111,7 +111,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
 
   // Fetch travel estimate when address changes
   useEffect(() => {
-    if (!propertyAddress || propertyAddress.length < 5) return
+    if (!propertyAddress || propertyAddress.length < 3) return
     const timer = setTimeout(() => {
       setTravelLoading(true)
       fetch(`/api/travel?address=${encodeURIComponent(propertyAddress)}`)
