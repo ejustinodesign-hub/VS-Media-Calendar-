@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:push": "prisma db push",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "db:studio": "prisma studio"
