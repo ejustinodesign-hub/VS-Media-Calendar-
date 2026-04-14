@@ -1,59 +1,49 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookingStatusBadge } from "@/components/ui/badge"
-import Link from "next/link"
-import { Calendar, MapPin, Clock } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { CalendarView } from "./calendar-view"
 
-function getWeekDays(startDate: Date): Date[] {
-  const days = []
-  const start = new Date(startDate)
-  start.setDate(start.getDate() - start.getDay() + 1) // Monday
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(start)
-    day.setDate(start.getDate() + i)
-    days.push(day)
-  }
-  return days
+interface Props {
+  searchParams: Promise<{ month?: string; year?: string }>
 }
 
-export default async function VideographerSchedulePage() {
+export default async function VideographerSchedulePage({ searchParams }: Props) {
   const session = await auth()
   const userId = session!.user.id
 
-  const now = new Date()
-  const weekStart = new Date(now)
-  weekStart.setDate(now.getDate() - now.getDay() + 1)
-  weekStart.setHours(0, 0, 0, 0)
+  const { month: monthParam, year: yearParam } = await searchParams
+  const today = new Date()
+  const month = monthParam !== undefined ? parseInt(monthParam) : today.getMonth()
+  const year = yearParam !== undefined ? parseInt(yearParam) : today.getFullYear()
 
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekStart.getDate() + 6)
-  weekEnd.setHours(23, 59, 59, 999)
+  const monthStart = new Date(year, month, 1, 0, 0, 0, 0)
+  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999)
 
   const bookings = await prisma.booking.findMany({
     where: {
       videographerId: userId,
-      scheduledAt: { gte: weekStart, lte: weekEnd },
-      status: { not: "CANCELLED" },
+      scheduledAt: { gte: monthStart, lte: monthEnd },
+      status: { notIn: ["CANCELLED", "REJECTED"] },
     },
-    include: { consultant: { select: { name: true } }, services: true },
+    include: {
+      consultant: { select: { name: true } },
+      services: { select: { serviceType: true } },
+    },
     orderBy: { scheduledAt: "asc" },
   })
 
-  const weekDays = getWeekDays(now)
+  const calendarBookings = bookings.map((b) => ({
+    id: b.id,
+    scheduledAt: b.scheduledAt.toISOString(),
+    status: b.status,
+    consultantName: b.consultant.name || "—",
+    propertyAddress: b.propertyAddress,
+    services: b.services.map((s) => s.serviceType),
+    propertyType: b.propertyType,
+  }))
 
-  const getBookingsForDay = (day: Date) =>
-    bookings.filter((b) => {
-      const bd = new Date(b.scheduledAt)
-      return (
-        bd.getFullYear() === day.getFullYear() &&
-        bd.getMonth() === day.getMonth() &&
-        bd.getDate() === day.getDate()
-      )
-    })
-
-  const weeklyAccepted = bookings.filter((b) =>
+  const monthTotal = bookings.filter((b) =>
     ["ACCEPTED", "IN_PROGRESS"].includes(b.status)
   ).length
 
@@ -64,123 +54,34 @@ export default async function VideographerSchedulePage() {
 
   return (
     <>
-      <Header
-        title="Agenda Semanal"
-        subtitle={`Semana de ${weekStart.toLocaleDateString("pt-PT", { day: "numeric", month: "long" })} a ${weekEnd.toLocaleDateString("pt-PT", { day: "numeric", month: "long" })}`}
-      />
-      <div className="flex-1 p-6 space-y-4">
-        {/* Capacity */}
+      <Header title="Calendário" subtitle="Vista mensal dos seus serviços" />
+      <div className="flex-1 p-6 space-y-4 max-w-3xl">
+        {/* Monthly summary */}
         <Card>
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-700">Capacidade desta semana</p>
+                <p className="text-sm font-medium text-slate-700">Serviços este mês</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {weeklyAccepted} de {profile?.weeklyCapacity || 5} serviços aceites
+                  {monthTotal} aceite(s) · {bookings.length} no total (exc. cancelados)
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-28 h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[#0f3460] rounded-full transition-all"
                     style={{
-                      width: `${Math.min(100, (weeklyAccepted / (profile?.weeklyCapacity || 5)) * 100)}%`,
+                      width: `${Math.min(100, (monthTotal / (profile?.weeklyCapacity || 5)) * 25)}%`,
                     }}
                   />
                 </div>
-                <span className="text-sm font-bold text-slate-700">
-                  {weeklyAccepted}/{profile?.weeklyCapacity || 5}
-                </span>
+                <span className="text-sm font-bold text-slate-700">{monthTotal}</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Week grid */}
-        <div className="grid grid-cols-1 gap-3">
-          {weekDays.map((day) => {
-            const dayBookings = getBookingsForDay(day)
-            const isToday = day.toDateString() === now.toDateString()
-            const isPast = day < now && !isToday
-            const dayName = day.toLocaleDateString("pt-PT", { weekday: "long" })
-            const dayDate = day.toLocaleDateString("pt-PT", { day: "numeric", month: "short" })
-
-            return (
-              <Card
-                key={day.toISOString()}
-                className={isToday ? "border-[#0f3460] border-2" : ""}
-              >
-                <CardHeader className="py-3 px-5">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center ${
-                        isToday
-                          ? "bg-[#0f3460] text-white"
-                          : isPast
-                          ? "bg-slate-100 text-slate-400"
-                          : "bg-slate-50 text-slate-700"
-                      }`}
-                    >
-                      <span className="text-sm font-bold leading-none">{day.getDate()}</span>
-                    </div>
-                    <div>
-                      <p className={`text-sm font-semibold capitalize ${isToday ? "text-[#0f3460]" : isPast ? "text-slate-400" : "text-slate-800"}`}>
-                        {dayName}
-                      </p>
-                      <p className="text-xs text-slate-400">{dayDate}</p>
-                    </div>
-                    {isToday && (
-                      <span className="ml-auto text-xs font-bold text-[#0f3460] bg-[#0f3460]/10 px-2 py-0.5 rounded-full">
-                        Hoje
-                      </span>
-                    )}
-                  </div>
-                </CardHeader>
-                {dayBookings.length > 0 && (
-                  <CardContent className="pt-0 pb-3 px-5">
-                    <div className="space-y-2">
-                      {dayBookings.map((booking) => {
-                        const t = new Date(booking.scheduledAt)
-                        const endT = new Date(t)
-                        endT.setMinutes(endT.getMinutes() + 90)
-                        return (
-                          <Link
-                            key={booking.id}
-                            href={`/videographer/bookings/${booking.id}`}
-                            className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200"
-                          >
-                            <div className="text-center flex-shrink-0">
-                              <p className="text-xs font-bold text-slate-700">
-                                {t.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
-                              </p>
-                              <p className="text-[10px] text-slate-400">
-                                {endT.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
-                              </p>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 truncate">
-                                {booking.consultant.name}
-                              </p>
-                              <p className="text-xs text-slate-500 truncate">
-                                {booking.services.map((s) => s.serviceType).join(", ")}
-                              </p>
-                            </div>
-                            <BookingStatusBadge status={booking.status} />
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </CardContent>
-                )}
-                {dayBookings.length === 0 && (
-                  <CardContent className="pt-0 pb-3 px-5">
-                    <p className="text-xs text-slate-300 italic">Sem serviços</p>
-                  </CardContent>
-                )}
-              </Card>
-            )
-          })}
-        </div>
+        <CalendarView bookings={calendarBookings} month={month} year={year} />
       </div>
     </>
   )

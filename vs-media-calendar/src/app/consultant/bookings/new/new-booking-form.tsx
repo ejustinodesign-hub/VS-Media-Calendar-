@@ -75,6 +75,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
   const [propertyAddress, setPropertyAddress] = useState("")
+  const [propertyType, setPropertyType] = useState("")
   const [notes, setNotes] = useState("")
 
   // Travel / pricing state
@@ -138,11 +139,13 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
         )
       : null
 
+  const hasVideoService = selectedServices.some((s) => VIDEO_SERVICES.includes(s))
+
   const canProceed = () => {
     if (step === 1) return !!selectedVideographerId
     if (step === 2) return selectedServices.length > 0
     if (step === 3) return !!selectedDate && !!selectedSlot
-    if (step === 4) return propertyAddress.length >= 5
+    if (step === 4) return propertyAddress.length >= 5 && (!hasVideoService || !!propertyType)
     return true
   }
 
@@ -162,6 +165,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
           propertyAddress,
           hasTravelFee: travelEstimate?.hasTravelFee || false,
           travelFeeAmount: travelEstimate?.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0,
+          propertyType: propertyType || undefined,
           notes,
           totalAmount: pricing.total,
         }),
@@ -468,12 +472,55 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
       {step === 4 && (
         <Card>
           <CardHeader>
-            <CardTitle>Morada do Imóvel</CardTitle>
+            <CardTitle>Imóvel</CardTitle>
             <CardDescription>
-              Introduza a morada completa do imóvel a fotografar/filmar
+              Introduza a morada e tipologia do imóvel a fotografar/filmar
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
+            {/* Property type — required for video services */}
+            {hasVideoService && (
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">
+                  Tipologia do Imóvel
+                  <span className="text-red-500 ml-1">*</span>
+                </p>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {[
+                    { id: "T0", label: "T0", sub: "Studio" },
+                    { id: "T1", label: "T1", sub: "1 quarto" },
+                    { id: "T2", label: "T2", sub: "2 quartos" },
+                    { id: "T3", label: "T3", sub: "3 quartos" },
+                    { id: "T4", label: "T4", sub: "4 quartos" },
+                    { id: "T5_PLUS", label: "T5+", sub: "5+ quartos" },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setPropertyType(t.id)}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all",
+                        propertyType === t.id
+                          ? "border-[#0f3460] bg-[#0f3460]/5"
+                          : "border-slate-200 hover:border-slate-300"
+                      )}
+                    >
+                      <span className={cn("text-base font-bold", propertyType === t.id ? "text-[#0f3460]" : "text-slate-800")}>
+                        {t.label}
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">{t.sub}</span>
+                    </button>
+                  ))}
+                </div>
+                {!propertyType && (
+                  <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Obrigatório para serviços de vídeo
+                  </p>
+                )}
+              </div>
+            )}
+
             <Input
               label="Morada completa"
               placeholder="Ex: Rua da Liberdade 123, 1250-140 Lisboa"
@@ -581,6 +628,13 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                 label="Imóvel"
                 value={propertyAddress}
               />
+              {propertyType && (
+                <SummaryRow
+                  icon={<Info className="w-4 h-4" />}
+                  label="Tipologia"
+                  value={propertyType === "T5_PLUS" ? "T5+" : propertyType}
+                />
+              )}
             </div>
 
             <hr className="border-slate-100" />

@@ -77,6 +77,15 @@ enum ServiceType {
   PHOTO_T5_PLUS
 }
 
+enum PropertyType {
+  T0
+  T1
+  T2
+  T3
+  T4
+  T5_PLUS
+}
+
 enum NotificationType {
   BOOKING_CONFIRMED
   PAYMENT_COMPLETED
@@ -180,6 +189,7 @@ model Booking {
   propertyLat           Float?
   propertyLng           Float?
   travelTimeMinutes     Int?
+  propertyType          PropertyType?
   hasTravelFee          Boolean       @default(false)
   travelFeeAmount       Float         @default(0)
   additionalIntros      Int           @default(0)

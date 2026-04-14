@@ -5,8 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import {
   ArrowLeft, ArrowRight, CheckCircle2, User, Calendar,
-  MapPin, FileVideo, CreditCard, Check,
+  MapPin, FileVideo, CreditCard, Check, AlertCircle,
 } from "lucide-react"
+
+const PROPERTY_TYPES = [
+  { id: "T0", label: "T0", sub: "Studio" },
+  { id: "T1", label: "T1", sub: "1 quarto" },
+  { id: "T2", label: "T2", sub: "2 quartos" },
+  { id: "T3", label: "T3", sub: "3 quartos" },
+  { id: "T4", label: "T4", sub: "4 quartos" },
+  { id: "T5_PLUS", label: "T5+", sub: "5+ quartos" },
+]
+
+const VIDEO_SERVICE_IDS = ["VIDEO_STANDARD", "VIDEO_DRONE"]
 
 const VIDEOGRAPHERS = [
   { id: "v1", name: "Eduardo Justino", upcoming: 2, rating: "5.0" },
@@ -43,8 +54,11 @@ export default function DemoNewBookingPage() {
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedTime, setSelectedTime] = useState("")
   const [address, setAddress] = useState("")
+  const [propertyType, setPropertyType] = useState("")
   const [notes, setNotes] = useState("")
   const [done, setDone] = useState(false)
+
+  const hasVideoService = selectedServices.some((id) => VIDEO_SERVICE_IDS.includes(id))
 
   const total = selectedServices.reduce((sum, id) => {
     const s = SERVICES.find((s) => s.id === id)
@@ -229,8 +243,42 @@ export default function DemoNewBookingPage() {
         {/* Step 3: Property */}
         {step === 3 && (
           <Card>
-            <CardHeader><CardTitle>Propriedade</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeader><CardTitle>Imóvel</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              {/* Property type — required for video */}
+              {hasVideoService && (
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-2">
+                    Tipologia do Imóvel
+                    <span className="text-red-500 ml-1">*</span>
+                  </p>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {PROPERTY_TYPES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setPropertyType(t.id)}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                          propertyType === t.id
+                            ? "border-[#0f3460] bg-[#0f3460]/5"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <span className={`text-base font-bold ${propertyType === t.id ? "text-[#0f3460]" : "text-slate-800"}`}>
+                          {t.label}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-0.5">{t.sub}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {!propertyType && (
+                    <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Obrigatório para serviços de vídeo
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">Morada completa</label>
                 <input
@@ -283,6 +331,12 @@ export default function DemoNewBookingPage() {
                   <span className="text-slate-500">Propriedade</span>
                   <span className="font-medium text-slate-900 text-right max-w-xs truncate">{address || "—"}</span>
                 </div>
+                {propertyType && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Tipologia</span>
+                    <span className="font-medium text-slate-900">{propertyType === "T5_PLUS" ? "T5+" : propertyType}</span>
+                  </div>
+                )}
                 <div className="border-t border-slate-100 pt-2 mt-2">
                   {selectedServices.map((id) => {
                     const s = SERVICES.find((s) => s.id === id)!
@@ -333,7 +387,8 @@ export default function DemoNewBookingPage() {
               disabled={
                 (step === 0 && !selectedVideographer) ||
                 (step === 1 && selectedServices.length === 0) ||
-                (step === 2 && (!selectedDate || !selectedTime))
+                (step === 2 && (!selectedDate || !selectedTime)) ||
+                (step === 3 && (!address || (hasVideoService && !propertyType)))
               }
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#0f3460] text-white text-sm font-semibold hover:bg-[#1a4a7a] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import Stripe from "stripe"
 import { calculateTotal, SERVICE_LABELS } from "@/lib/pricing"
 import { sendVideographerRequestEmail } from "@/lib/email"
-import type { ServiceType } from "@prisma/client"
+import type { ServiceType, PropertyType } from "@prisma/client"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-03-25.dahlia",
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     services,
     additionalIntros = 0,
     propertyAddress,
+    propertyType,
     hasTravelFee = false,
     travelFeeAmount = 0,
     notes,
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
       videographerId,
       scheduledAt: new Date(scheduledAt),
       propertyAddress,
+      propertyType: propertyType as PropertyType | undefined,
       hasTravelFee,
       travelFeeAmount: hasTravelFee ? travelFeeAmount : 0,
       additionalIntros,
