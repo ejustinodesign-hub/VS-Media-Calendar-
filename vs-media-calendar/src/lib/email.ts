@@ -1,7 +1,16 @@
 import { Resend } from "resend"
 import type { BookingStatus } from "@prisma/client"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let _resend: Resend | null = null
+function getResend(): Resend {
+  if (!_resend) {
+    const key = process.env.RESEND_API_KEY
+    if (!key) throw new Error("RESEND_API_KEY environment variable is not set")
+    _resend = new Resend(key)
+  }
+  return _resend
+}
+
 const FROM = process.env.EMAIL_FROM || "VS.Media Calendar <noreply@vsmedia.pt>"
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
@@ -84,7 +93,7 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
     <a href="${APP_URL}/consultant/bookings/${data.bookingId}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Marcação</a>
   `
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: data.consultantEmail,
     subject: `Marcação confirmada — ${formatDate(data.scheduledAt)}`,
@@ -114,7 +123,7 @@ export async function sendVideographerRequestEmail(data: BookingEmailData) {
     </div>
   `
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: data.videographerEmail,
     subject: `Novo pedido de serviço — ${formatDate(data.scheduledAt)}`,
@@ -157,7 +166,7 @@ export async function sendStatusUpdateEmail(
     <a href="${APP_URL}/consultant/bookings/${data.bookingId}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Detalhes</a>
   `
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: recipient.email,
     subject: `Atualização — ${formatDate(data.scheduledAt)}`,
