@@ -1,5 +1,6 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import type { BookingStatus } from "@prisma/client"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
@@ -54,7 +55,7 @@ export default async function VideographerDashboard() {
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
 
-  const COUNTED_STATUSES = ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"]
+  const COUNTED_STATUSES: BookingStatus[] = ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"]
 
   let pendingBookings: any[] = []
   let upcomingBookings: any[] = []
