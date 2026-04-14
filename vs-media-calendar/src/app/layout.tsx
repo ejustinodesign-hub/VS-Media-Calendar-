@@ -13,7 +13,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const session = await auth()
+  // Graceful fallback: auth() may throw if NEXTAUTH_SECRET is not set (demo mode)
+  let session = null
+  try {
+    session = await auth()
+  } catch {
+    // running without auth config — demo mode works fine
+  }
 
   return (
     <html lang="pt" className="h-full">
