@@ -237,13 +237,13 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                   <button
                     key={v.id}
                     onClick={() => setSelectedVideographerId(v.id)}
-                    disabled={!profile?.acceptingWork}
+                    disabled={profile?.acceptingWork === false}
                     className={cn(
                       "flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all",
                       selectedVideographerId === v.id
                         ? "border-[#0f3460] bg-[#0f3460]/5"
                         : "border-slate-200 hover:border-slate-300 hover:bg-slate-50",
-                      !profile?.acceptingWork && "opacity-50 cursor-not-allowed"
+                      profile?.acceptingWork === false && "opacity-50 cursor-not-allowed"
                     )}
                   >
                     <div className="flex-shrink-0">
@@ -266,7 +266,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                       {profile?.bio && (
                         <p className="text-sm text-slate-500 mt-0.5">{profile.bio}</p>
                       )}
-                      {!profile?.acceptingWork && (
+                      {profile?.acceptingWork === false && (
                         <span className="inline-flex items-center gap-1 mt-1 text-xs text-amber-600 font-medium">
                           <AlertCircle className="w-3 h-3" />
                           Não disponível
