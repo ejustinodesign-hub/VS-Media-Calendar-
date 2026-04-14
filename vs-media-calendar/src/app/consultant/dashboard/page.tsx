@@ -12,31 +12,40 @@ export default async function ConsultantDashboard() {
   const session = await auth()
   const userId = session!.user.id
 
-  const [bookings, stats] = await Promise.all([
-    prisma.booking.findMany({
-      where: { consultantId: userId },
-      include: {
-        videographer: { select: { name: true, image: true } },
-        services: true,
-        payment: true,
-      },
-      orderBy: { scheduledAt: "desc" },
-      take: 5,
-    }),
-    prisma.booking.groupBy({
-      by: ["status"],
-      where: { consultantId: userId },
-      _count: { id: true },
-    }),
-  ])
+  let bookings: any[] = []
+  let stats: any[] = []
+  let totalPaid = { _sum: { amount: null as number | null } }
+  let dbError: string | null = null
+
+  try {
+    ;[bookings, stats] = await Promise.all([
+      prisma.booking.findMany({
+        where: { consultantId: userId },
+        include: {
+          videographer: { select: { name: true, image: true } },
+          services: true,
+          payment: true,
+        },
+        orderBy: { scheduledAt: "desc" },
+        take: 5,
+      }),
+      prisma.booking.groupBy({
+        by: ["status"],
+        where: { consultantId: userId },
+        _count: { id: true },
+      }),
+    ])
+    totalPaid = await prisma.payment.aggregate({
+      where: { booking: { consultantId: userId }, status: "paid" },
+      _sum: { amount: true },
+    })
+  } catch (err) {
+    console.error("Dashboard DB error:", err)
+    dbError = err instanceof Error ? err.message : String(err)
+  }
 
   const statusCount = (status: string) =>
     stats.find((s) => s.status === status)?._count.id || 0
-
-  const totalPaid = await prisma.payment.aggregate({
-    where: { booking: { consultantId: userId }, status: "paid" },
-    _sum: { amount: true },
-  })
 
   const upcoming = bookings.filter(
     (b) =>
@@ -67,6 +76,14 @@ export default async function ConsultantDashboard() {
             Nova Marcação
           </Link>
         </div>
+
+        {/* DB error banner */}
+        {dbError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
+            <p className="font-semibold mb-1">Erro ao carregar dados</p>
+            <p className="font-mono text-xs break-all">{dbError}</p>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
