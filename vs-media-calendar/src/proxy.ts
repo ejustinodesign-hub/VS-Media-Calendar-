@@ -19,8 +19,11 @@ export function proxy(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for NextAuth session cookie
+  // Check for NextAuth v5 (Auth.js) session cookie
+  // v5 uses "authjs." prefix (not "next-auth."); HTTPS uses __Secure- prefix
   const sessionToken =
+    req.cookies.get("authjs.session-token") ||
+    req.cookies.get("__Secure-authjs.session-token") ||
     req.cookies.get("next-auth.session-token") ||
     req.cookies.get("__Secure-next-auth.session-token")
 
