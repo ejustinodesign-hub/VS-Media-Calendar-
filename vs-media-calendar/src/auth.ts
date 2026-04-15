@@ -61,15 +61,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Only allow users pre-approved by admin (active: true)
       if (dbUser?.active !== true) return false
 
-      // Sync name + photo from Google profile on first login (pre-invited users have name: null)
-      const googleName = (profile as any)?.name || user.name
-      const googleImage = (profile as any)?.picture || user.image
-      if ((!dbUser.name && googleName) || (!dbUser.image && googleImage)) {
+      // Always sync name + photo from Google so they stay up to date
+      const googleName = (profile as any)?.name || user.name || null
+      const googleImage = (profile as any)?.picture || user.image || null
+      if (googleName || googleImage) {
         await prisma.user.update({
           where: { email: user.email },
           data: {
-            name: dbUser.name || googleName || null,
-            image: dbUser.image || googleImage || null,
+            ...(googleName && { name: googleName }),
+            ...(googleImage && { image: googleImage }),
           },
         })
       }
