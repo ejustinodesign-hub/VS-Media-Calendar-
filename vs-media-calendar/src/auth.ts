@@ -41,34 +41,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           select: { role: true, teamType: true, active: true, onboardingCompleted: true, name: true, image: true },
         })
         if (dbUser) {
-          (session.user as any).role = dbUser.role
+          // Expose db fields on session
+          session.user.name = dbUser.name
+          session.user.image = dbUser.image
+          ;(session.user as any).role = dbUser.role
           ;(session.user as any).teamType = dbUser.teamType
           ;(session.user as any).active = dbUser.active
           ;(session.user as any).onboardingCompleted = dbUser.onboardingCompleted
-
-          // Sync name/image from Google if not yet set on the pre-created record
-          if ((!dbUser.name && session.user.name) || (!dbUser.image && session.user.image)) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: {
-                name: dbUser.name || session.user.name,
-                image: dbUser.image || session.user.image,
-              },
-            })
-          }
         }
       }
       return session
     },
-    async signIn({ user }) {
+    async signIn({ user, profile }) {
       if (!user.email) return false
       const dbUser = await prisma.user.findUnique({
         where: { email: user.email },
-        select: { active: true },
+        select: { active: true, name: true, image: true },
       })
       // Only allow users pre-approved by admin (active: true)
-      // New OAuth sign-ins without a pre-existing record are denied
-      return dbUser?.active === true
+      if (dbUser?.active !== true) return false
+
+      // Sync name + photo from Google profile on first login (pre-invited users have name: null)
+      const googleName = (profile as any)?.name || user.name
+      const googleImage = (profile as any)?.picture || user.image
+      if ((!dbUser.name && googleName) || (!dbUser.image && googleImage)) {
+        await prisma.user.update({
+          where: { email: user.email },
+          data: {
+            name: dbUser.name || googleName || null,
+            image: dbUser.image || googleImage || null,
+          },
+        })
+      }
+
+      return true
     },
   },
   pages: {
