@@ -6,6 +6,10 @@ import { auth } from "@/auth"
 export const metadata: Metadata = {
   title: "VS.MEDIA Calendar",
   description: "Plataforma de agendamento de serviços de vídeo e fotografia imobiliária",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 }
 
 export default async function RootLayout({
