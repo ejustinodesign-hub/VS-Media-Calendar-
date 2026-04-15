@@ -24,8 +24,6 @@ const consultantFields: Field[] = [
 
 const videographerFields: Field[] = [
   { name: "phone", label: "Telemóvel", placeholder: "+351 9XX XXX XXX", required: true },
-  { name: "nif", label: "NIF", placeholder: "Ex: 123456789", required: true, hint: "Necessário para processamento de salário" },
-  { name: "iban", label: "IBAN", placeholder: "PT50 XXXX XXXX XXXX XXXX XXXX X", required: true, hint: "Para transferência do pagamento mensal" },
 ]
 
 export function OnboardingForm({ role }: { role: string }) {

@@ -14,15 +14,15 @@ export async function POST(req: Request) {
 
   try {
     if (role === "VIDEOGRAPHER") {
-      const { phone, nif, iban } = body
+      const { phone } = body
 
-      if (!phone || !nif || !iban) {
-        return NextResponse.json({ error: "Todos os campos obrigatórios são necessários" }, { status: 400 })
+      if (!phone) {
+        return NextResponse.json({ error: "Telemóvel é obrigatório" }, { status: 400 })
       }
 
       await prisma.user.update({
         where: { id: userId },
-        data: { phone, nif, iban, onboardingCompleted: true },
+        data: { phone, onboardingCompleted: true },
       })
     } else {
       const { phone, billingName, billingNif, billingAddress, billingCompany } = body
