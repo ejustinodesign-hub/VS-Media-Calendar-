@@ -6,7 +6,16 @@ import { InviteUserForm } from "./invite-user-form"
 
 export default async function AdminUsersPage() {
   const users = await prisma.user.findMany({
-    include: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      role: true,
+      teamType: true,
+      active: true,
+      onboardingCompleted: true,
+      createdAt: true,
       _count: { select: { bookingsAsConsultant: true, bookingsAsVideographer: true } },
       videographerProfile: { select: { displayName: true, acceptingWork: true, weeklyCapacity: true } },
     },

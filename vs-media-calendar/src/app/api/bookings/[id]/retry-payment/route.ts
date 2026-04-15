@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+  const lineItems = [
     ...booking.services.map((s) => ({
       price_data: {
         currency: "eur" as const,
