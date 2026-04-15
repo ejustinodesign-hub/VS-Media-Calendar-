@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { sendStatusUpdateEmail } from "@/lib/email"
+import { createCalendarEvent } from "@/lib/google-calendar"
 import { SERVICE_LABELS } from "@/lib/pricing"
 
 interface RouteContext {
@@ -30,6 +31,27 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     where: { id },
     data: { status: "ACCEPTED" },
   })
+
+  // Create Google Calendar event
+  const calendarEventId = await createCalendarEvent({
+    bookingId: booking.id,
+    propertyAddress: booking.propertyAddress,
+    scheduledAt: new Date(booking.scheduledAt),
+    durationMinutes: booking.durationMinutes,
+    consultantName: booking.consultant.name || "",
+    videographerName: booking.videographer.name || "",
+    services: booking.services.map(
+      (s) => SERVICE_LABELS[s.serviceType as keyof typeof SERVICE_LABELS]
+    ),
+    notes: booking.notes,
+  })
+
+  if (calendarEventId) {
+    await prisma.booking.update({
+      where: { id },
+      data: { googleCalendarEventId: calendarEventId },
+    })
+  }
 
   try {
     const emailData = {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { sendStatusUpdateEmail } from "@/lib/email"
+import { deleteCalendarEvent } from "@/lib/google-calendar"
 import { SERVICE_LABELS } from "@/lib/pricing"
 
 interface RouteContext {
@@ -28,10 +29,15 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 })
 
-  await prisma.booking.update({
+  const updated = await prisma.booking.update({
     where: { id },
     data: { status: "CANCELLED", cancelledAt: new Date() },
   })
+
+  // Delete Google Calendar event if it exists
+  if (updated.googleCalendarEventId) {
+    await deleteCalendarEvent(updated.googleCalendarEventId)
+  }
 
   // Notify both parties
   try {
