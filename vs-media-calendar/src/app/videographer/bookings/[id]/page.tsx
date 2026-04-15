@@ -33,7 +33,7 @@ export default async function VideographerBookingDetailPage({ params, searchPara
 
   const scheduledDate = new Date(booking.scheduledAt)
   const canActOnRequest = booking.status === "PENDING_ACCEPTANCE"
-  const canUpload = booking.status === "ACCEPTED" || booking.status === "IN_PROGRESS"
+  const canUpload = ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED"].includes(booking.status)
 
   return (
     <>
@@ -136,21 +136,6 @@ export default async function VideographerBookingDetailPage({ params, searchPara
           <UploadDeliverable bookingId={booking.id} existingFiles={booking.deliverables} />
         )}
 
-        {/* Delivered files */}
-        {!canUpload && booking.deliverables.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Ficheiros Entregues</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {booking.deliverables.map((d) => (
-                <div key={d.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg mb-2">
-                  <span className="text-sm font-medium text-slate-700">{d.fileName}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
       </div>
     </>
   )
