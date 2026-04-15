@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { writeFile, mkdir } from "fs/promises"
-import { join } from "path"
+import { put } from "@vercel/blob"
 import { sendStatusUpdateEmail } from "@/lib/email"
 import { SERVICE_LABELS } from "@/lib/pricing"
 
@@ -39,18 +38,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Booking not found or not in correct state" }, { status: 404 })
   }
 
-  // Save file locally (replace with S3 in production)
-  const bytes = await file.arrayBuffer()
-  const buffer = Buffer.from(bytes)
-
-  const uploadDir = join(process.cwd(), "public", "uploads", bookingId)
-  await mkdir(uploadDir, { recursive: true })
-
+  // Upload to Vercel Blob
   const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`
-  const filePath = join(uploadDir, fileName)
-  await writeFile(filePath, buffer)
-
-  const fileUrl = `/uploads/${bookingId}/${fileName}`
+  const blob = await put(`deliverables/${bookingId}/${fileName}`, file, {
+    access: "public",
+  })
+  const fileUrl = blob.url
 
   // Create deliverable record
   await prisma.deliverable.create({
