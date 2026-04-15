@@ -38,13 +38,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = user.id
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { role: true, teamType: true, active: true, onboardingCompleted: true },
+          select: { role: true, teamType: true, active: true, onboardingCompleted: true, name: true, image: true },
         })
         if (dbUser) {
           (session.user as any).role = dbUser.role
           ;(session.user as any).teamType = dbUser.teamType
           ;(session.user as any).active = dbUser.active
           ;(session.user as any).onboardingCompleted = dbUser.onboardingCompleted
+
+          // Sync name/image from Google if not yet set on the pre-created record
+          if ((!dbUser.name && session.user.name) || (!dbUser.image && session.user.image)) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                name: dbUser.name || session.user.name,
+                image: dbUser.image || session.user.image,
+              },
+            })
+          }
         }
       }
       return session
