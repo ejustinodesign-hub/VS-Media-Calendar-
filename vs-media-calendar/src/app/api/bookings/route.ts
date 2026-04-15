@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
   // Verify videographer exists
   const videographer = await prisma.user.findFirst({
-    where: { id: videographerId, role: "VIDEOGRAPHER", active: true },
+    where: { id: videographerId, role: { in: ["VIDEOGRAPHER", "ADMIN"] }, active: true },
     select: { id: true, name: true, email: true },
   })
   if (!videographer) {
