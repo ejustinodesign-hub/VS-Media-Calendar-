@@ -52,16 +52,29 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
       const blob = await upload(pathname, file, {
         access: "public",
         handleUploadUrl: "/api/deliverables/upload",
-        clientPayload: JSON.stringify({
-          bookingId,
-          description,
-          originalFileName: file.name,
-        }),
+        clientPayload: JSON.stringify({ bookingId }),
         multipart: true,
         onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
       })
 
-      // Show immediately — don't wait for router.refresh()
+      // Explicitly save to DB
+      const completeRes = await fetch("/api/deliverables/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId,
+          fileName: file.name,
+          fileUrl: blob.url,
+          mimeType: file.type,
+          description,
+        }),
+      })
+      if (!completeRes.ok) {
+        const data = await completeRes.json()
+        throw new Error(data.error || "Erro ao guardar ficheiro")
+      }
+
+      // Show in list immediately (server will confirm on next refresh)
       setLocalFiles((prev) => [
         ...prev,
         { id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blob.url, createdAt: new Date() },
@@ -70,7 +83,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
       setFile(null)
       setDescription("")
       setProgress(0)
-      router.refresh() // syncs real DB id in background
+      router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro no upload")
     } finally {
