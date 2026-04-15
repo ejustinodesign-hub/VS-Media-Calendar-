@@ -17,6 +17,7 @@ import {
   FileVideo,
   ChevronRight,
   X,
+  UserCircle,
 } from "lucide-react"
 import { useSidebar } from "./sidebar-context"
 
@@ -31,6 +32,7 @@ const consultantNav: NavItem[] = [
   { href: "/consultant/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/consultant/bookings/new", label: "Nova Marcação", icon: CalendarPlus },
   { href: "/consultant/bookings", label: "As Minhas Marcações", icon: Calendar },
+  { href: "/consultant/profile", label: "O Meu Perfil", icon: UserCircle },
 ]
 
 const videographerNav: NavItem[] = [
