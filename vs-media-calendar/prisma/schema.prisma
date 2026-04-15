@@ -256,7 +256,7 @@ model Payment {
 // ─── Deliverables ─────────────────────────────────────────────────────────
 
 model Deliverable {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   bookingId   String
   fileName    String
   fileUrl     String
@@ -264,8 +264,7 @@ model Deliverable {
   mimeType    String?
   uploadedBy  String
   description String?
-  createdAt   DateTime  @default(now())
-  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 }

@@ -43,9 +43,6 @@ export async function POST(req: NextRequest) {
       onUploadCompleted: async ({ blob, tokenPayload }) => {
         const { bookingId, description, originalFileName } = JSON.parse(tokenPayload || "{}")
 
-        const expiresAt = new Date()
-        expiresAt.setDate(expiresAt.getDate() + 15)
-
         const booking = await prisma.booking.findFirst({
           where: { id: bookingId },
           include: {
@@ -64,7 +61,6 @@ export async function POST(req: NextRequest) {
             mimeType: blob.contentType || null,
             uploadedBy: booking.videographerId,
             description: description || null,
-            expiresAt,
           },
         })
 

@@ -202,7 +202,10 @@ export default async function BookingDetailPage({ params }: Props) {
                 <CardTitle>Conteúdo Final</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {booking.deliverables.map((d) => (
+                {booking.deliverables.map((d) => {
+                  const expiresAt = new Date(d.createdAt)
+                  expiresAt.setDate(expiresAt.getDate() + 15)
+                  return (
                   <div
                     key={d.id}
                     className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200"
@@ -217,11 +220,9 @@ export default async function BookingDetailPage({ params }: Props) {
                       {d.description && (
                         <p className="text-xs text-slate-500">{d.description}</p>
                       )}
-                      {d.expiresAt && (
-                        <p className="text-xs text-amber-600 mt-0.5">
-                          Disponível até {new Date(d.expiresAt).toLocaleDateString("pt-PT")}
-                        </p>
-                      )}
+                      <p className="text-xs text-amber-600 mt-0.5">
+                        Disponível até {expiresAt.toLocaleDateString("pt-PT")}
+                      </p>
                     </div>
                     <a
                       href={d.fileUrl}
@@ -233,7 +234,7 @@ export default async function BookingDetailPage({ params }: Props) {
                       Download
                     </a>
                   </div>
-                ))}
+                )})}
               </CardContent>
             </Card>
           )}

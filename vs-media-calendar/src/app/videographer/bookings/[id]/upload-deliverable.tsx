@@ -11,7 +11,7 @@ interface DeliverableFile {
   id: string
   fileName: string
   fileUrl: string
-  expiresAt?: Date | string | null
+  createdAt?: Date | string
 }
 
 interface Props {
@@ -57,11 +57,9 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
       })
 
       // Show immediately — don't wait for router.refresh()
-      const expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + 15)
       setLocalFiles((prev) => [
         ...prev,
-        { id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blob.url, expiresAt },
+        { id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blob.url, createdAt: new Date() },
       ])
 
       setFile(null)
@@ -119,11 +117,10 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900 truncate">{f.fileName}</p>
-                  {f.expiresAt && (
-                    <p className="text-xs text-amber-600">
-                      Disponível até {new Date(f.expiresAt).toLocaleDateString("pt-PT")}
-                    </p>
-                  )}
+                  {f.createdAt && (() => {
+                    const exp = new Date(f.createdAt); exp.setDate(exp.getDate() + 15)
+                    return <p className="text-xs text-amber-600">Disponível até {exp.toLocaleDateString("pt-PT")}</p>
+                  })()}
                 </div>
                 <a
                   href={f.fileUrl}
