@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { upload } from "@vercel/blob/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, FileVideo, CheckCircle2 } from "lucide-react"
@@ -15,6 +16,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [description, setDescription] = useState("")
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -23,23 +25,27 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
     if (!file) return
     setUploading(true)
     setError("")
+    setProgress(0)
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("bookingId", bookingId)
-      formData.append("description", description)
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const pathname = `deliverables/${bookingId}/${Date.now()}-${safeName}`
 
-      const res = await fetch("/api/deliverables/upload", {
-        method: "POST",
-        body: formData,
+      await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/deliverables/upload",
+        clientPayload: JSON.stringify({
+          bookingId,
+          description,
+          originalFileName: file.name,
+        }),
+        multipart: true,
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
       })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Erro no upload")
 
       setSuccess(true)
       setFile(null)
+      setProgress(0)
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro no upload")
@@ -113,6 +119,21 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
           />
         )}
 
+        {uploading && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>A carregar...</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2">
+              <div
+                className="bg-[#0f3460] h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {error && (
           <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>
         )}
@@ -131,7 +152,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
           className="w-full"
         >
           <Upload className="w-4 h-4" />
-          Fazer Upload e Marcar como Entregue
+          {uploading ? `A carregar... ${progress}%` : "Fazer Upload e Marcar como Entregue"}
         </Button>
       </CardContent>
     </Card>
