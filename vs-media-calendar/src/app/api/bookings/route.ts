@@ -12,7 +12,8 @@ function getStripe() {
 
 export async function POST(req: NextRequest) {
   const session = await auth()
-  if (!session?.user || (session?.user as any)?.role !== "CONSULTANT") {
+  const userRole = (session?.user as any)?.role
+  if (!session?.user || (userRole !== "CONSULTANT" && userRole !== "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const consultantId = session.user.id
