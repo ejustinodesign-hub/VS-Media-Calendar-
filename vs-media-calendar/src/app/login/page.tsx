@@ -1,7 +1,8 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { LoginForm } from "./login-form"
-import { VsMediaLogo } from "@/components/logo"
+import { LoginLogo } from "./login-logo"
+import { Calendar, CreditCard, Video } from "lucide-react"
 
 export default async function LoginPage() {
   const session = await auth()
@@ -13,13 +14,19 @@ export default async function LoginPage() {
     redirect("/consultant/dashboard")
   }
 
+  const features = [
+    { Icon: Calendar, label: "Agendamento Online" },
+    { Icon: CreditCard, label: "Pagamento Seguro" },
+    { Icon: Video, label: "Entrega Digital" },
+  ]
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f3460] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="flex justify-center mb-3">
-            <VsMediaLogo variant="white" size="xl" />
+            <LoginLogo />
           </div>
           <p className="text-slate-400 mt-2 text-sm tracking-wide">
             Plataforma de Agendamento Imobiliário
@@ -44,14 +51,12 @@ export default async function LoginPage() {
 
         {/* Features */}
         <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-          {[
-            { icon: "📅", label: "Agendamento Online" },
-            { icon: "💳", label: "Pagamento Seguro" },
-            { icon: "📹", label: "Entrega Digital" },
-          ].map((f) => (
-            <div key={f.label} className="text-slate-400 text-sm">
-              <div className="text-2xl mb-1">{f.icon}</div>
-              <span>{f.label}</span>
+          {features.map(({ Icon, label }) => (
+            <div key={label} className="flex flex-col items-center gap-2 text-white/50 text-xs">
+              <div className="w-10 h-10 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center">
+                <Icon className="w-5 h-5 text-white/70" strokeWidth={1.5} />
+              </div>
+              <span className="leading-tight">{label}</span>
             </div>
           ))}
         </div>
