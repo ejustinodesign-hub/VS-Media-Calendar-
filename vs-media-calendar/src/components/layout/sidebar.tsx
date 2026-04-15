@@ -230,7 +230,7 @@ export function Sidebar() {
             )}
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-medium truncate">
-                {session?.user?.name}
+                {session?.user?.name || session?.user?.email?.split("@")[0]}
               </p>
               <p className="text-slate-500 text-xs truncate">
                 {session?.user?.email}

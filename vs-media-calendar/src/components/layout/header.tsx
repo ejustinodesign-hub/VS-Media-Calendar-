@@ -81,7 +81,7 @@ export function Header({ title, subtitle }: HeaderProps) {
             </div>
           )}
           <span className="text-sm font-medium text-slate-700 hidden sm:block">
-            {session?.user?.name?.split(" ")[0]}
+            {session?.user?.name?.split(" ")[0] || session?.user?.email?.split("@")[0]}
           </span>
         </div>
       </div>

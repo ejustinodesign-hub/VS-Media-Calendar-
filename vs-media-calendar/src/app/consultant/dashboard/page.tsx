@@ -56,7 +56,7 @@ export default async function ConsultantDashboard() {
   return (
     <>
       <Header
-        title={`Bom dia, ${session?.user?.name?.split(" ")[0]} 👋`}
+        title={`Bom dia, ${session?.user?.name?.split(" ")[0] || "!"} 👋`}
         subtitle="Aqui está o resumo das suas marcações"
       />
       <div className="flex-1 p-6 space-y-6">

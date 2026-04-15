@@ -142,7 +142,7 @@ export default async function VideographerDashboard() {
   return (
     <>
       <Header
-        title={`Olá, ${session?.user?.name?.split(" ")[0]} 👋`}
+        title={`Olá, ${session?.user?.name?.split(" ")[0] || "!"} 👋`}
         subtitle="Área do Videógrafo"
       />
       <div className="flex-1 p-6 space-y-6">
