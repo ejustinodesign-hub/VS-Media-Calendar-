@@ -178,6 +178,8 @@ export async function sendInviteEmail({
     html: emailBase(content),
   })
 }
+
+export async function sendStatusUpdateEmail(
   data: BookingEmailData,
   to: "consultant" | "videographer",
   customMessage?: string
