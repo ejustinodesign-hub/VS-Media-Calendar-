@@ -29,9 +29,14 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const router = useRouter()
 
-  // Sync local state when server data updates (after router.refresh())
+  // Merge server data with any pending files not yet confirmed in DB
   useEffect(() => {
-    setLocalFiles(existingFiles)
+    setLocalFiles(prev => {
+      const stillPending = prev.filter(
+        p => p.id.startsWith("pending-") && !existingFiles.some(e => e.fileUrl === p.fileUrl)
+      )
+      return [...existingFiles, ...stillPending]
+    })
   }, [existingFiles])
 
   const handleUpload = async () => {
