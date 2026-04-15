@@ -132,8 +132,8 @@ export function Sidebar() {
       >
         {/* Logo + mobile close button */}
         <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <img src="/logo.svg" alt="VS.Media" className="h-7 w-auto object-contain" />
+          <div className="flex flex-col items-center gap-1">
+            <img src="/logo.svg" alt="VS.Media" className="h-5 w-auto object-contain" />
             <span className="text-[9px] text-white/30 uppercase tracking-[0.18em]">Calendar</span>
           </div>
           <button

@@ -25,8 +25,9 @@ export default async function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="flex justify-center mb-3">
+          <div className="flex flex-col items-center gap-2 mb-3">
             <LoginLogo />
+            <span className="text-white/40 text-xs uppercase tracking-[0.22em]">Calendar</span>
           </div>
           <p className="text-slate-400 mt-2 text-sm tracking-wide">
             Plataforma de Agendamento Imobiliário
