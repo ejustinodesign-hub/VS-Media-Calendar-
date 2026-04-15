@@ -1,9 +1,8 @@
 import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { UserManagement } from "./user-management"
-import type { Role } from "@prisma/client"
+import { InviteUserForm } from "./invite-user-form"
 
 export default async function AdminUsersPage() {
   const users = await prisma.user.findMany({
@@ -17,7 +16,19 @@ export default async function AdminUsersPage() {
   return (
     <>
       <Header title="Gestão de Utilizadores" subtitle={`${users.length} utilizadores`} />
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 space-y-6">
+
+        {/* Invite form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Convidar Utilizador</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InviteUserForm />
+          </CardContent>
+        </Card>
+
+        {/* Users table */}
         <Card>
           <CardHeader>
             <CardTitle>Todos os Utilizadores</CardTitle>
@@ -27,7 +38,7 @@ export default async function AdminUsersPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-100">
-                    {["Utilizador", "Perfil", "Equipa", "Ativo", "Marcações", "Ações"].map((h) => (
+                    {["Utilizador", "Perfil", "Equipa", "Ativo", "Onboarding", "Marcações", "Ações"].map((h) => (
                       <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
                         {h}
                       </th>
@@ -47,7 +58,7 @@ export default async function AdminUsersPage() {
                             </div>
                           )}
                           <div>
-                            <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+                            <p className="text-sm font-semibold text-slate-900">{user.name || <span className="text-slate-400 italic">Sem nome</span>}</p>
                             <p className="text-xs text-slate-400">{user.email}</p>
                           </div>
                         </div>
@@ -68,6 +79,11 @@ export default async function AdminUsersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`w-2 h-2 rounded-full inline-block ${user.active ? "bg-emerald-500" : "bg-red-400"}`} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`text-xs font-medium ${user.onboardingCompleted ? "text-emerald-600" : "text-amber-600"}`}>
+                          {user.onboardingCompleted ? "Completo" : "Pendente"}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {user.role === "CONSULTANT"
