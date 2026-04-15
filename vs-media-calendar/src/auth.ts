@@ -26,6 +26,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
       clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      // Required so pre-invited users (created by admin) get linked
+      // to their Google account on first sign-in
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   callbacks: {
@@ -45,15 +48,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session
     },
     async signIn({ user }) {
-      if (user.email) {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        })
-        if (existingUser && !existingUser.active) {
-          return false
-        }
-      }
-      return true
+      if (!user.email) return false
+      const dbUser = await prisma.user.findUnique({
+        where: { email: user.email },
+        select: { active: true },
+      })
+      // Only allow users pre-approved by admin (active: true)
+      // New OAuth sign-ins without a pre-existing record are denied
+      return dbUser?.active === true
     },
   },
   pages: {

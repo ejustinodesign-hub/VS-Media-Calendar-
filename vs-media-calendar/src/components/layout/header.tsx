@@ -1,8 +1,9 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { Bell } from "lucide-react"
+import { Bell, Menu } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
+import { useSidebar } from "./sidebar-context"
 
 interface HeaderProps {
   title: string
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const { data: session } = useSession()
+  const { toggle } = useSidebar()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -23,12 +25,26 @@ export function Header({ title, subtitle }: HeaderProps) {
   }, [])
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6 flex-shrink-0">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+    <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+      <div className="flex items-center gap-3 min-w-0">
+        {/* Mobile hamburger */}
+        <button
+          onClick={toggle}
+          className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors flex-shrink-0"
+          aria-label="Abrir menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div className="min-w-0">
+          <h2 className="text-lg md:text-xl font-bold text-slate-900 truncate">{title}</h2>
+          {subtitle && (
+            <p className="text-xs md:text-sm text-slate-500 truncate">{subtitle}</p>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3">
+
+      <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
         {/* Notifications */}
         <div className="relative" ref={ref}>
           <button
