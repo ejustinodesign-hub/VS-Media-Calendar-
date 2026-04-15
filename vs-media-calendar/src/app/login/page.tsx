@@ -45,7 +45,7 @@ export default async function LoginPage() {
           <LoginForm />
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            Acesso reservado a membros da equipa VS.Media
+            Acesso reservado a membros da equipa VS.Brothers
           </p>
         </div>
 
