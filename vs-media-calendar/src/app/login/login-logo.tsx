@@ -14,7 +14,7 @@ export function LoginLogo() {
     <img
       src="/logo.svg"
       alt="VS.Media"
-      className="h-14 w-auto object-contain"
+      className="h-9 w-auto object-contain"
       onError={() => setImgError(true)}
     />
   )
