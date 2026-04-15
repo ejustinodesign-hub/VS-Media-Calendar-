@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/pricing"
 import Link from "next/link"
-import { Calendar, MapPin, Clock } from "lucide-react"
+import { Calendar, Clock, CreditCard } from "lucide-react"
+import { PayButton } from "./[id]/pay-button"
 
 export default async function ConsultantBookingsPage() {
   const session = await auth()
@@ -48,7 +49,22 @@ export default async function ConsultantBookingsPage() {
               const hasDeliverables = booking.deliverables.length > 0
 
               return (
-                <Link key={booking.id} href={`/consultant/bookings/${booking.id}`}>
+                <div key={booking.id}>
+                  {booking.status === "PENDING_PAYMENT" && (
+                    <Card className="border-amber-200 bg-amber-50/50 mb-1">
+                      <CardContent className="py-3 px-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2 text-amber-700 text-sm">
+                          <CreditCard className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-medium">Pagamento pendente</span>
+                          <span className="text-amber-600 text-xs truncate hidden sm:block">— {booking.propertyAddress}</span>
+                        </div>
+                        <div className="flex-shrink-0 w-40">
+                          <PayButton bookingId={booking.id} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                <Link href={`/consultant/bookings/${booking.id}`}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="flex items-center gap-4 py-4">
                       <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-[#0f3460]/5 border border-[#0f3460]/10 flex flex-col items-center justify-center">
@@ -100,6 +116,7 @@ export default async function ConsultantBookingsPage() {
                     </CardContent>
                   </Card>
                 </Link>
+                </div>
               )
             })}
           </div>

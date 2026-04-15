@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/pricing"
 import { CancelBookingButton } from "./cancel-button"
+import { PayButton } from "./pay-button"
 import { SERVICE_LABELS } from "@/lib/pricing"
 import { formatDateTime } from "@/lib/utils"
 import {
@@ -59,6 +60,20 @@ export default async function BookingDetailPage({ params }: Props) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Pending payment banner */}
+          {booking.status === "PENDING_PAYMENT" && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+              <CreditCard className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-amber-800 font-semibold text-sm">Pagamento Pendente</p>
+                <p className="text-amber-700 text-xs mt-1 mb-3">
+                  Esta marcação está a aguardar pagamento. Completa o pagamento para confirmar o serviço.
+                </p>
+                <PayButton bookingId={booking.id} />
+              </div>
+            </div>
+          )}
 
           {/* Status messages */}
           {booking.status === "REJECTED" && (
