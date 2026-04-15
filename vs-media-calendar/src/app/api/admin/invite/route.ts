@@ -1,5 +1,6 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { sendInviteEmail } from "@/lib/email"
 import { NextResponse } from "next/server"
 import type { Role } from "@prisma/client"
 
@@ -34,6 +35,13 @@ export async function POST(req: Request) {
       onboardingCompleted: false,
     },
   })
+
+  // Send invite email (non-blocking — don't fail if email fails)
+  try {
+    await sendInviteEmail({ email, role })
+  } catch (err) {
+    console.error("Invite email error:", err)
+  }
 
   return NextResponse.json({ ok: true })
 }

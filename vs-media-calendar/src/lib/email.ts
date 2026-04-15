@@ -131,7 +131,53 @@ export async function sendVideographerRequestEmail(data: BookingEmailData) {
   })
 }
 
-export async function sendStatusUpdateEmail(
+export async function sendInviteEmail({
+  email,
+  role,
+}: {
+  email: string
+  role: string
+}) {
+  const roleLabel =
+    role === "VIDEOGRAPHER" ? "Videógrafo" : role === "ADMIN" ? "Administrador" : "Consultor"
+
+  const roleDescription =
+    role === "VIDEOGRAPHER"
+      ? "Poderás gerir os teus serviços, ver pedidos e acompanhar a tua agenda."
+      : "Poderás agendar sessões de vídeo e fotografia imobiliária de forma simples e rápida."
+
+  const content = `
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Foste convidado para o VS.Brothers Calendar</h2>
+    <p style="color:#666;margin:0 0 24px;">
+      Tens acesso à plataforma como <strong style="color:#0f3460;">${roleLabel}</strong>.<br/>
+      ${roleDescription}
+    </p>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:24px;">
+      <p style="color:#444;font-size:14px;margin:0 0 8px;"><strong>Como aceder:</strong></p>
+      <ol style="color:#666;font-size:14px;margin:0;padding-left:20px;line-height:2;">
+        <li>Clica no botão abaixo</li>
+        <li>Inicia sessão com a tua conta Google (<strong>${email}</strong>)</li>
+        <li>Preenche os teus dados na primeira vez que entras</li>
+      </ol>
+    </div>
+
+    <a href="${APP_URL}/login" style="display:inline-block;background:#0f3460;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;">
+      Aceder à plataforma →
+    </a>
+
+    <p style="color:#aaa;font-size:12px;margin-top:24px;">
+      Se não esperavas este convite, podes ignorar este email.
+    </p>
+  `
+
+  await getResend().emails.send({
+    from: FROM,
+    to: email,
+    subject: "Convite para VS.Brothers Calendar",
+    html: emailBase(content),
+  })
+}
   data: BookingEmailData,
   to: "consultant" | "videographer",
   customMessage?: string
