@@ -205,9 +205,9 @@ export default async function BookingDetailPage({ params }: Props) {
                 {booking.deliverables.map((d) => (
                   <div
                     key={d.id}
-                    className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"
+                    className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200"
                   >
-                    <div className="w-10 h-10 bg-[#0f3460] rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
                       <FileVideo className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -219,7 +219,7 @@ export default async function BookingDetailPage({ params }: Props) {
                       )}
                       {d.expiresAt && (
                         <p className="text-xs text-amber-600 mt-0.5">
-                          Expira em {new Date(d.expiresAt).toLocaleDateString("pt-PT")}
+                          Disponível até {new Date(d.expiresAt).toLocaleDateString("pt-PT")}
                         </p>
                       )}
                     </div>
@@ -227,7 +227,7 @@ export default async function BookingDetailPage({ params }: Props) {
                       href={d.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm text-[#0f3460] font-semibold hover:underline"
+                      className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
                     >
                       <Download className="w-4 h-4" />
                       Download

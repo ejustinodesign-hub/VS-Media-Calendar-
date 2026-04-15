@@ -14,7 +14,7 @@ export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   REJECTED: "Recusada",
   CANCELLED: "Cancelada",
   IN_PROGRESS: "Em Execução",
-  FILE_DELIVERED: "Ficheiro Entregue",
+  FILE_DELIVERED: "Ficheiro Final Disponível",
   COMPLETED: "Concluída",
 }
 
@@ -26,7 +26,7 @@ export const BOOKING_STATUS_COLORS: Record<BookingStatus, string> = {
   REJECTED: "bg-red-100 text-red-800",
   CANCELLED: "bg-gray-100 text-gray-600",
   IN_PROGRESS: "bg-cyan-100 text-cyan-800",
-  FILE_DELIVERED: "bg-indigo-100 text-indigo-800",
+  FILE_DELIVERED: "bg-emerald-100 text-emerald-800",
   COMPLETED: "bg-emerald-100 text-emerald-800",
 }
 

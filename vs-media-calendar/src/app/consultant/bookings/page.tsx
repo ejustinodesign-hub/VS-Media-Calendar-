@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/pricing"
 import Link from "next/link"
-import { Calendar, Clock, CreditCard } from "lucide-react"
+import { Calendar, Clock, CreditCard, Download } from "lucide-react"
 import { PayButton } from "./[id]/pay-button"
 
 export default async function ConsultantBookingsPage() {
@@ -65,25 +65,26 @@ export default async function ConsultantBookingsPage() {
                     </Card>
                   )}
                 <Link href={`/consultant/bookings/${booking.id}`}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <Card className={`hover:shadow-md transition-shadow cursor-pointer ${booking.status === "FILE_DELIVERED" ? "border-emerald-300 bg-emerald-50/40" : ""}`}>
                     <CardContent className="flex items-center gap-4 py-4">
-                      <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-[#0f3460]/5 border border-[#0f3460]/10 flex flex-col items-center justify-center">
-                        <span className="text-[#0f3460] text-lg font-bold leading-none">
-                          {scheduledDate.getDate().toString().padStart(2, "0")}
-                        </span>
-                        <span className="text-[#0f3460] text-xs uppercase font-medium">
-                          {scheduledDate.toLocaleDateString("pt-PT", { month: "short" })}
-                        </span>
+                      <div className={`flex-shrink-0 w-16 h-16 rounded-xl flex flex-col items-center justify-center ${booking.status === "FILE_DELIVERED" ? "bg-emerald-100 border border-emerald-200" : "bg-[#0f3460]/5 border border-[#0f3460]/10"}`}>
+                        {booking.status === "FILE_DELIVERED" ? (
+                          <Download className="w-6 h-6 text-emerald-600" />
+                        ) : (
+                          <>
+                            <span className="text-[#0f3460] text-lg font-bold leading-none">
+                              {scheduledDate.getDate().toString().padStart(2, "0")}
+                            </span>
+                            <span className="text-[#0f3460] text-xs uppercase font-medium">
+                              {scheduledDate.toLocaleDateString("pt-PT", { month: "short" })}
+                            </span>
+                          </>
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <BookingStatusBadge status={booking.status} />
-                          {hasDeliverables && (
-                            <span className="text-xs text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
-                              Ficheiro disponível
-                            </span>
-                          )}
                         </div>
                         <p className="font-semibold text-slate-900 truncate">
                           {booking.propertyAddress}
