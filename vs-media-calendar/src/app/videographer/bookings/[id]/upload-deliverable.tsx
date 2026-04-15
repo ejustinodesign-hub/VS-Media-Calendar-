@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { upload } from "@vercel/blob/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, FileVideo, CheckCircle2, Trash2 } from "lucide-react"
+import { Upload, FileVideo, Trash2, Download } from "lucide-react"
 
 interface DeliverableFile {
   id: string
@@ -20,14 +20,19 @@ interface Props {
 }
 
 export function UploadDeliverable({ bookingId, existingFiles }: Props) {
+  const [localFiles, setLocalFiles] = useState<DeliverableFile[]>(existingFiles)
   const [file, setFile] = useState<File | null>(null)
   const [description, setDescription] = useState("")
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [success, setSuccess] = useState(false)
   const [error, setError] = useState("")
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const router = useRouter()
+
+  // Sync local state when server data updates (after router.refresh())
+  useEffect(() => {
+    setLocalFiles(existingFiles)
+  }, [existingFiles])
 
   const handleUpload = async () => {
     if (!file) return
@@ -39,7 +44,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
       const pathname = `deliverables/${bookingId}/${Date.now()}-${safeName}`
 
-      await upload(pathname, file, {
+      const blob = await upload(pathname, file, {
         access: "public",
         handleUploadUrl: "/api/deliverables/upload",
         clientPayload: JSON.stringify({
@@ -51,11 +56,18 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
         onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
       })
 
-      setSuccess(true)
+      // Show immediately — don't wait for router.refresh()
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + 15)
+      setLocalFiles((prev) => [
+        ...prev,
+        { id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blob.url, expiresAt },
+      ])
+
       setFile(null)
       setDescription("")
       setProgress(0)
-      router.refresh()
+      router.refresh() // syncs real DB id in background
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro no upload")
     } finally {
@@ -64,6 +76,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
   }
 
   const handleDelete = async (deliverableId: string) => {
+    if (deliverableId.startsWith("pending-")) return // not yet in DB
     setDeletingId(deliverableId)
     try {
       const res = await fetch(`/api/deliverables/${deliverableId}`, { method: "DELETE" })
@@ -71,7 +84,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
         const data = await res.json()
         throw new Error(data.error || "Erro ao apagar")
       }
-      setSuccess(false)
+      setLocalFiles((prev) => prev.filter((f) => f.id !== deliverableId))
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao apagar")
@@ -89,30 +102,43 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Existing files */}
-        {existingFiles.length > 0 && (
+
+        {/* Uploaded files list */}
+        {localFiles.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-700">Ficheiros entregues:</p>
-            {existingFiles.map((f) => (
+            <p className="text-sm font-medium text-slate-700">
+              {localFiles.length === 1 ? "1 ficheiro entregue:" : `${localFiles.length} ficheiros entregues:`}
+            </p>
+            {localFiles.map((f) => (
               <div
                 key={f.id}
-                className="flex items-center gap-2 p-2.5 bg-emerald-50 rounded-lg border border-emerald-200"
+                className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200"
               >
-                <FileVideo className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <div className="w-9 h-9 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FileVideo className="w-4 h-4 text-white" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-emerald-800 font-medium truncate">{f.fileName}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{f.fileName}</p>
                   {f.expiresAt && (
                     <p className="text-xs text-amber-600">
-                      Expira em {new Date(f.expiresAt).toLocaleDateString("pt-PT")}
+                      Disponível até {new Date(f.expiresAt).toLocaleDateString("pt-PT")}
                     </p>
                   )}
                 </div>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <a
+                  href={f.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Descarregar"
+                  className="p-1.5 rounded text-emerald-700 hover:bg-emerald-100 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
                 <button
                   onClick={() => handleDelete(f.id)}
-                  disabled={deletingId === f.id}
-                  title="Apagar ficheiro"
-                  className="ml-1 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                  disabled={deletingId === f.id || f.id.startsWith("pending-")}
+                  title={f.id.startsWith("pending-") ? "A guardar..." : "Apagar ficheiro"}
+                  className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -134,7 +160,6 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
             accept="video/*,image/*,.pdf,.zip"
             onChange={(e) => {
               setFile(e.target.files?.[0] || null)
-              setSuccess(false)
               setError("")
             }}
           />
@@ -151,9 +176,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
               <div>
                 <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="text-sm font-medium text-slate-600">
-                  {existingFiles.length > 0
-                    ? "Clique para adicionar outro ficheiro"
-                    : "Clique para selecionar o ficheiro"}
+                  {localFiles.length > 0 ? "Adicionar outro ficheiro" : "Clique para selecionar o ficheiro"}
                 </p>
                 <p className="text-xs text-slate-400 mt-1">Vídeo, imagem, PDF ou ZIP</p>
               </div>
@@ -188,13 +211,6 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>
-        )}
-
-        {success && (
-          <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 p-3 rounded-lg">
-            <CheckCircle2 className="w-4 h-4" />
-            <span className="text-sm font-medium">Ficheiro entregue com sucesso!</span>
-          </div>
         )}
 
         {file && (
