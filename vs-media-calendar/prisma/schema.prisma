@@ -110,6 +110,20 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Onboarding / profile completion
+  onboardingCompleted Boolean @default(false)
+  phone               String?
+
+  // Consultant billing
+  billingName         String?
+  billingCompany      String?
+  billingNif          String?
+  billingAddress      String?
+
+  // Videographer payment
+  nif                 String?
+  iban                String?
+
   accounts      Account[]
   sessions      Session[]
   team          Team?           @relation(fields: [teamId], references: [id])

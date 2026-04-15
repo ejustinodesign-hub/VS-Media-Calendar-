@@ -16,6 +16,7 @@ declare module "next-auth" {
       role: UserRole
       teamType: UserTeamType
       active: boolean
+      onboardingCompleted: boolean
     }
   }
 }
@@ -37,12 +38,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = user.id
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { role: true, teamType: true, active: true },
+          select: { role: true, teamType: true, active: true, onboardingCompleted: true },
         })
         if (dbUser) {
           (session.user as any).role = dbUser.role
           ;(session.user as any).teamType = dbUser.teamType
           ;(session.user as any).active = dbUser.active
+          ;(session.user as any).onboardingCompleted = dbUser.onboardingCompleted
         }
       }
       return session

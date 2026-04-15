@@ -10,6 +10,8 @@ export function middleware(req: NextRequest) {
   // Public paths — always allowed
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/api/onboarding") ||
     pathname.startsWith("/demo") ||
     pathname.startsWith("/api/auth") ||
     pathname === "/api/webhooks/stripe" ||

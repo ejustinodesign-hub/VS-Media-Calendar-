@@ -9,9 +9,9 @@ export default async function ConsultantLayout({
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if ((session?.user as any)?.role !== "CONSULTANT" && (session?.user as any)?.role !== "ADMIN") {
-    redirect("/login")
-  }
+  const user = session.user as any
+  if (user.role !== "CONSULTANT" && user.role !== "ADMIN") redirect("/login")
+  if (user.role === "CONSULTANT" && !user.onboardingCompleted) redirect("/onboarding")
 
   return <AppShell>{children}</AppShell>
 }

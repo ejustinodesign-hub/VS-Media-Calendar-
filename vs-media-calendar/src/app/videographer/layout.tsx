@@ -9,9 +9,9 @@ export default async function VideographerLayout({
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
-  if ((session?.user as any)?.role !== "VIDEOGRAPHER" && (session?.user as any)?.role !== "ADMIN") {
-    redirect("/login")
-  }
+  const user = session.user as any
+  if (user.role !== "VIDEOGRAPHER" && user.role !== "ADMIN") redirect("/login")
+  if (user.role === "VIDEOGRAPHER" && !user.onboardingCompleted) redirect("/onboarding")
 
   return <AppShell>{children}</AppShell>
 }
