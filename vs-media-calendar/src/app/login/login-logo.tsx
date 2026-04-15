@@ -12,9 +12,9 @@ export function LoginLogo() {
 
   return (
     <img
-      src="/logo.png"
+      src="/logo.svg"
       alt="VS.Media"
-      className="h-16 w-auto object-contain"
+      className="h-14 w-auto object-contain"
       onError={() => setImgError(true)}
     />
   )

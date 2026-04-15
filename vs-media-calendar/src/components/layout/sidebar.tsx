@@ -18,7 +18,6 @@ import {
   ChevronRight,
   X,
 } from "lucide-react"
-import { VsMediaLogo } from "@/components/logo"
 import { useSidebar } from "./sidebar-context"
 
 interface NavItem {
@@ -133,7 +132,10 @@ export function Sidebar() {
       >
         {/* Logo + mobile close button */}
         <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
-          <VsMediaLogo variant="white" size="md" subtitle="Calendar" />
+          <div className="flex flex-col gap-1">
+            <img src="/logo.svg" alt="VS.Media" className="h-7 w-auto object-contain" />
+            <span className="text-[9px] text-white/30 uppercase tracking-[0.18em]">Calendar</span>
+          </div>
           <button
             onClick={close}
             className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
