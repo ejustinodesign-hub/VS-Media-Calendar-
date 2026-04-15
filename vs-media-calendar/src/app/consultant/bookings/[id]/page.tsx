@@ -217,6 +217,11 @@ export default async function BookingDetailPage({ params }: Props) {
                       {d.description && (
                         <p className="text-xs text-slate-500">{d.description}</p>
                       )}
+                      {d.expiresAt && (
+                        <p className="text-xs text-amber-600 mt-0.5">
+                          Expira em {new Date(d.expiresAt).toLocaleDateString("pt-PT")}
+                        </p>
+                      )}
                     </div>
                     <a
                       href={d.fileUrl}

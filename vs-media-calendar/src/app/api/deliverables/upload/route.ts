@@ -45,6 +45,10 @@ export async function POST(req: NextRequest) {
   })
   const fileUrl = blob.url
 
+  // Files expire after 15 days
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + 15)
+
   // Create deliverable record
   await prisma.deliverable.create({
     data: {
@@ -55,6 +59,7 @@ export async function POST(req: NextRequest) {
       mimeType: file.type,
       uploadedBy: session.user.id,
       description: description || null,
+      expiresAt,
     },
   })
 
