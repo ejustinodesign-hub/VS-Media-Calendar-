@@ -11,6 +11,7 @@ interface DeliverableFile {
   id: string
   fileName: string
   fileUrl: string
+  mimeType?: string | null
   createdAt?: Date | string
 }
 
@@ -77,7 +78,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
       // Show in list immediately (server will confirm on next refresh)
       setLocalFiles((prev) => [
         ...prev,
-        { id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blob.url, createdAt: new Date() },
+        { id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blob.url, mimeType: file.type, createdAt: new Date() },
       ])
 
       setFile(null)
@@ -128,9 +129,19 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
             {localFiles.map((f) => (
               <div
                 key={f.id}
-                className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200"
+                className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50"
               >
-                <div className="w-9 h-9 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                {f.mimeType?.startsWith("video/") && (
+                  <video controls preload="metadata" className="w-full bg-black" style={{ maxHeight: "280px" }}>
+                    <source src={f.fileUrl} type={f.mimeType} />
+                  </video>
+                )}
+                {f.mimeType?.startsWith("image/") && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={f.fileUrl} alt={f.fileName} className="w-full object-contain" style={{ maxHeight: "280px" }} />
+                )}
+                <div className="flex items-center gap-3 p-3">
+                <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
                   <FileVideo className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -157,6 +168,7 @@ export function UploadDeliverable({ bookingId, existingFiles }: Props) {
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+                </div>
               </div>
             ))}
           </div>

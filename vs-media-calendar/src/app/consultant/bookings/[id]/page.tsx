@@ -201,40 +201,59 @@ export default async function BookingDetailPage({ params }: Props) {
               <CardHeader>
                 <CardTitle>Conteúdo Final</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 {booking.deliverables.map((d) => {
                   const expiresAt = new Date(d.createdAt)
                   expiresAt.setDate(expiresAt.getDate() + 15)
+                  const isVideo = d.mimeType?.startsWith("video/")
+                  const isImage = d.mimeType?.startsWith("image/")
                   return (
-                  <div
-                    key={d.id}
-                    className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200"
-                  >
-                    <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FileVideo className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">
-                        {d.fileName}
-                      </p>
-                      {d.description && (
-                        <p className="text-xs text-slate-500">{d.description}</p>
+                    <div key={d.id} className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50">
+                      {isVideo && (
+                        <video
+                          controls
+                          preload="metadata"
+                          className="w-full bg-black"
+                          style={{ maxHeight: "360px" }}
+                        >
+                          <source src={d.fileUrl} type={d.mimeType ?? undefined} />
+                        </video>
                       )}
-                      <p className="text-xs text-amber-600 mt-0.5">
-                        Disponível até {expiresAt.toLocaleDateString("pt-PT")}
-                      </p>
+                      {isImage && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={d.fileUrl}
+                          alt={d.fileName}
+                          className="w-full object-contain"
+                          style={{ maxHeight: "360px" }}
+                        />
+                      )}
+                      <div className="flex items-center gap-3 p-3">
+                        <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <FileVideo className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">{d.fileName}</p>
+                          {d.description && (
+                            <p className="text-xs text-slate-500">{d.description}</p>
+                          )}
+                          <p className="text-xs text-amber-600">
+                            Disponível até {expiresAt.toLocaleDateString("pt-PT")}
+                          </p>
+                        </div>
+                        <a
+                          href={d.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download
+                        </a>
+                      </div>
                     </div>
-                    <a
-                      href={d.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download
-                    </a>
-                  </div>
-                )})}
+                  )
+                })}
               </CardContent>
             </Card>
           )}

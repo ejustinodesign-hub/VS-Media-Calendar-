@@ -75,8 +75,8 @@ export default async function VideographerDashboard() {
         prisma.booking.findMany({
           where: {
             videographerId: userId,
-            status: "ACCEPTED",
-            scheduledAt: { gte: new Date() },
+            status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED"] },
+            scheduledAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
           },
           include: { consultant: { select: { name: true } }, services: true },
           orderBy: { scheduledAt: "asc" },
