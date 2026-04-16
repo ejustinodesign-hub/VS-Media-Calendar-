@@ -1,0 +1,278 @@
+/* =========================================
+   VS Media Real Estate Plugin — Dark Theme
+   ========================================= */
+
+:root {
+  --bg:        #1a1a1a;
+  --bg-section:#222222;
+  --bg-input:  #2a2a2a;
+  --border:    #333333;
+  --accent:    #e8a020;
+  --accent2:   #4a90d9;
+  --red:       #e84040;
+  --text:      #d4d4d4;
+  --text-muted:#888888;
+  --radius:    6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 12px;
+  overflow-x: hidden;
+}
+
+/* ─── Panel wrapper ──────────────────── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  min-height: 100vh;
+}
+
+/* ─── Header ─────────────────────────── */
+.header {
+  background: #111;
+  padding: 12px 14px 10px;
+  border-bottom: 2px solid var(--accent);
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #fff;
+}
+.logo span { color: var(--accent); }
+
+.subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+/* ─── App badge ──────────────────────── */
+.app-badge {
+  background: var(--bg-input);
+  text-align: center;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.app-badge.premiere { color: #9999ff; }
+.app-badge.aftereffects { color: #99d0ff; }
+
+/* ─── Sections ───────────────────────── */
+.section {
+  background: var(--bg-section);
+  margin: 4px 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-icon { color: var(--accent); }
+
+.subsection-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* ─── Badges ─────────────────────────── */
+.badge-ae {
+  background: #1a4a6e;
+  color: #99ccff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.badge-pr {
+  background: #3a1a6e;
+  color: #cc99ff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+/* ─── Buttons ────────────────────────── */
+.btn {
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn:hover  { opacity: 0.88; }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+.btn-primary {
+  background: var(--accent);
+  color: #111;
+}
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-export {
+  background: #1e5c1e;
+  color: #88ee88;
+  border: 1px solid #2a7a2a;
+}
+.btn-export:hover { background: #256025; }
+
+.btn-small {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-small:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ─── LUT / MOGRT row ────────────────── */
+.lut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.lut-label {
+  font-size: 10px;
+  color: var(--accent);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Sliders ────────────────────────── */
+.slider-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 36px;
+  align-items: center;
+  gap: 6px;
+}
+.slider-row label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.slider-row span {
+  font-size: 10px;
+  color: var(--accent);
+  text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* ─── Radio buttons ──────────────────── */
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text);
+}
+.radio-label input[type="radio"] { accent-color: var(--accent); }
+
+/* ─── Export grid ────────────────────── */
+.export-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.export-tag {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  color: #88ee88;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Info box ───────────────────────── */
+.info-box {
+  background: #1a2a1a;
+  border: 1px solid #2a3a2a;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ─── Status bar ─────────────────────── */
+.status-bar {
+  position: sticky;
+  bottom: 0;
+  background: #111;
+  border-top: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: auto;
+  min-height: 26px;
+}
+.status-bar.ok    { color: #88ee88; }
+.status-bar.error { color: #ee6666; }
+.status-bar.info  { color: var(--accent); }

@@ -1,0 +1,39 @@
+══════════════════════════════════════════════
+ VS Media Real Estate — LUT Sony A7C II
+══════════════════════════════════════════════
+
+O plugin usa o LUT oficial da Sony para converter
+S-Log3 / S-Gamut3.Cine para Rec.709.
+
+COMO OBTER O LUT:
+
+1. Vai a: https://www.sony.com/en/articles/download-lut-files
+   (ou pesquisa "Sony LUT download S-Log3")
+
+2. Faz download do ficheiro para a câmara A7C II
+   (compatível com todas as câmeras Sony S-Log3)
+
+3. Procura o ficheiro:
+   S-Gamut3.Cine_SLog3_To_LC-709.cube
+
+4. Coloca esse ficheiro NESTA PASTA
+   (adobe-plugin/luts/)
+
+5. O plugin vai detectar automaticamente.
+   Podes também clicar em "Alterar LUT" no painel
+   para seleccionar um ficheiro noutro local.
+
+──────────────────────────────────────────────
+ALTERNATIVA (se já tens o LUT):
+
+Se já tens o LUT instalado no Adobe (Premiere ou AE),
+podes usar o caminho do ficheiro existente clicando
+em "Alterar LUT" no painel.
+
+Locais comuns no Windows:
+  C:\Program Files\Adobe\Adobe Premiere Pro [versão]\
+  C:\Users\[user]\AppData\Roaming\Adobe\Common\LUTs\
+
+Locais comuns no Mac:
+  /Library/Application Support/Adobe/Common/LUTs/
+══════════════════════════════════════════════
