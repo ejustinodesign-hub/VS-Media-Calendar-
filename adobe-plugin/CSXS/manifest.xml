@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <ExtensionManifest
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  ExtensionBundleId="com.vsmedia.realestate"
-  ExtensionBundleVersion="1.0.0"
-  ExtensionBundleName="VS Media - Real Estate">
+  ExtensionBundleId="com.vsmedia.speedramp"
+  ExtensionBundleVersion="2.0.0"
+  ExtensionBundleName="VS Media — Speed Ramp">
 
   <ExtensionList>
-    <Extension Id="com.vsmedia.realestate.panel" Version="1.0.0"/>
+    <Extension Id="com.vsmedia.speedramp.panel" Version="2.0.0"/>
   </ExtensionList>
 
   <ExecutionEnvironment>
     <HostList>
-      <Host Name="PPRO" Version="[22.0,99.9]"/>
       <Host Name="AEFT" Version="[22.0,99.9]"/>
     </HostList>
     <LocaleList>
@@ -23,7 +22,7 @@
   </ExecutionEnvironment>
 
   <DispatchInfoList>
-    <Extension Id="com.vsmedia.realestate.panel">
+    <Extension Id="com.vsmedia.speedramp.panel">
       <DispatchInfo>
         <Resources>
           <MainPath>./index.html</MainPath>
@@ -37,20 +36,17 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>VS Media Real Estate</Menu>
+          <Menu>VS Media — Speed Ramp</Menu>
           <Geometry>
             <PreferredSize>
-              <Height>720</Height>
-              <Width>300</Width>
+              <Height>660</Height>
+              <Width>280</Width>
             </PreferredSize>
             <MinSize>
-              <Height>500</Height>
-              <Width>260</Width>
+              <Height>480</Height>
+              <Width>240</Width>
             </MinSize>
           </Geometry>
-          <Icons>
-            <Icon Type="Normal">./icons/icon.png</Icon>
-          </Icons>
         </UI>
       </DispatchInfo>
     </Extension>

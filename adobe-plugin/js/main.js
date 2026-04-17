@@ -1,17 +1,12 @@
-/* ============================================================
-   VS Media Real Estate Plugin — main.js
-   Communicates between the HTML panel and ExtendScript via
-   CSInterface. Works in both Premiere Pro and After Effects.
-   ============================================================ */
+/* VS Media — Speed Ramp Tool · main.js */
 
 var cs = new CSInterface();
 
 // ── State ────────────────────────────────────────────────────
-var state = {
-  app:       null,   // 'PPRO' or 'AEFT'
-  lutPath:   '',     // path to Sony S-Log3 LUT
-  mogrtPath: ''      // path to subtitle .mogrt template
-};
+var marks      = [];   // [{ t: seconds, id: unique }]
+var markId     = 0;
+var layerIndex = -1;   // selected layer index in AE (1-based)
+var fps        = 25;   // comp framerate (updated on refresh)
 
 // ── Helpers ──────────────────────────────────────────────────
 function status(msg, type) {
@@ -23,199 +18,190 @@ function status(msg, type) {
 function evalScript(script, cb) {
   cs.evalScript(script, function(result) {
     if (result === 'EvalScript error.') {
-      status('Erro no script: ' + script.substring(0, 60), 'error');
+      status('Erro no script.', 'error');
+      if (cb) cb(null);
+      return;
     }
     if (cb) cb(result);
   });
 }
 
-function loadScript(path) {
-  cs.evalScript('$.evalFile("' + path + '")');
+/** Converte segundos para timecode HH:MM:SS:FF */
+function toTC(secs) {
+  var f   = fps || 25;
+  var s   = Math.floor(secs);
+  var fr  = Math.round((secs - s) * f);
+  var hh  = Math.floor(s / 3600);
+  var mm  = Math.floor((s % 3600) / 60);
+  var ss  = s % 60;
+  return pad(hh) + ':' + pad(mm) + ':' + pad(ss) + ':' + pad(fr);
 }
 
-function getExtensionPath() {
-  return cs.getSystemPath(SystemPath.EXTENSION);
-}
+function pad(n) { return n < 10 ? '0' + n : String(n); }
 
-// ── Init ─────────────────────────────────────────────────────
-function init() {
-  var appName = cs.getHostEnvironment().appName;
+function sliderDurToSecs(v) { return (parseInt(v) / 10).toFixed(1); }
 
-  if (appName.indexOf('PPRO') !== -1 || appName === 'Adobe Premiere Pro') {
-    state.app = 'PPRO';
-    document.getElementById('appBadge').textContent = '● Premiere Pro';
-    document.getElementById('appBadge').classList.add('premiere');
-    document.getElementById('sectionSpeedRamp').style.opacity = '0.4';
-    document.getElementById('sectionSpeedRamp').style.pointerEvents = 'none';
-    document.getElementById('sectionLegendas').style.opacity = '1';
-  } else {
-    state.app = 'AEFT';
-    document.getElementById('appBadge').textContent = '● After Effects';
-    document.getElementById('appBadge').classList.add('aftereffects');
-    document.getElementById('sectionLegendas').style.opacity = '0.4';
-    document.getElementById('sectionLegendas').style.pointerEvents = 'none';
-  }
-
-  // Load scripts
-  var extPath = getExtensionPath();
-  if (state.app === 'PPRO') {
-    loadScript(extPath + '/scripts/premiere.jsx');
-  } else {
-    loadScript(extPath + '/scripts/aftereffects.jsx');
-  }
-
-  // Default LUT path (Sony official — user can override)
-  state.lutPath = extPath + '/luts/S-Gamut3.Cine_SLog3_To_LC-709.cube';
-  document.getElementById('lutLabel').textContent = 'Sony S-Log3 → LC-709 (A7C II)';
-
-  status('Pronto. App: ' + (state.app === 'PPRO' ? 'Premiere Pro' : 'After Effects'));
-}
-
-// ── Slider live values ────────────────────────────────────────
-function bindSlider(id, valId, transform) {
-  var slider = document.getElementById(id);
-  var val    = document.getElementById(valId);
-  slider.addEventListener('input', function() {
-    val.textContent = transform ? transform(this.value) : this.value;
-  });
-}
-
-bindSlider('sliderTemp',      'valTemp',      function(v){ return (v > 0 ? '+' : '') + v; });
-bindSlider('sliderContrast',  'valContrast',  function(v){ return (v > 0 ? '+' : '') + v; });
-bindSlider('sliderHighlights','valHighlights',function(v){ return (v > 0 ? '+' : '') + v; });
-bindSlider('sliderShadows',   'valShadows',   function(v){ return (v > 0 ? '+' : '') + v; });
-bindSlider('sliderSat',       'valSat',       function(v){ return v; });
-bindSlider('sliderPeak',      'valPeak',      function(v){ return v + '%'; });
-bindSlider('sliderRampIn',    'valRampIn',    function(v){ return (v/100).toFixed(2) + 's'; });
-bindSlider('sliderRampOut',   'valRampOut',   function(v){ return (v/100).toFixed(2) + 's'; });
-bindSlider('sliderBitrate',   'valBitrate',   function(v){ return v; });
-bindSlider('sliderSubPos',    'valSubPos',    function(v){ return v + '%'; });
-
-// ── Browse LUT ────────────────────────────────────────────────
-document.getElementById('btnBrowseLut').addEventListener('click', function() {
-  var result = window.cep.fs.showOpenDialogEx(
-    false, false, 'Seleccionar LUT Sony S-Log3',
-    '', [{ name: 'LUT Files', extensions: ['cube', '3dl'] }]
-  );
-  if (result && result.data && result.data.length) {
-    state.lutPath = result.data[0];
-    var parts = state.lutPath.split(/[\\/]/);
-    document.getElementById('lutLabel').textContent = parts[parts.length - 1];
-    status('LUT carregado: ' + parts[parts.length - 1], 'ok');
-  }
-});
-
-// ── Browse MOGRT ──────────────────────────────────────────────
-document.getElementById('btnBrowseMogrt').addEventListener('click', function() {
-  var result = window.cep.fs.showOpenDialogEx(
-    false, false, 'Seleccionar Template de Legendas',
-    '', [{ name: 'Motion Graphics Template', extensions: ['mogrt'] }]
-  );
-  if (result && result.data && result.data.length) {
-    state.mogrtPath = result.data[0];
-    var parts = state.mogrtPath.split(/[\\/]/);
-    document.getElementById('mogrtLabel').textContent = parts[parts.length - 1];
-    status('Template carregado: ' + parts[parts.length - 1], 'ok');
-  }
-});
-
-// ── Apply LUT ─────────────────────────────────────────────────
-document.getElementById('btnApplyLut').addEventListener('click', function() {
-  if (!state.lutPath) { status('Nenhum LUT seleccionado.', 'error'); return; }
-  status('A aplicar LUT...', 'info');
-
-  var script = state.app === 'PPRO'
-    ? 'applyLutPremiere("' + state.lutPath.replace(/\\/g, '/') + '")'
-    : 'applyLutAE("' + state.lutPath.replace(/\\/g, '/') + '")';
-
-  evalScript(script, function(result) {
-    if (result && result !== 'EvalScript error.') {
-      status('LUT aplicado a ' + result + ' clip(s).', 'ok');
+// ── Refresh layer info ────────────────────────────────────────
+function refreshLayer() {
+  evalScript('getLayerInfo()', function(result) {
+    if (!result || result.indexOf('error:') === 0) {
+      layerIndex = -1;
+      document.getElementById('layerDot').classList.remove('active');
+      document.getElementById('layerName').textContent = 'Nenhum layer seleccionado';
+      document.getElementById('btnMark').disabled = true;
+      updateApplyBtn();
+      return;
+    }
+    try {
+      var info = JSON.parse(result);
+      layerIndex = info.index;
+      fps        = info.fps || 25;
+      document.getElementById('layerDot').classList.add('active');
+      document.getElementById('layerName').textContent = info.name;
+      document.getElementById('btnMark').disabled = false;
+      status('Layer: ' + info.name, 'ok');
+      updateApplyBtn();
+    } catch (e) {
+      status('Erro ao ler layer.', 'error');
     }
   });
+}
+
+// ── Marks list render ─────────────────────────────────────────
+function renderMarks() {
+  var list  = document.getElementById('marksList');
+  var empty = document.getElementById('marksEmpty');
+
+  if (!marks.length) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    updateApplyBtn();
+    return;
+  }
+
+  // Sort by time
+  marks.sort(function(a, b) { return a.t - b.t; });
+
+  list.innerHTML = '';
+  for (var i = 0; i < marks.length; i++) {
+    var m   = marks[i];
+    var div = document.createElement('div');
+    div.className = 'mark-item';
+    div.innerHTML =
+      '<span class="mark-num">' + (i + 1) + '</span>' +
+      '<span class="mark-dot"></span>' +
+      '<span class="mark-tc">' + toTC(m.t) + '</span>' +
+      '<button class="mark-remove" data-id="' + m.id + '" title="Remover">×</button>';
+    list.appendChild(div);
+  }
+
+  // Remove buttons
+  var btns = list.querySelectorAll('.mark-remove');
+  for (var j = 0; j < btns.length; j++) {
+    btns[j].addEventListener('click', function() {
+      removeMark(parseInt(this.getAttribute('data-id')));
+    });
+  }
+
+  updateApplyBtn();
+}
+
+function removeMark(id) {
+  marks = marks.filter(function(m) { return m.id !== id; });
+  renderMarks();
+}
+
+function updateApplyBtn() {
+  var ok = layerIndex > 0 && marks.length > 0;
+  document.getElementById('btnApply').disabled  = !ok;
+  document.getElementById('applyHint').textContent = ok
+    ? marks.length + ' ponto(s) marcado(s) — pronto para aplicar.'
+    : 'Selecciona um layer e marca pelo menos 1 ponto.';
+}
+
+// ── Slider bindings ───────────────────────────────────────────
+function bindSlider(id, valId, fmt) {
+  var s = document.getElementById(id);
+  var v = document.getElementById(valId);
+  s.addEventListener('input', function() {
+    v.textContent = fmt(this.value);
+  });
+}
+
+bindSlider('sliderSlow', 'valSlow', function(v){ return v + '%'; });
+bindSlider('sliderFast', 'valFast', function(v){ return v + '%'; });
+bindSlider('sliderDur',  'valDur',  function(v){ return sliderDurToSecs(v) + 's'; });
+bindSlider('sliderEase', 'valEase', function(v){ return v + '%'; });
+
+// ── Mark current time ─────────────────────────────────────────
+document.getElementById('btnMark').addEventListener('click', function() {
+  evalScript('getCurrentTime()', function(result) {
+    if (!result || result === 'null') {
+      status('Sem comp activa ou layer seleccionado.', 'error');
+      return;
+    }
+    var t = parseFloat(result);
+    if (isNaN(t)) { status('Não foi possível ler o tempo actual.', 'error'); return; }
+
+    // Prevent duplicates within 0.1s
+    for (var i = 0; i < marks.length; i++) {
+      if (Math.abs(marks[i].t - t) < 0.1) {
+        status('Ponto já marcado neste tempo.', 'info');
+        return;
+      }
+    }
+
+    marks.push({ t: t, id: ++markId });
+    renderMarks();
+    status('Marcado: ' + toTC(t), 'ok');
+  });
 });
 
-// ── Apply Grade ───────────────────────────────────────────────
-document.getElementById('btnApplyGrade').addEventListener('click', function() {
-  status('A aplicar color grade...', 'info');
+// ── Clear all ─────────────────────────────────────────────────
+document.getElementById('btnClearAll').addEventListener('click', function() {
+  marks = [];
+  renderMarks();
+  status('Pontos apagados.', 'info');
+});
+
+// ── Refresh layer ─────────────────────────────────────────────
+document.getElementById('btnRefresh').addEventListener('click', refreshLayer);
+
+// ── Apply ─────────────────────────────────────────────────────
+document.getElementById('btnApply').addEventListener('click', function() {
+  if (layerIndex < 1 || !marks.length) return;
+
+  status('A aplicar speed ramps...', 'info');
 
   var params = {
-    temp:       parseInt(document.getElementById('sliderTemp').value),
-    contrast:   parseInt(document.getElementById('sliderContrast').value),
-    highlights: parseInt(document.getElementById('sliderHighlights').value),
-    shadows:    parseInt(document.getElementById('sliderShadows').value),
-    saturation: parseInt(document.getElementById('sliderSat').value)
+    slowPct:    parseInt(document.getElementById('sliderSlow').value),
+    fastPct:    parseInt(document.getElementById('sliderFast').value),
+    slowDur:    parseFloat(sliderDurToSecs(document.getElementById('sliderDur').value)),
+    influence:  parseInt(document.getElementById('sliderEase').value)
   };
 
-  var script = state.app === 'PPRO'
-    ? 'applyGradePremiere(' + JSON.stringify(params) + ')'
-    : 'applyGradeAE(' + JSON.stringify(params) + ')';
-
-  evalScript(script, function(result) {
-    if (result && result !== 'EvalScript error.') {
-      status('Color grade aplicado.', 'ok');
-    }
-  });
-});
-
-// ── Apply Speed Ramp (AE only) ────────────────────────────────
-document.getElementById('btnApplySpeedRamp').addEventListener('click', function() {
-  if (state.app !== 'AEFT') { status('Speed Ramp só disponível no After Effects.', 'error'); return; }
-
-  status('A aplicar speed ramp...', 'info');
-
-  var rampType  = document.querySelector('input[name="rampType"]:checked').value;
-  var peakSpeed = parseInt(document.getElementById('sliderPeak').value) / 100;
-  var rampIn    = parseInt(document.getElementById('sliderRampIn').value)  / 100;
-  var rampOut   = parseInt(document.getElementById('sliderRampOut').value) / 100;
-
-  var script = 'applySpeedRamp("' + rampType + '",' + peakSpeed + ',' + rampIn + ',' + rampOut + ')';
+  var timesJSON  = JSON.stringify(marks.map(function(m){ return m.t; }));
+  var paramsJSON = JSON.stringify(params);
+  var script     = 'applySpeedRamps(' + layerIndex + ',' + JSON.stringify(timesJSON) + ',' + JSON.stringify(paramsJSON) + ')';
 
   evalScript(script, function(result) {
     if (result === 'ok') {
-      status('Speed ramp aplicado com sucesso.', 'ok');
-    } else if (result) {
-      status(result, 'error');
+      status('Speed ramps aplicados com sucesso!', 'ok');
+    } else {
+      status(result || 'Erro desconhecido.', 'error');
     }
   });
 });
 
-// ── Apply Subtitles (Premiere only) ──────────────────────────
-document.getElementById('btnApplySubtitles').addEventListener('click', function() {
-  if (state.app !== 'PPRO') { status('Legendas disponíveis no Premiere Pro.', 'error'); return; }
-  if (!state.mogrtPath) { status('Carrega um template .mogrt primeiro.', 'error'); return; }
-
-  status('A aplicar template de legendas...', 'info');
-
-  var yPos = parseInt(document.getElementById('sliderSubPos').value);
-  var script = 'applySubtitleTemplate("' + state.mogrtPath.replace(/\\/g, '/') + '",' + yPos + ')';
-
-  evalScript(script, function(result) {
-    if (result === 'ok') {
-      status('Template de legendas aplicado.', 'ok');
-    } else if (result) {
-      status(result, 'error');
-    }
+// ── Load scripts & init ───────────────────────────────────────
+function init() {
+  var extPath = cs.getSystemPath(SystemPath.EXTENSION);
+  cs.evalScript('$.evalFile("' + extPath + '/scripts/aftereffects.jsx")', function() {
+    refreshLayer();
   });
-});
 
-// ── Export ────────────────────────────────────────────────────
-document.getElementById('btnExport').addEventListener('click', function() {
-  if (state.app !== 'PPRO') { status('Export disponível no Premiere Pro.', 'error'); return; }
+  document.getElementById('btnMark').disabled = true;
+  renderMarks();
+}
 
-  status('A enviar para Media Encoder...', 'info');
-
-  var bitrate = parseInt(document.getElementById('sliderBitrate').value);
-  var script  = 'exportH264_4K(' + bitrate + ')';
-
-  evalScript(script, function(result) {
-    if (result === 'ok') {
-      status('Adicionado ao Media Encoder. Verifica a fila.', 'ok');
-    } else if (result) {
-      status(result, 'error');
-    }
-  });
-});
-
-// ── Start ─────────────────────────────────────────────────────
 init();

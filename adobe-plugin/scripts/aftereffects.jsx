@@ -1,232 +1,202 @@
 /* ============================================================
-   VS Media Real Estate — After Effects ExtendScript
-   Funções chamadas pelo painel HTML via CSInterface.evalScript
+   VS Media — Speed Ramp Tool · aftereffects.jsx
+
+   Lógica:
+   - O utilizador marca pontos de "slow" no painel
+   - Cada ponto torna-se uma zona de slow motion centrada nesse tempo
+   - Entre zonas slow: vídeo corre a fastPct%
+   - Nas zonas slow: vídeo corre a slowPct%
+   - Transições com curvas bezier (KeyframeEase)
    ============================================================ */
 
-// ── Utilidades ───────────────────────────────────────────────
+// ── Utilitários ──────────────────────────────────────────────
 
-/** Devolve a comp activa */
 function getActiveComp() {
-  return app.project.activeItem instanceof CompItem ? app.project.activeItem : null;
+  var item = app.project.activeItem;
+  return (item instanceof CompItem) ? item : null;
 }
 
-/** Devolve os layers seleccionados na comp activa */
-function getSelectedLayers() {
-  var comp = getActiveComp();
-  if (!comp) return [];
-  var sel = [];
+/** Devolve o primeiro layer seleccionado na comp activa */
+function getFirstSelectedLayer(comp) {
   for (var i = 1; i <= comp.numLayers; i++) {
-    if (comp.layer(i).selected) sel.push(comp.layer(i));
+    if (comp.layer(i).selected) return comp.layer(i);
   }
-  return sel;
+  return null;
 }
 
-// ── 1. Aplicar LUT no After Effects ──────────────────────────
-
+// ── getLayerInfo ─────────────────────────────────────────────
 /**
- * Aplica LUT via efeito "Apply Color LUT" ao layer seleccionado.
- * @param {string} lutPath  Caminho absoluto ao .cube
+ * Chamado pelo painel para detectar o layer e fps activos.
+ * @returns {string} JSON com { index, name, fps } ou "error:..."
  */
-function applyLutAE(lutPath) {
+function getLayerInfo() {
+  var comp = getActiveComp();
+  if (!comp) return 'error:no_comp';
+
+  var layer = getFirstSelectedLayer(comp);
+  if (!layer) return 'error:no_layer';
+
+  return JSON.stringify({
+    index: layer.index,
+    name:  layer.name,
+    fps:   comp.frameRate
+  });
+}
+
+// ── getCurrentTime ────────────────────────────────────────────
+/**
+ * Devolve o tempo actual do CTI (Current Time Indicator) em segundos.
+ */
+function getCurrentTime() {
+  var comp = getActiveComp();
+  if (!comp) return 'null';
+  return String(comp.time);
+}
+
+// ── applySpeedRamps ───────────────────────────────────────────
+/**
+ * Aplica speed ramps a um layer via Time Remapping.
+ *
+ * Algoritmo:
+ *   1. Ordena os pontos marcados por tempo
+ *   2. Constrói segmentos: [fast | slow | fast | slow | ...]
+ *   3. Para cada segmento calcula o source time acumulado
+ *      (slow avança pouco, fast avança rápido)
+ *   4. Cria keyframes com curvas bezier nas transições
+ *
+ * @param {number} layerIdx    Índice do layer (1-based)
+ * @param {string} timesJSON   JSON array de comp times (segundos) ex: "[2.5, 5.0, 8.3]"
+ * @param {string} paramsJSON  JSON com { slowPct, fastPct, slowDur, influence }
+ * @returns {string} "ok" ou mensagem de erro
+ */
+function applySpeedRamps(layerIdx, timesJSON, paramsJSON) {
   try {
-    var layers = getSelectedLayers();
-    if (!layers.length) return 'Nenhum layer seleccionado.';
+    var comp = getActiveComp();
+    if (!comp) return 'Sem comp activa.';
 
-    var count = 0;
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+    var layer = comp.layer(parseInt(layerIdx));
+    if (!layer) return 'Layer não encontrado (idx=' + layerIdx + ').';
+    if (!(layer instanceof AVLayer)) return 'O layer não é de vídeo/audio.';
 
-      var fx = layer.property('ADBE Effect Parade');
+    var times  = JSON.parse(timesJSON);   // array de números (segundos)
+    var p      = JSON.parse(paramsJSON);  // { slowPct, fastPct, slowDur, influence }
 
-      // Adiciona "Apply Color LUT" (ADBE Apply Color LUT2)
-      var lutEffect = fx.addProperty('ADBE Apply Color LUT2');
-      if (lutEffect) {
-        // Define o caminho do LUT
-        var lutParam = lutEffect.property('ADBE Apply Color LUT2-0001');
-        if (lutParam) {
-          lutParam.setValue(lutPath);
-        }
-        count++;
+    if (!times.length) return 'Nenhum ponto marcado.';
+
+    times.sort(function(a, b) { return a - b; });
+
+    var slowF  = p.slowPct / 100;  // ex: 0.20
+    var fastF  = p.fastPct / 100;  // ex: 1.00
+    var hSlow  = p.slowDur / 2;    // metade da duração da zona slow
+    var infl   = p.influence;      // 10–90
+
+    var layerIn  = layer.inPoint;
+    var layerOut = layer.outPoint;
+    var srcDur   = (layer.source && layer.source.duration)
+                     ? layer.source.duration
+                     : (layerOut - layerIn);
+
+    // ── Construir zonas ───────────────────────────────────────
+    // Cada zona: { start, end, speed }
+    // Começamos por criar as zonas slow e preenchemos com fast.
+    var rawZones = [];
+    for (var i = 0; i < times.length; i++) {
+      var s = Math.max(layerIn, times[i] - hSlow);
+      var e = Math.min(layerOut, times[i] + hSlow);
+      if (s < e) rawZones.push({ start: s, end: e });
+    }
+
+    // Fundir zonas que se sobrepõem
+    rawZones.sort(function(a, b) { return a.start - b.start; });
+    var merged = [];
+    for (var j = 0; j < rawZones.length; j++) {
+      var cur = rawZones[j];
+      if (merged.length && cur.start <= merged[merged.length - 1].end) {
+        merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, cur.end);
+      } else {
+        merged.push({ start: cur.start, end: cur.end });
       }
     }
-    return String(count);
-  } catch (e) {
-    return 'Erro: ' + e.message;
-  }
-}
 
-// ── 2. Aplicar Color Grade no AE ─────────────────────────────
-
-/**
- * Aplica grade clean via Lumetri Color (efeito nativo AE 2022+)
- * ou via Curves/Hue-Saturation se Lumetri não estiver disponível.
- * @param {Object|string} params
- */
-function applyGradeAE(params) {
-  try {
-    if (typeof params === 'string') params = JSON.parse(params);
-
-    var layers = getSelectedLayers();
-    if (!layers.length) return 'Nenhum layer seleccionado.';
-
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
-
-      var fx = layer.property('ADBE Effect Parade');
-
-      // ── Lumetri Color (AE 2022+) ──────────────────────────
-      try {
-        var lumetri = fx.addProperty('ADBE Lumetri Color');
-        if (lumetri) {
-          // Temperature
-          var temp = lumetri.property('ADBE Lumetri Color-0001');
-          if (temp) temp.setValue(params.temp);
-          // Contrast
-          var contrast = lumetri.property('ADBE Lumetri Color-0003');
-          if (contrast) contrast.setValue(params.contrast);
-          // Highlights
-          var hl = lumetri.property('ADBE Lumetri Color-0004');
-          if (hl) hl.setValue(params.highlights);
-          // Shadows
-          var sh = lumetri.property('ADBE Lumetri Color-0005');
-          if (sh) sh.setValue(params.shadows);
-          // Saturation
-          var sat = lumetri.property('ADBE Lumetri Color-0012');
-          if (sat) sat.setValue(params.saturation);
-          continue;
-        }
-      } catch (lumetriErr) { /* Lumetri não disponível, usa fallback */ }
-
-      // ── Fallback: Hue/Saturation ───────────────────────────
-      var hueSat = fx.addProperty('ADBE HUE SATURATION');
-      if (hueSat) {
-        var masterSat = hueSat.property('ADBE HUE SATURATION-0003');
-        if (masterSat) masterSat.setValue(params.saturation - 100);
+    // Construir sequência final de segmentos
+    var segments = [];
+    var cursor   = layerIn;
+    for (var k = 0; k < merged.length; k++) {
+      var zone = merged[k];
+      if (cursor < zone.start) {
+        segments.push({ start: cursor, end: zone.start, speed: fastF });
       }
-
-      // ── Fallback: Brightness & Contrast ───────────────────
-      var bc = fx.addProperty('ADBE Brighten');
-      if (bc) {
-        var cont = bc.property('ADBE Brighten-0002');
-        if (cont) cont.setValue(params.contrast);
-      }
+      segments.push({ start: zone.start, end: zone.end, speed: slowF });
+      cursor = zone.end;
     }
-    return 'ok';
-  } catch (e) {
-    return 'Erro: ' + e.message;
-  }
-}
+    if (cursor < layerOut) {
+      segments.push({ start: cursor, end: layerOut, speed: fastF });
+    }
 
-// ── 3. Speed Ramp ────────────────────────────────────────────
+    // ── Calcular source times em cada boundary ────────────────
+    // kfPoints: { compT, srcT, speedIn, speedOut }
+    var kfPoints = [];
+    var srcAccum = 0;
 
-/**
- * Aplica speed ramp ao layer seleccionado usando Time Remapping.
- *
- * Para clips WIDE ANGLE / DRONE:
- *   - Começa normal (100%)
- *   - Acelera até peakSpeed% no meio
- *   - Volta a normal (100%) no final
- *   Curvas Easy Ease para transição suave.
- *
- * @param {string} rampType   "wide" ou "drone"
- * @param {number} peakSpeed  Multiplicador de velocidade (ex: 4 = 400%)
- * @param {number} rampIn     Duração do ramp in em segundos
- * @param {number} rampOut    Duração do ramp out em segundos
- */
-function applySpeedRamp(rampType, peakSpeed, rampIn, rampOut) {
-  try {
-    var layers = getSelectedLayers();
-    if (!layers.length) return 'Nenhum layer seleccionado.';
+    // Primeiro ponto
+    kfPoints.push({
+      compT:    layerIn,
+      srcT:     0,
+      speedIn:  segments[0].speed,
+      speedOut: segments[0].speed
+    });
 
-    var layer = layers[0]; // processa o primeiro layer seleccionado
-    if (!(layer instanceof AVLayer)) return 'Layer não é de vídeo.';
+    for (var s2 = 0; s2 < segments.length; s2++) {
+      var seg = segments[s2];
+      var dt  = seg.end - seg.start;
+      srcAccum += dt * seg.speed;
 
-    var comp      = getActiveComp();
-    var fps       = comp.frameRate;
-    var layerIn   = layer.inPoint;
-    var layerOut  = layer.outPoint;
-    var duration  = layerOut - layerIn;
+      // Velocidade depois deste ponto
+      var nextSpeed = (s2 + 1 < segments.length) ? segments[s2 + 1].speed : seg.speed;
 
-    // Ativa Time Remapping
+      kfPoints.push({
+        compT:    seg.end,
+        srcT:     Math.min(srcAccum, srcDur),
+        speedIn:  seg.speed,
+        speedOut: nextSpeed
+      });
+    }
+
+    // ── Aplicar Time Remapping ────────────────────────────────
+    app.beginUndoGroup('VS Media Speed Ramps');
+
     layer.timeRemapEnabled = true;
-    var timeRemap = layer.property('ADBE Time Remapping');
+    var tr = layer.property('ADBE Time Remapping');
 
-    // Remove keyframes existentes gerados automaticamente
-    while (timeRemap.numKeys > 0) {
-      timeRemap.removeKey(1);
+    // Apagar keyframes existentes
+    while (tr.numKeys > 0) {
+      tr.removeKey(1);
     }
 
-    // ── Calcular pontos de keyframe ───────────────────────────
-    // O Time Remap mapeia: tempo na comp → tempo na source
-    //
-    // Para criar speed ramp (normal → rápido → normal):
-    //   kf1: t=layerIn,            sourceTime=0           (normal start)
-    //   kf2: t=layerIn+rampIn,     sourceTime=rampIn      (fim slow/normal, início aceleração)
-    //   kf3: t=midpoint,           sourceTime=midSrc      (pico velocidade)
-    //   kf4: t=layerOut-rampOut,   sourceTime=layerOut-layerIn-rampOut
-    //   kf5: t=layerOut,           sourceTime=layerOut-layerIn (fim normal)
+    // Criar novos keyframes
+    for (var n = 0; n < kfPoints.length; n++) {
+      var kf  = kfPoints[n];
+      var idx = tr.addKey(kf.compT);
+      tr.setValueAtKey(idx, kf.srcT);
 
-    var srcDuration = layer.source.duration || duration;
-    var mid         = layerIn + duration / 2;
-
-    // Source times (o que a câmara gravou vs o que vemos)
-    // No pico de velocidade, a source avança peakSpeed vezes mais rápido
-    // por isso em 1 frame de comp, lemos peakSpeed frames de source
-
-    var t0    = layerIn;
-    var t1    = layerIn + rampIn;
-    var tMid  = mid;
-    var t2    = layerOut - rampOut;
-    var t3    = layerOut;
-
-    // Source times correspondentes
-    var s0   = 0;
-    var s1   = rampIn;                    // normal até ao ramp
-    var sMid = s1 + (tMid - t1) * peakSpeed; // avança rápido no meio
-    var s2   = sMid + (t2 - tMid) * peakSpeed; // continua rápido
-    var s3   = s2 + rampOut;             // volta a normal
-
-    // Garante que não excede a duração da source
-    if (s3 > srcDuration) {
-      var scale = srcDuration / s3;
-      s1   *= scale; sMid *= scale; s2 *= scale; s3 *= scale;
-    }
-
-    // Adiciona keyframes
-    var kf1 = timeRemap.addKey(t0);  timeRemap.setValueAtKey(kf1, s0);
-    var kf2 = timeRemap.addKey(t1);  timeRemap.setValueAtKey(kf2, s1);
-    var kf3 = timeRemap.addKey(tMid); timeRemap.setValueAtKey(kf3, sMid);
-    var kf4 = timeRemap.addKey(t2);  timeRemap.setValueAtKey(kf4, s2);
-    var kf5 = timeRemap.addKey(t3);  timeRemap.setValueAtKey(kf5, s3);
-
-    // ── Aplicar Easy Ease nos keyframes de transição ──────────
-    // kf2 e kf4 têm a curva de ease (entrada e saída do pico)
-    timeRemap.setTemporalEaseAtKey(kf2,
-      [new KeyframeEase(0, 33)],   // ease in
-      [new KeyframeEase(0, 33)]    // ease out
-    );
-    timeRemap.setTemporalEaseAtKey(kf3,
-      [new KeyframeEase(0, 66)],
-      [new KeyframeEase(0, 66)]
-    );
-    timeRemap.setTemporalEaseAtKey(kf4,
-      [new KeyframeEase(0, 33)],
-      [new KeyframeEase(0, 33)]
-    );
-
-    // ── Para DRONE: ramp mais longo no início ─────────────────
-    if (rampType === 'drone') {
-      // Ajusta o kf1 para um ease in mais suave
-      timeRemap.setTemporalEaseAtKey(kf1,
-        [new KeyframeEase(0, 50)],
-        [new KeyframeEase(0, 50)]
+      // Interpolação bezier
+      tr.setInterpolationTypeAtKey(
+        idx,
+        KeyframeInterpolationType.BEZIER,
+        KeyframeInterpolationType.BEZIER
       );
+
+      // Ease: speed = velocidade local (src units/sec), influence = tensão bezier
+      var eIn  = [new KeyframeEase(kf.speedIn,  infl)];
+      var eOut = [new KeyframeEase(kf.speedOut, infl)];
+      tr.setTemporalEaseAtKey(idx, eIn, eOut);
     }
 
+    app.endUndoGroup();
     return 'ok';
+
   } catch (e) {
+    try { app.endUndoGroup(); } catch(_) {}
     return 'Erro: ' + e.message;
   }
 }

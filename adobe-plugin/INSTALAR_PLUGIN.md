@@ -1,8 +1,7 @@
-# VS Media Real Estate — Instalação do Plugin Adobe
+# VS Media — Speed Ramp Tool · Instalação
 
 ## Requisitos
-- Adobe Premiere Pro 2022 ou superior (versão 22+)
-- Adobe After Effects 2022 ou superior (versão 22+)
+- After Effects 2022 ou superior (versão 22+)
 - Windows 10/11 ou macOS 11+
 
 ---
@@ -10,87 +9,57 @@
 ## Passo 1 — Copiar o plugin
 
 ### Windows
-Copia a pasta `adobe-plugin` completa para:
 ```
-C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\VSMediaRealEstate
+C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\VSMediaSpeedRamp
 ```
 
 ### macOS
-Copia a pasta `adobe-plugin` completa para:
 ```
-/Library/Application Support/Adobe/CEP/extensions/VSMediaRealEstate
+/Library/Application Support/Adobe/CEP/extensions/VSMediaSpeedRamp
 ```
 
-> O nome da pasta de destino deve ser exatamente `VSMediaRealEstate`.
+O nome da pasta de destino deve ser `VSMediaSpeedRamp`.
 
 ---
 
-## Passo 2 — Activar extensões não assinadas (desenvolvimento)
+## Passo 2 — Activar extensões não assinadas
 
-### Windows
-Abre o **Registo do Windows** (`regedit`) e navega até:
+### Windows — Registo (`regedit`)
 ```
 HKEY_CURRENT_USER\Software\Adobe\CSXS.11
 ```
-Cria (ou edita) o valor:
-- Nome: `PlayerDebugMode`
-- Tipo: `String (REG_SZ)`
-- Valor: `1`
+Criar valor: `PlayerDebugMode` → `String` → `1`
 
-### macOS
-Abre o Terminal e corre:
+### macOS — Terminal
 ```bash
 defaults write com.adobe.CSXS.11 PlayerDebugMode 1
 ```
 
 ---
 
-## Passo 3 — Instalar o LUT
+## Passo 3 — Copiar CSInterface.js
 
-Segue as instruções em `luts/INSTALAR_LUT.txt`.
-
----
-
-## Passo 4 — Copiar CSInterface.js
-
-O plugin precisa do ficheiro oficial Adobe `CSInterface.js`:
-
-1. Vai a: https://github.com/Adobe-CEP/CSInterface/blob/master/src/CSInterface.js
-2. Faz download do ficheiro raw
-3. Coloca-o em: `VSMediaRealEstate/js/CSInterface.js`
+1. Ir a: https://github.com/Adobe-CEP/CSInterface
+2. Download do ficheiro `src/CSInterface.js`
+3. Colocar em: `VSMediaSpeedRamp/js/CSInterface.js`
 
 ---
 
-## Passo 5 — Abrir o painel
+## Passo 4 — Abrir o painel
 
-1. Abre o Premiere Pro ou After Effects
-2. Menu: **Janela (Window) → Extensões → VS Media Real Estate**
-3. O painel abre na barra lateral
-
----
-
-## Utilização rápida
-
-| Passo | Onde | O que fazer |
-|-------|------|-------------|
-| 1 | Premiere / AE | Selecciona clips S-Log3 → clica **Aplicar LUT** |
-| 2 | Premiere / AE | Selecciona clips → clica **Aplicar Color Grade** |
-| 3 | After Effects | Selecciona layer wide/drone → clica **Aplicar Speed Ramp** |
-| 4 | Premiere | Selecciona clip do consultor → carrega .mogrt → clica **Aplicar Template de Legendas** |
-| 5 | Premiere | Clica **Exportar H.264 4K** |
+1. Abre o After Effects
+2. Menu: **Janela → Extensões → VS Media — Speed Ramp**
 
 ---
 
-## Problemas comuns
+## Como usar
 
-**O painel não aparece no menu Extensões**
-- Confirma que copiaste para a pasta correcta
-- Confirma que activaste `PlayerDebugMode = 1`
-- Reinicia o Adobe
+1. Abre uma comp com o teu clip longo
+2. Selecciona o layer de vídeo
+3. Clica **↺** no painel para detectar o layer
+4. Ajusta as velocidades e a duração do slow
+5. Scruba o CTI para um momento que queres slow → clica **+ Marcar tempo actual**
+6. Repete para todos os pontos slow que quiseres
+7. Clica **APLICAR SPEED RAMPS**
 
-**"EvalScript error" no status bar**
-- Confirma que o LUT está na pasta `luts/` ou selecciona-o manualmente
-- Confirma que tens um clip/layer seleccionado
-
-**Speed Ramp não aparece (Premiere)**
-- Speed Ramp só funciona no After Effects — o botão fica inactivo no Premiere
+O plugin cria automaticamente Time Remapping com bezier nas transições.

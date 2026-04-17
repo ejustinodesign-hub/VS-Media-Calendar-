@@ -1,188 +1,94 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VS Media Real Estate</title>
+  <meta charset="UTF-8"/>
+  <title>VS Media — Speed Ramp</title>
   <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
+<div class="panel">
 
-  <div class="panel">
-
-    <!-- Header -->
-    <div class="header">
-      <div class="logo">VS <span>MEDIA</span></div>
-      <div class="subtitle">Real Estate Plugin</div>
-    </div>
-
-    <!-- App indicator -->
-    <div class="app-badge" id="appBadge">A detectar aplicação...</div>
-
-    <!-- ═══════════════════════════════ -->
-    <!-- SECÇÃO 1 — COLOR               -->
-    <!-- ═══════════════════════════════ -->
-    <div class="section">
-      <div class="section-title">
-        <span class="section-icon">◈</span> COLOR
-      </div>
-
-      <div class="lut-row">
-        <div class="lut-label" id="lutLabel">Sony S-Log3 → Rec.709 (A7C II)</div>
-        <button class="btn-small" id="btnBrowseLut">Alterar LUT</button>
-      </div>
-
-      <button class="btn btn-primary" id="btnApplyLut">
-        Aplicar LUT a Clip(s) Seleccionados
-      </button>
-
-      <div class="subsection-label">Grade imobiliário (após LUT)</div>
-      <div class="slider-row">
-        <label>Temperatura</label>
-        <input type="range" id="sliderTemp" min="-30" max="30" value="8" step="1"/>
-        <span id="valTemp">+8</span>
-      </div>
-      <div class="slider-row">
-        <label>Contraste</label>
-        <input type="range" id="sliderContrast" min="-30" max="30" value="10" step="1"/>
-        <span id="valContrast">+10</span>
-      </div>
-      <div class="slider-row">
-        <label>Highlights</label>
-        <input type="range" id="sliderHighlights" min="-50" max="0" value="-15" step="1"/>
-        <span id="valHighlights">-15</span>
-      </div>
-      <div class="slider-row">
-        <label>Shadows</label>
-        <input type="range" id="sliderShadows" min="0" max="30" value="8" step="1"/>
-        <span id="valShadows">+8</span>
-      </div>
-      <div class="slider-row">
-        <label>Saturação</label>
-        <input type="range" id="sliderSat" min="60" max="110" value="88" step="1"/>
-        <span id="valSat">88</span>
-      </div>
-
-      <button class="btn btn-secondary" id="btnApplyGrade">
-        Aplicar Color Grade
-      </button>
-    </div>
-
-    <!-- ═══════════════════════════════ -->
-    <!-- SECÇÃO 2 — SPEED RAMP (AE)    -->
-    <!-- ═══════════════════════════════ -->
-    <div class="section" id="sectionSpeedRamp">
-      <div class="section-title">
-        <span class="section-icon">⚡</span> SPEED RAMP <span class="badge-ae">AE</span>
-      </div>
-
-      <div class="subsection-label">Tipo de clip</div>
-      <div class="radio-group">
-        <label class="radio-label">
-          <input type="radio" name="rampType" value="wide" checked/> Wide Angle
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="rampType" value="drone"/> Drone
-        </label>
-      </div>
-
-      <div class="subsection-label">Velocidade máxima</div>
-      <div class="slider-row">
-        <label>Peak speed</label>
-        <input type="range" id="sliderPeak" min="200" max="800" value="400" step="50"/>
-        <span id="valPeak">400%</span>
-      </div>
-
-      <div class="subsection-label">Duração do ramp</div>
-      <div class="slider-row">
-        <label>In (s)</label>
-        <input type="range" id="sliderRampIn" min="10" max="60" value="20" step="5"/>
-        <span id="valRampIn">0.2s</span>
-      </div>
-      <div class="slider-row">
-        <label>Out (s)</label>
-        <input type="range" id="sliderRampOut" min="10" max="60" value="20" step="5"/>
-        <span id="valRampOut">0.2s</span>
-      </div>
-
-      <button class="btn btn-primary" id="btnApplySpeedRamp">
-        Aplicar Speed Ramp ao Layer
-      </button>
-
-      <div class="info-box">
-        Selecciona o layer no AE antes de clicar.<br/>
-        Adiciona Time Remapping com curva suave.
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════ -->
-    <!-- SECÇÃO 3 — LEGENDAS (PPro)    -->
-    <!-- ═══════════════════════════════ -->
-    <div class="section" id="sectionLegendas">
-      <div class="section-title">
-        <span class="section-icon">◻</span> LEGENDAS <span class="badge-pr">PR</span>
-      </div>
-
-      <div class="lut-row">
-        <div class="lut-label" id="mogrtLabel">Nenhum template seleccionado</div>
-        <button class="btn-small" id="btnBrowseMogrt">Carregar .mogrt</button>
-      </div>
-
-      <div class="subsection-label">Posição vertical (%)</div>
-      <div class="slider-row">
-        <label>Posição</label>
-        <input type="range" id="sliderSubPos" min="50" max="95" value="85" step="1"/>
-        <span id="valSubPos">85%</span>
-      </div>
-
-      <button class="btn btn-primary" id="btnApplySubtitles">
-        Aplicar Template de Legendas
-      </button>
-
-      <div class="info-box">
-        Selecciona o clip do consultor na timeline<br/>antes de aplicar.
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════ -->
-    <!-- SECÇÃO 4 — EXPORT             -->
-    <!-- ═══════════════════════════════ -->
-    <div class="section">
-      <div class="section-title">
-        <span class="section-icon">▶</span> EXPORT
-      </div>
-
-      <div class="export-grid">
-        <div class="export-info">
-          <div class="export-tag">4K UHD</div>
-          <div class="export-tag">H.264</div>
-          <div class="export-tag">Redes Sociais</div>
-          <div class="export-tag">3840×2160</div>
-        </div>
-      </div>
-
-      <div class="subsection-label">Bitrate (Mbps)</div>
-      <div class="slider-row">
-        <label>VBR Max</label>
-        <input type="range" id="sliderBitrate" min="40" max="120" value="80" step="10"/>
-        <span id="valBitrate">80</span>
-      </div>
-
-      <button class="btn btn-export" id="btnExport">
-        Exportar H.264 4K
-      </button>
-
-      <div class="info-box">
-        Abre o Adobe Media Encoder com<br/>as definições correctas.
-      </div>
-    </div>
-
-    <!-- Status bar -->
-    <div class="status-bar" id="statusBar">Pronto.</div>
-
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">VS <span>MEDIA</span></div>
+    <div class="subtitle">Speed Ramp Tool · After Effects</div>
   </div>
 
-  <script src="js/CSInterface.js"></script>
-  <script src="js/main.js"></script>
+  <!-- Layer info -->
+  <div class="layer-bar" id="layerBar">
+    <div class="layer-dot" id="layerDot"></div>
+    <div class="layer-name" id="layerName">Nenhum layer seleccionado</div>
+    <button class="btn-refresh" id="btnRefresh" title="Actualizar">↺</button>
+  </div>
+
+  <!-- ── CONTROLOS ─────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">VELOCIDADES</div>
+
+    <div class="slider-row">
+      <label>Slow</label>
+      <input type="range" id="sliderSlow" min="5" max="50" value="20" step="1"/>
+      <span id="valSlow">20%</span>
+    </div>
+    <div class="slider-row">
+      <label>Fast</label>
+      <input type="range" id="sliderFast" min="80" max="300" value="100" step="10"/>
+      <span id="valFast">100%</span>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-title">DURAÇÃO DO SLOW</div>
+
+    <div class="slider-row">
+      <label>Duração</label>
+      <input type="range" id="sliderDur" min="2" max="40" value="10" step="1"/>
+      <span id="valDur">1.0s</span>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-title">BEZIER</div>
+
+    <div class="slider-row">
+      <label>Suavidade</label>
+      <input type="range" id="sliderEase" min="10" max="90" value="50" step="5"/>
+      <span id="valEase">50%</span>
+    </div>
+  </div>
+
+  <!-- ── PONTOS MARCADOS ────────────────────────── -->
+  <div class="section section-marks">
+    <div class="marks-header">
+      <div class="section-title">PONTOS SLOW</div>
+      <button class="btn-clear" id="btnClearAll">Limpar</button>
+    </div>
+
+    <button class="btn-mark" id="btnMark">
+      + Marcar tempo actual
+    </button>
+
+    <div class="marks-list" id="marksList">
+      <div class="marks-empty" id="marksEmpty">
+        Scruba para um ponto e clica em "Marcar"
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APLICAR ────────────────────────────────── -->
+  <div class="section">
+    <button class="btn-apply" id="btnApply" disabled>
+      APLICAR SPEED RAMPS
+    </button>
+    <div class="apply-hint" id="applyHint">
+      Selecciona um layer e marca pelo menos 1 ponto.
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar" id="statusBar">Pronto.</div>
+
+</div>
+
+<script src="js/CSInterface.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
