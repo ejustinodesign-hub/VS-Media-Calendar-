@@ -128,7 +128,6 @@ function bindSlider(id, valId, fmt) {
   });
 }
 
-bindSlider('sliderSlow', 'valSlow', function(v){ return v + '%'; });
 bindSlider('sliderFast', 'valFast', function(v){ return v + '%'; });
 bindSlider('sliderDur',  'valDur',  function(v){ return sliderDurToSecs(v) + 's'; });
 bindSlider('sliderEase', 'valEase', function(v){ return v + '%'; });
@@ -174,10 +173,9 @@ document.getElementById('btnApply').addEventListener('click', function() {
   status('A aplicar speed ramps...', 'info');
 
   var params = {
-    slowPct:    parseInt(document.getElementById('sliderSlow').value),
-    fastPct:    parseInt(document.getElementById('sliderFast').value),
-    slowDur:    parseFloat(sliderDurToSecs(document.getElementById('sliderDur').value)),
-    influence:  parseInt(document.getElementById('sliderEase').value)
+    fastPct:   parseInt(document.getElementById('sliderFast').value),
+    zoneDur:   parseFloat(sliderDurToSecs(document.getElementById('sliderDur').value)),
+    influence: parseInt(document.getElementById('sliderEase').value)
   };
 
   var timesJSON  = JSON.stringify(marks.map(function(m){ return m.t; }));

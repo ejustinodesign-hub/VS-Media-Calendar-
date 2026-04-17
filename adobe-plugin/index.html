@@ -23,30 +23,25 @@
 
   <!-- ── CONTROLOS ─────────────────────────────── -->
   <div class="section">
-    <div class="section-title">VELOCIDADES</div>
+    <div class="section-title">SECÇÕES RÁPIDAS</div>
 
     <div class="slider-row">
-      <label>Slow</label>
-      <input type="range" id="sliderSlow" min="5" max="50" value="20" step="1"/>
-      <span id="valSlow">20%</span>
-    </div>
-    <div class="slider-row">
-      <label>Fast</label>
-      <input type="range" id="sliderFast" min="80" max="300" value="100" step="10"/>
-      <span id="valFast">100%</span>
+      <label>Velocidade</label>
+      <input type="range" id="sliderFast" min="100" max="400" value="200" step="10"/>
+      <span id="valFast">200%</span>
     </div>
 
     <div class="divider"></div>
-    <div class="section-title">DURAÇÃO DO SLOW</div>
+    <div class="section-title">ZONAS 12 FPS</div>
 
     <div class="slider-row">
       <label>Duração</label>
-      <input type="range" id="sliderDur" min="2" max="40" value="10" step="1"/>
+      <input type="range" id="sliderDur" min="4" max="40" value="10" step="1"/>
       <span id="valDur">1.0s</span>
     </div>
 
     <div class="divider"></div>
-    <div class="section-title">BEZIER</div>
+    <div class="section-title">TRANSIÇÃO BEZIER</div>
 
     <div class="slider-row">
       <label>Suavidade</label>
@@ -68,7 +63,7 @@
 
     <div class="marks-list" id="marksList">
       <div class="marks-empty" id="marksEmpty">
-        Scruba para um ponto e clica em "Marcar"
+        Scruba para um momento e clica em "Marcar".<br/>O vídeo fica choppy (12fps) nessa zona.
       </div>
     </div>
   </div>

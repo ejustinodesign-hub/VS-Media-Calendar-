@@ -2,21 +2,19 @@
    VS Media — Speed Ramp Tool · aftereffects.jsx
 
    Lógica:
-   - O utilizador marca pontos de "slow" no painel
-   - Cada ponto torna-se uma zona de slow motion centrada nesse tempo
-   - Entre zonas slow: vídeo corre a fastPct%
-   - Nas zonas slow: vídeo corre a slowPct%
-   - Transições com curvas bezier (KeyframeEase)
+   - Secções entre pontos marcados: vídeo avança a fastPct%
+     com curvas bezier na entrada/saída de cada zona
+   - Nas zonas marcadas (~1s): keyframes HOLD a 12fps
+     (cada frame de source fica visível por 1/12 segundo —
+      cria o efeito "choppy" característico)
+   - Transições: KeyframeEase com influence configurável
    ============================================================ */
-
-// ── Utilitários ──────────────────────────────────────────────
 
 function getActiveComp() {
   var item = app.project.activeItem;
   return (item instanceof CompItem) ? item : null;
 }
 
-/** Devolve o primeiro layer seleccionado na comp activa */
 function getFirstSelectedLayer(comp) {
   for (var i = 1; i <= comp.numLayers; i++) {
     if (comp.layer(i).selected) return comp.layer(i);
@@ -25,17 +23,11 @@ function getFirstSelectedLayer(comp) {
 }
 
 // ── getLayerInfo ─────────────────────────────────────────────
-/**
- * Chamado pelo painel para detectar o layer e fps activos.
- * @returns {string} JSON com { index, name, fps } ou "error:..."
- */
 function getLayerInfo() {
   var comp = getActiveComp();
   if (!comp) return 'error:no_comp';
-
   var layer = getFirstSelectedLayer(comp);
   if (!layer) return 'error:no_layer';
-
   return JSON.stringify({
     index: layer.index,
     name:  layer.name,
@@ -44,9 +36,6 @@ function getLayerInfo() {
 }
 
 // ── getCurrentTime ────────────────────────────────────────────
-/**
- * Devolve o tempo actual do CTI (Current Time Indicator) em segundos.
- */
 function getCurrentTime() {
   var comp = getActiveComp();
   if (!comp) return 'null';
@@ -55,19 +44,14 @@ function getCurrentTime() {
 
 // ── applySpeedRamps ───────────────────────────────────────────
 /**
- * Aplica speed ramps a um layer via Time Remapping.
- *
- * Algoritmo:
- *   1. Ordena os pontos marcados por tempo
- *   2. Constrói segmentos: [fast | slow | fast | slow | ...]
- *   3. Para cada segmento calcula o source time acumulado
- *      (slow avança pouco, fast avança rápido)
- *   4. Cria keyframes com curvas bezier nas transições
+ * Aplica speed ramps a um layer:
+ *   - Secções rápidas entre zonas: avança a fastPct% com bezier
+ *   - Zonas marcadas: HOLD keyframes a 12fps (choppy)
+ *   - Bezier nas transições rápido ↔ 12fps
  *
  * @param {number} layerIdx    Índice do layer (1-based)
- * @param {string} timesJSON   JSON array de comp times (segundos) ex: "[2.5, 5.0, 8.3]"
- * @param {string} paramsJSON  JSON com { slowPct, fastPct, slowDur, influence }
- * @returns {string} "ok" ou mensagem de erro
+ * @param {string} timesJSON   JSON array de comp times (segundos)
+ * @param {string} paramsJSON  JSON { fastPct, zoneDur, influence }
  */
 function applySpeedRamps(layerIdx, timesJSON, paramsJSON) {
   try {
@@ -75,20 +59,21 @@ function applySpeedRamps(layerIdx, timesJSON, paramsJSON) {
     if (!comp) return 'Sem comp activa.';
 
     var layer = comp.layer(parseInt(layerIdx));
-    if (!layer) return 'Layer não encontrado (idx=' + layerIdx + ').';
-    if (!(layer instanceof AVLayer)) return 'O layer não é de vídeo/audio.';
+    if (!layer) return 'Layer não encontrado.';
+    if (!(layer instanceof AVLayer)) return 'O layer não é de vídeo.';
 
-    var times  = JSON.parse(timesJSON);   // array de números (segundos)
-    var p      = JSON.parse(paramsJSON);  // { slowPct, fastPct, slowDur, influence }
+    var markTimes = JSON.parse(timesJSON);
+    var p         = JSON.parse(paramsJSON);
 
-    if (!times.length) return 'Nenhum ponto marcado.';
+    if (!markTimes.length) return 'Nenhum ponto marcado.';
 
-    times.sort(function(a, b) { return a - b; });
+    markTimes.sort(function(a, b) { return a - b; });
 
-    var slowF  = p.slowPct / 100;  // ex: 0.20
-    var fastF  = p.fastPct / 100;  // ex: 1.00
-    var hSlow  = p.slowDur / 2;    // metade da duração da zona slow
-    var infl   = p.influence;      // 10–90
+    var fastF  = p.fastPct  / 100;  // ex: 2.0 para 200%
+    var fps12  = 12;
+    var step   = 1 / fps12;         // 0.0833s por frame a 12fps
+    var hZone  = p.zoneDur  / 2;    // meia duração da zona
+    var infl   = p.influence;
 
     var layerIn  = layer.inPoint;
     var layerOut = layer.outPoint;
@@ -96,107 +81,120 @@ function applySpeedRamps(layerIdx, timesJSON, paramsJSON) {
                      ? layer.source.duration
                      : (layerOut - layerIn);
 
-    // ── Construir zonas ───────────────────────────────────────
-    // Cada zona: { start, end, speed }
-    // Começamos por criar as zonas slow e preenchemos com fast.
+    // ── 1. Construir e fundir zonas 12fps ─────────────────────
     var rawZones = [];
-    for (var i = 0; i < times.length; i++) {
-      var s = Math.max(layerIn, times[i] - hSlow);
-      var e = Math.min(layerOut, times[i] + hSlow);
-      if (s < e) rawZones.push({ start: s, end: e });
+    for (var i = 0; i < markTimes.length; i++) {
+      var zs = Math.max(layerIn,  markTimes[i] - hZone);
+      var ze = Math.min(layerOut, markTimes[i] + hZone);
+      if (zs < ze) rawZones.push({ start: zs, end: ze });
     }
-
-    // Fundir zonas que se sobrepõem
     rawZones.sort(function(a, b) { return a.start - b.start; });
-    var merged = [];
+
+    var zones = [];
     for (var j = 0; j < rawZones.length; j++) {
-      var cur = rawZones[j];
-      if (merged.length && cur.start <= merged[merged.length - 1].end) {
-        merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, cur.end);
+      var z = rawZones[j];
+      if (zones.length && z.start <= zones[zones.length - 1].end) {
+        zones[zones.length - 1].end = Math.max(zones[zones.length - 1].end, z.end);
       } else {
-        merged.push({ start: cur.start, end: cur.end });
+        zones.push({ start: z.start, end: z.end });
       }
     }
 
-    // Construir sequência final de segmentos
-    var segments = [];
-    var cursor   = layerIn;
-    for (var k = 0; k < merged.length; k++) {
-      var zone = merged[k];
-      if (cursor < zone.start) {
-        segments.push({ start: cursor, end: zone.start, speed: fastF });
-      }
-      segments.push({ start: zone.start, end: zone.end, speed: slowF });
-      cursor = zone.end;
-    }
-    if (cursor < layerOut) {
-      segments.push({ start: cursor, end: layerOut, speed: fastF });
-    }
-
-    // ── Calcular source times em cada boundary ────────────────
-    // kfPoints: { compT, srcT, speedIn, speedOut }
-    var kfPoints = [];
-    var srcAccum = 0;
-
-    // Primeiro ponto
-    kfPoints.push({
-      compT:    layerIn,
-      srcT:     0,
-      speedIn:  segments[0].speed,
-      speedOut: segments[0].speed
-    });
-
-    for (var s2 = 0; s2 < segments.length; s2++) {
-      var seg = segments[s2];
-      var dt  = seg.end - seg.start;
-      srcAccum += dt * seg.speed;
-
-      // Velocidade depois deste ponto
-      var nextSpeed = (s2 + 1 < segments.length) ? segments[s2 + 1].speed : seg.speed;
-
-      kfPoints.push({
-        compT:    seg.end,
-        srcT:     Math.min(srcAccum, srcDur),
-        speedIn:  seg.speed,
-        speedOut: nextSpeed
-      });
-    }
-
-    // ── Aplicar Time Remapping ────────────────────────────────
+    // ── 2. Activar Time Remapping e limpar keyframes ───────────
     app.beginUndoGroup('VS Media Speed Ramps');
-
     layer.timeRemapEnabled = true;
     var tr = layer.property('ADBE Time Remapping');
+    while (tr.numKeys > 0) tr.removeKey(1);
 
-    // Apagar keyframes existentes
-    while (tr.numKeys > 0) {
-      tr.removeKey(1);
+    // ── 3. Construir lista de keyframes ───────────────────────
+    // Cada entrada: { compT, srcT, interp:'bezier'|'hold', speedIn, speedOut }
+    var kfs = [];
+    var srcAccum = 0;
+    var cursor   = layerIn;
+
+    function pushBezier(compT, srcT, speedIn, speedOut) {
+      kfs.push({
+        compT:    compT,
+        srcT:     Math.min(srcT, srcDur),
+        interp:   'bezier',
+        speedIn:  speedIn,
+        speedOut: speedOut
+      });
+    }
+    function pushHold(compT, srcT) {
+      kfs.push({ compT: compT, srcT: Math.min(srcT, srcDur), interp: 'hold' });
     }
 
-    // Criar novos keyframes
-    for (var n = 0; n < kfPoints.length; n++) {
-      var kf  = kfPoints[n];
+    // Keyframe inicial
+    var openSpeed = (zones.length && zones[0].start === layerIn) ? 1.0 : fastF;
+    pushBezier(layerIn, 0, openSpeed, openSpeed);
+
+    for (var k = 0; k < zones.length; k++) {
+      var zone = zones[k];
+
+      // Secção rápida antes da zona
+      if (cursor < zone.start) {
+        srcAccum += (zone.start - cursor) * fastF;
+        pushBezier(zone.start, srcAccum, fastF, 1.0);
+        cursor = zone.start;
+      }
+
+      // Zona 12fps: HOLD keyframes a cada 1/12s
+      var t = cursor;
+      while (t + step <= zone.end) {
+        t        += step;
+        srcAccum += step;
+        pushHold(t, srcAccum);
+      }
+      // Resto fraccionário até zone.end (se não cai exactamente em múltiplo de 1/12)
+      if (t < zone.end) {
+        srcAccum += (zone.end - t);
+      }
+
+      // Bezier de saída da zona
+      var nextSpeed = (k + 1 < zones.length || zone.end < layerOut) ? fastF : 1.0;
+      pushBezier(zone.end, srcAccum, 1.0, nextSpeed);
+      cursor = zone.end;
+    }
+
+    // Secção rápida final (se houver)
+    if (cursor < layerOut) {
+      srcAccum += (layerOut - cursor) * fastF;
+      pushBezier(layerOut, srcAccum, fastF, fastF);
+    }
+
+    // ── 4. Aplicar keyframes no AE ────────────────────────────
+    for (var n = 0; n < kfs.length; n++) {
+      var kf  = kfs[n];
       var idx = tr.addKey(kf.compT);
       tr.setValueAtKey(idx, kf.srcT);
 
-      // Interpolação bezier
-      tr.setInterpolationTypeAtKey(
-        idx,
-        KeyframeInterpolationType.BEZIER,
-        KeyframeInterpolationType.BEZIER
-      );
-
-      // Ease: speed = velocidade local (src units/sec), influence = tensão bezier
-      var eIn  = [new KeyframeEase(kf.speedIn,  infl)];
-      var eOut = [new KeyframeEase(kf.speedOut, infl)];
-      tr.setTemporalEaseAtKey(idx, eIn, eOut);
+      if (kf.interp === 'bezier') {
+        tr.setInterpolationTypeAtKey(
+          idx,
+          KeyframeInterpolationType.BEZIER,
+          KeyframeInterpolationType.BEZIER
+        );
+        tr.setTemporalEaseAtKey(
+          idx,
+          [new KeyframeEase(kf.speedIn,  infl)],
+          [new KeyframeEase(kf.speedOut, infl)]
+        );
+      } else {
+        // HOLD: frame congelado até ao próximo keyframe
+        tr.setInterpolationTypeAtKey(
+          idx,
+          KeyframeInterpolationType.HOLD,
+          KeyframeInterpolationType.HOLD
+        );
+      }
     }
 
     app.endUndoGroup();
     return 'ok';
 
   } catch (e) {
-    try { app.endUndoGroup(); } catch(_) {}
+    try { app.endUndoGroup(); } catch (_) {}
     return 'Erro: ' + e.message;
   }
 }
