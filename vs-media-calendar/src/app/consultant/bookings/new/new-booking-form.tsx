@@ -29,6 +29,8 @@ import {
   Info,
   Plus,
   Minus,
+  CreditCard,
+  Percent,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -68,7 +70,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   const router = useRouter()
   const [step, setStep] = useState(1)
 
-  // Form state
   const [selectedVideographerId, setSelectedVideographerId] = useState("")
   const [selectedServices, setSelectedServices] = useState<ServiceType[]>([])
   const [additionalIntros, setAdditionalIntros] = useState(0)
@@ -77,25 +78,22 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   const [propertyAddress, setPropertyAddress] = useState("")
   const [propertyType, setPropertyType] = useState("")
   const [notes, setNotes] = useState("")
+  const [paymentType, setPaymentType] = useState<"FLAT_FEE" | "COMMISSION">("FLAT_FEE")
 
-  // Travel / pricing state
   const [travelEstimate, setTravelEstimate] = useState<{
     durationText: string
     hasTravelFee: boolean
   } | null>(null)
   const [travelLoading, setTravelLoading] = useState(false)
 
-  // Time slots
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
 
-  // Submission
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
   const selectedVideographer = videographers.find((v) => v.id === selectedVideographerId)
 
-  // Fetch time slots when date or videographer changes
   useEffect(() => {
     if (!selectedDate || !selectedVideographerId) return
     setSlotsLoading(true)
@@ -109,7 +107,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
       .finally(() => setSlotsLoading(false))
   }, [selectedDate, selectedVideographerId])
 
-  // Fetch travel estimate when address changes
   useEffect(() => {
     if (!propertyAddress || propertyAddress.length < 3) return
     const timer = setTimeout(() => {
@@ -150,7 +147,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   }
 
   const handleSubmit = async () => {
-    if (!selectedSlot || !pricing) return
+    if (!selectedSlot) return
     setSubmitting(true)
     setError("")
     try {
@@ -167,18 +164,12 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
           travelFeeAmount: travelEstimate?.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0,
           propertyType: propertyType || undefined,
           notes,
-          totalAmount: pricing.total,
+          paymentType,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Erro ao criar marcação")
-
-      // Redirect to Stripe checkout
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
-      } else {
-        router.push(`/consultant/bookings/${data.bookingId}`)
-      }
+      router.push(`/consultant/bookings/${data.bookingId}`)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro desconhecido")
       setSubmitting(false)
@@ -302,12 +293,11 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                     service={service}
                     selected={selectedServices.includes(service)}
                     onToggle={toggleService}
-                    price={service === "VIDEO_STANDARD" ? 50 : 60}
+                    price={service === "VIDEO_STANDARD" ? 100 : 120}
                   />
                 ))}
               </div>
 
-              {/* Additional intros */}
               {selectedServices.some((s) => VIDEO_SERVICES.includes(s)) && (
                 <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <div className="flex items-center justify-between">
@@ -371,7 +361,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             </CardContent>
           </Card>
 
-          {/* Price preview */}
           {pricing && (
             <div className="bg-[#0f3460] text-white rounded-xl p-4 flex items-center justify-between">
               <div>
@@ -478,7 +467,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            {/* Property type — required for video services */}
             {hasVideoService && (
               <div>
                 <p className="text-sm font-medium text-slate-700 mb-2">
@@ -529,7 +517,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
               hint="Inclua cidade e código postal para cálculo de deslocação"
             />
 
-            {/* Travel estimate */}
             {travelLoading && (
               <div className="flex items-center gap-2 text-slate-500 text-sm p-3 bg-slate-50 rounded-lg">
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -589,15 +576,14 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
         </Card>
       )}
 
-      {/* Step 5: Summary & Checkout */}
-      {step === 5 && pricing && selectedVideographer && selectedSlot && (
+      {/* Step 5: Summary */}
+      {step === 5 && selectedVideographer && selectedSlot && (
         <Card>
           <CardHeader>
-            <CardTitle>Resumo e Pagamento</CardTitle>
-            <CardDescription>Reveja os detalhes antes de confirmar</CardDescription>
+            <CardTitle>Resumo e Confirmação</CardTitle>
+            <CardDescription>Reveja os detalhes e escolha o tipo de pagamento</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Booking details */}
             <div className="space-y-3">
               <SummaryRow
                 icon={<User className="w-4 h-4" />}
@@ -639,44 +625,114 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
 
             <hr className="border-slate-100" />
 
-            {/* Pricing breakdown */}
-            <div className="space-y-2">
-              {pricing.services.map((s) => (
-                <div key={s.type} className="flex justify-between text-sm">
-                  <span className="text-slate-600">{s.label}</span>
-                  <span className="font-medium text-slate-900">{formatPrice(s.price)}</span>
-                </div>
-              ))}
-              {pricing.additionalIntros > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">
-                    Introduções adicionais ({pricing.additionalIntros}×)
-                  </span>
-                  <span className="font-medium text-slate-900">
-                    {formatPrice(pricing.additionalIntrosTotal)}
-                  </span>
-                </div>
-              )}
-              {pricing.hasTravelFee && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-amber-600">Taxa de deslocação</span>
-                  <span className="font-medium text-amber-700">
-                    {formatPrice(pricing.travelFeeAmount)}
-                  </span>
-                </div>
-              )}
+            {/* Payment type selection */}
+            <div>
+              <p className="text-sm font-semibold text-slate-800 mb-3">Tipo de Pagamento</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("FLAT_FEE")}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
+                    paymentType === "FLAT_FEE"
+                      ? "border-[#0f3460] bg-[#0f3460]/5"
+                      : "border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  <CreditCard className={cn("w-6 h-6", paymentType === "FLAT_FEE" ? "text-[#0f3460]" : "text-slate-400")} />
+                  <div>
+                    <p className={cn("text-sm font-semibold", paymentType === "FLAT_FEE" ? "text-[#0f3460]" : "text-slate-700")}>
+                      Taxa Fixa
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {pricing ? formatPrice(pricing.total) : "—"} faturado mensalmente
+                    </p>
+                  </div>
+                  {paymentType === "FLAT_FEE" && (
+                    <CheckCircle2 className="w-4 h-4 text-[#0f3460] self-end" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("COMMISSION")}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
+                    paymentType === "COMMISSION"
+                      ? "border-[#e94560] bg-[#e94560]/5"
+                      : "border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  <Percent className={cn("w-6 h-6", paymentType === "COMMISSION" ? "text-[#e94560]" : "text-slate-400")} />
+                  <div>
+                    <p className={cn("text-sm font-semibold", paymentType === "COMMISSION" ? "text-[#e94560]" : "text-slate-700")}>
+                      Comissão de Venda
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      0,25% do valor de venda
+                    </p>
+                  </div>
+                  {paymentType === "COMMISSION" && (
+                    <CheckCircle2 className="w-4 h-4 text-[#e94560] self-end" />
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div className="flex justify-between items-center py-3 px-4 bg-[#0f3460] rounded-xl">
-              <span className="text-white font-semibold">Total a pagar</span>
-              <span className="text-white text-2xl font-bold">{formatPrice(pricing.total)}</span>
-            </div>
+            {paymentType === "FLAT_FEE" && pricing && (
+              <div className="space-y-2">
+                {pricing.services.map((s) => (
+                  <div key={s.type} className="flex justify-between text-sm">
+                    <span className="text-slate-600">{s.label}</span>
+                    <span className="font-medium text-slate-900">{formatPrice(s.price)}</span>
+                  </div>
+                ))}
+                {pricing.additionalIntros > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">
+                      Introduções adicionais ({pricing.additionalIntros}×)
+                    </span>
+                    <span className="font-medium text-slate-900">
+                      {formatPrice(pricing.additionalIntrosTotal)}
+                    </span>
+                  </div>
+                )}
+                {pricing.hasTravelFee && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-amber-600">Taxa de deslocação</span>
+                    <span className="font-medium text-amber-700">
+                      {formatPrice(pricing.travelFeeAmount)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-3 px-4 bg-[#0f3460] rounded-xl mt-2">
+                  <span className="text-white font-semibold">Total a faturar</span>
+                  <span className="text-white text-2xl font-bold">{formatPrice(pricing.total)}</span>
+                </div>
+              </div>
+            )}
 
-            {/* Payment notice */}
+            {paymentType === "COMMISSION" && (
+              <div className="p-4 bg-[#e94560]/5 border border-[#e94560]/20 rounded-xl">
+                <div className="flex items-start gap-2">
+                  <Percent className="w-4 h-4 text-[#e94560] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Comissão de 0,25%</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Nenhum valor é cobrado agora. Quando o imóvel for vendido, introduza o valor de venda
+                      na página de pagamentos. A comissão de 0,25% será adicionada à próxima fatura.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
               <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-700">
-                O pagamento é processado de forma segura via Stripe. A marcação só fica confirmada após pagamento bem-sucedido.
+                {paymentType === "FLAT_FEE"
+                  ? "O valor será incluído na sua fatura mensal. A marcação fica imediatamente pendente de aceitação pelo videógrafo."
+                  : "A marcação fica pendente de aceitação pelo videógrafo. Não existe pagamento imediato."}
               </p>
             </div>
 
@@ -692,7 +748,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
               loading={submitting}
               onClick={handleSubmit}
             >
-              Pagar {formatPrice(pricing.total)} e Confirmar
+              Confirmar Marcação
             </Button>
           </CardContent>
         </Card>

@@ -86,6 +86,17 @@ enum PropertyType {
   T5_PLUS
 }
 
+enum PaymentType {
+  FLAT_FEE
+  COMMISSION
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
 enum NotificationType {
   BOOKING_CONFIRMED
   PAYMENT_COMPLETED
@@ -130,6 +141,7 @@ model User {
 
   bookingsAsConsultant   Booking[] @relation("ConsultantBookings")
   bookingsAsVideographer Booking[] @relation("VideographerBookings")
+  invoices               MonthlyInvoice[]
 
   weeklyCapacity      Int?    @default(10)
   googleCalendarId    String?
@@ -212,16 +224,39 @@ model Booking {
   cancelledAt           DateTime?
   cancelReason          String?
   completedAt           DateTime?
+  paymentType           PaymentType  @default(FLAT_FEE)
+  commissionRate        Float?
+  salePrice             Float?
+  commissionAmount      Float?
+  invoiceId             String?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
   consultant   User @relation("ConsultantBookings", fields: [consultantId], references: [id])
   videographer User @relation("VideographerBookings", fields: [videographerId], references: [id])
+  invoice      MonthlyInvoice? @relation(fields: [invoiceId], references: [id])
 
   services      BookingService[]
   payment       Payment?
   deliverables  Deliverable[]
   notifications Notification[]
+}
+
+model MonthlyInvoice {
+  id              String        @id @default(cuid())
+  consultantId    String
+  month           String
+  status          InvoiceStatus @default(PENDING)
+  subtotal        Float         @default(0)
+  total           Float         @default(0)
+  dueDate         DateTime
+  paidAt          DateTime?
+  stripeSessionId String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  consultant User      @relation(fields: [consultantId], references: [id])
+  bookings   Booking[]
 }
 
 model BookingService {

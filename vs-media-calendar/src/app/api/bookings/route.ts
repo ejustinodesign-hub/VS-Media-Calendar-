@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import Stripe from "stripe"
-import { calculateTotal, SERVICE_LABELS } from "@/lib/pricing"
+import { calculateTotal } from "@/lib/pricing"
 import { sendVideographerRequestEmail } from "@/lib/email"
 import type { ServiceType, PropertyType } from "@prisma/client"
-
-function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-03-25.dahlia" })
-}
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -19,6 +14,18 @@ export async function POST(req: NextRequest) {
   const consultantId = session.user.id
   if (!consultantId) {
     return NextResponse.json({ error: "User ID not found" }, { status: 401 })
+  }
+
+  // Check for OVERDUE invoices
+  const overdueInvoice = await prisma.monthlyInvoice.findFirst({
+    where: { consultantId, status: "OVERDUE" },
+    select: { id: true },
+  })
+  if (overdueInvoice) {
+    return NextResponse.json(
+      { error: "Tem faturas em atraso. Por favor regularize os pagamentos.", overdueInvoices: true },
+      { status: 402 }
+    )
   }
 
   const body = await req.json()
@@ -32,14 +39,13 @@ export async function POST(req: NextRequest) {
     hasTravelFee = false,
     travelFeeAmount = 0,
     notes,
-    totalAmount,
+    paymentType = "FLAT_FEE",
   } = body
 
   if (!videographerId || !scheduledAt || !services?.length || !propertyAddress) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
 
-  // Verify videographer exists
   const videographer = await prisma.user.findFirst({
     where: { id: videographerId, role: { in: ["VIDEOGRAPHER", "ADMIN"] }, active: true },
     select: { id: true, name: true, email: true },
@@ -48,11 +54,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Videographer not found" }, { status: 404 })
   }
 
-  // Calculate pricing server-side
   const consultant = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: consultantId },
     select: { name: true, email: true, teamType: true },
   })
+
+  const isCommission = paymentType === "COMMISSION"
 
   const pricing = calculateTotal(
     services as ServiceType[],
@@ -61,7 +68,6 @@ export async function POST(req: NextRequest) {
     consultant?.teamType || "INTERNAL"
   )
 
-  // Create booking in PENDING_PAYMENT state
   const booking = await prisma.booking.create({
     data: {
       consultantId,
@@ -73,78 +79,34 @@ export async function POST(req: NextRequest) {
       travelFeeAmount: hasTravelFee ? travelFeeAmount : 0,
       additionalIntros,
       notes,
-      status: "PENDING_PAYMENT",
+      status: "PENDING_ACCEPTANCE",
+      paymentType: isCommission ? "COMMISSION" : "FLAT_FEE",
+      commissionRate: isCommission ? 0.0025 : undefined,
       services: {
         create: pricing.services.map((s) => ({
           serviceType: s.type,
-          price: s.price,
+          price: isCommission ? 0 : s.price,
         })),
-      },
-      payment: {
-        create: {
-          amount: pricing.total,
-          currency: "eur",
-          status: "pending",
-        },
       },
     },
   })
 
-  // Create Stripe checkout session
-  const lineItems = [
-    ...pricing.services.map((s) => ({
-      price_data: {
-        currency: "eur",
-        product_data: { name: SERVICE_LABELS[s.type] },
-        unit_amount: Math.round(s.price * 100),
-      },
-      quantity: 1,
-    })),
-  ]
-
-  if (pricing.additionalIntros > 0) {
-    lineItems.push({
-      price_data: {
-        currency: "eur",
-        product_data: { name: `Introduções Adicionais (${pricing.additionalIntros}×)` },
-        unit_amount: Math.round(pricing.additionalIntrosTotal * 100),
-      },
-      quantity: 1,
+  try {
+    await sendVideographerRequestEmail({
+      bookingId: booking.id,
+      consultantName: consultant?.name || "",
+      consultantEmail: consultant?.email || "",
+      videographerName: videographer.name || "",
+      videographerEmail: videographer.email || "",
+      propertyAddress,
+      scheduledAt: new Date(scheduledAt),
+      services: pricing.services.map((s) => s.label),
+      totalAmount: isCommission ? undefined : pricing.total,
+      status: "PENDING_ACCEPTANCE",
     })
+  } catch (e) {
+    console.error("Email error:", e)
   }
 
-  if (pricing.hasTravelFee) {
-    lineItems.push({
-      price_data: {
-        currency: "eur",
-        product_data: { name: "Taxa de Deslocação" },
-        unit_amount: Math.round(pricing.travelFeeAmount * 100),
-      },
-      quantity: 1,
-    })
-  }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-
-  const checkoutSession = await getStripe().checkout.sessions.create({
-    payment_method_types: ["card"],
-    mode: "payment",
-    line_items: lineItems,
-    success_url: `${appUrl}/consultant/bookings/${booking.id}?payment=success`,
-    cancel_url: `${appUrl}/consultant/bookings/${booking.id}?payment=cancelled`,
-    metadata: { bookingId: booking.id },
-    customer_email: consultant?.email || undefined,
-    locale: "pt",
-  })
-
-  // Update payment with Stripe session ID
-  await prisma.payment.update({
-    where: { bookingId: booking.id },
-    data: { stripeSessionId: checkoutSession.id },
-  })
-
-  return NextResponse.json({
-    bookingId: booking.id,
-    checkoutUrl: checkoutSession.url,
-  })
+  return NextResponse.json({ bookingId: booking.id })
 }

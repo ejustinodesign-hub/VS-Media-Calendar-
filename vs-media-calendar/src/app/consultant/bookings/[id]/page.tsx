@@ -6,11 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/pricing"
 import { CancelBookingButton } from "./cancel-button"
-import { PayButton } from "./pay-button"
 import { SERVICE_LABELS } from "@/lib/pricing"
 import { formatDateTime } from "@/lib/utils"
 import {
-  User, Calendar, MapPin, Clock, CreditCard,
+  User, Calendar, MapPin, Clock,
   Download, FileVideo, CheckCircle2, AlertCircle,
 } from "lucide-react"
 
@@ -60,20 +59,6 @@ export default async function BookingDetailPage({ params }: Props) {
               </div>
             </CardContent>
           </Card>
-
-          {/* Pending payment banner */}
-          {booking.status === "PENDING_PAYMENT" && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-              <CreditCard className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-amber-800 font-semibold text-sm">Pagamento Pendente</p>
-                <p className="text-amber-700 text-xs mt-1 mb-3">
-                  Esta marcação está a aguardar pagamento. Completa o pagamento para confirmar o serviço.
-                </p>
-                <PayButton bookingId={booking.id} />
-              </div>
-            </div>
-          )}
 
           {/* Status messages */}
           {booking.status === "REJECTED" && (
@@ -181,14 +166,23 @@ export default async function BookingDetailPage({ params }: Props) {
               </div>
               <div className="pt-3 border-t border-slate-100">
                 <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-900">Total Pago</span>
+                  <span className="font-bold text-slate-900">
+                    {booking.paymentType === "COMMISSION" ? "Tipo de Pagamento" : "Total"}
+                  </span>
                   <span className="text-xl font-bold text-[#0f3460]">
-                    {formatPrice(booking.payment?.amount || 0)}
+                    {booking.paymentType === "COMMISSION"
+                      ? "Comissão 0,25%"
+                      : formatPrice(booking.services.reduce((s, svc) => s + svc.price, 0) + (booking.hasTravelFee ? booking.travelFeeAmount : 0) + booking.additionalIntros * 25)}
                   </span>
                 </div>
-                {booking.payment?.paidAt && (
+                {booking.paymentType === "COMMISSION" && booking.salePrice && (
                   <p className="text-xs text-slate-400 mt-1 text-right">
-                    Pago em {formatDateTime(booking.payment.paidAt)}
+                    Venda: {formatPrice(booking.salePrice)} · Comissão: {formatPrice(booking.commissionAmount || 0)}
+                  </p>
+                )}
+                {booking.paymentType === "COMMISSION" && !booking.salePrice && (
+                  <p className="text-xs text-slate-400 mt-1 text-right">
+                    A aguardar registo de venda
                   </p>
                 )}
               </div>

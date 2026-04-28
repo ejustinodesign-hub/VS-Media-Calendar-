@@ -5,8 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/pricing"
 import Link from "next/link"
-import { Calendar, Clock, CreditCard, Download } from "lucide-react"
-import { PayButton } from "./[id]/pay-button"
+import { Calendar, Clock, Download } from "lucide-react"
 
 export default async function ConsultantBookingsPage() {
   const session = await auth()
@@ -44,26 +43,12 @@ export default async function ConsultantBookingsPage() {
         ) : (
           <div className="space-y-3">
             {bookings.map((booking) => {
-              const total = booking.payment?.amount || 0
+              const total = booking.services.reduce((sum, s) => sum + s.price, 0)
               const scheduledDate = new Date(booking.scheduledAt)
               const hasDeliverables = booking.deliverables.length > 0
 
               return (
                 <div key={booking.id}>
-                  {booking.status === "PENDING_PAYMENT" && (
-                    <Card className="border-amber-200 bg-amber-50/50 mb-1">
-                      <CardContent className="py-3 px-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2 text-amber-700 text-sm">
-                          <CreditCard className="w-4 h-4 flex-shrink-0" />
-                          <span className="font-medium">Pagamento pendente</span>
-                          <span className="text-amber-600 text-xs truncate hidden sm:block">— {booking.propertyAddress}</span>
-                        </div>
-                        <div className="flex-shrink-0 w-40">
-                          <PayButton bookingId={booking.id} />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
                 <Link href={`/consultant/bookings/${booking.id}`}>
                   <Card className={`hover:shadow-md transition-shadow cursor-pointer ${booking.status === "FILE_DELIVERED" ? "border-emerald-300 bg-emerald-50/40" : ""}`}>
                     <CardContent className="flex items-center gap-4 py-4">

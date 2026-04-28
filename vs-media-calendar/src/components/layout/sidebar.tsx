@@ -18,6 +18,7 @@ import {
   ChevronRight,
   X,
   UserCircle,
+  CreditCard,
 } from "lucide-react"
 import { useSidebar } from "./sidebar-context"
 
@@ -32,6 +33,7 @@ const consultantNav: NavItem[] = [
   { href: "/consultant/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/consultant/bookings/new", label: "Nova Marcação", icon: CalendarPlus },
   { href: "/consultant/bookings", label: "As Minhas Marcações", icon: Calendar },
+  { href: "/consultant/payments", label: "Pagamentos", icon: CreditCard },
   { href: "/consultant/profile", label: "O Meu Perfil", icon: UserCircle },
 ]
 

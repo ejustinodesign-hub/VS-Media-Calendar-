@@ -22,6 +22,16 @@ export async function POST(req: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     const stripeSession = event.data.object as Stripe.Checkout.Session
+
+    const invoiceId = stripeSession.metadata?.invoiceId
+    if (invoiceId) {
+      await prisma.monthlyInvoice.update({
+        where: { id: invoiceId },
+        data: { status: "PAID", paidAt: new Date() },
+      })
+      return NextResponse.json({ ok: true })
+    }
+
     const bookingId = stripeSession.metadata?.bookingId
     if (!bookingId) return NextResponse.json({ ok: true })
 
