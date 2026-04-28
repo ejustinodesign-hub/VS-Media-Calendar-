@@ -133,7 +133,11 @@ export default async function VideographerBookingDetailPage({ params, searchPara
 
         {/* Upload deliverable */}
         {canUpload && (
-          <UploadDeliverable bookingId={booking.id} existingFiles={booking.deliverables} />
+          <UploadDeliverable
+            bookingId={booking.id}
+            existingFiles={booking.deliverables}
+            primaryConsultantId={booking.consultantId}
+          />
         )}
 
       </div>
