@@ -5,7 +5,7 @@ import { sendStatusUpdateEmail } from "@/lib/email"
 import { SERVICE_LABELS } from "@/lib/pricing"
 
 const INTRO_PRICE = 25
-const INTRO_VIDEOGRAPHER_FEE = 20
+const VIDEOGRAPHER_FEE = 20
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         uploadedBy: session.user.id,
         description: description || null,
         targetConsultantId,
-        videographerFee: INTRO_VIDEOGRAPHER_FEE,
+        videographerFee: VIDEOGRAPHER_FEE,
       },
     })
 
@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
       mimeType: mimeType || null,
       uploadedBy: session.user.id,
       description: description || null,
+      videographerFee: VIDEOGRAPHER_FEE,
     },
   })
 

@@ -13,8 +13,8 @@ import {
 
 // Videographer earnings model
 const BASE_SALARY = 1200
-const VIDEO_RATE = 10      // per video service
-const INTRO_RATE = 10      // per additional intro
+const VIDEO_RATE = 20      // per video service delivered
+const INTRO_RATE = 20      // per additional intro (within same booking)
 // Photography: full service price goes to videographer
 const PHOTO_RATES: Record<string, number> = {
   PHOTO_DRONE: 35,
@@ -62,10 +62,11 @@ export default async function VideographerDashboard() {
   let stats: any[] = []
   let monthBookings: any[] = []
   let prevMonthBookings: any[] = []
+  let sharedIntrosThisMonth: { videographerFee: number | null }[] = []
   let dbError: string | null = null
 
   try {
-    ;[pendingBookings, upcomingBookings, stats, monthBookings, prevMonthBookings] =
+    ;[pendingBookings, upcomingBookings, stats, monthBookings, prevMonthBookings, sharedIntrosThisMonth] =
       await Promise.all([
         prisma.booking.findMany({
           where: { videographerId: userId, status: "PENDING_ACCEPTANCE" },
@@ -103,6 +104,14 @@ export default async function VideographerDashboard() {
           },
           include: { services: true },
         }),
+        prisma.deliverable.findMany({
+          where: {
+            uploadedBy: userId,
+            targetConsultantId: { not: null },
+            createdAt: { gte: monthStart, lte: monthEnd },
+          },
+          select: { videographerFee: true },
+        }),
       ])
   } catch (err) {
     console.error("Videographer dashboard DB error:", err)
@@ -126,7 +135,8 @@ export default async function VideographerDashboard() {
   }
 
   const curr = aggregateEarnings(monthBookings)
-  const currVariable = curr.videoTotal + curr.introTotal + curr.photoTotal + curr.travelTotal
+  const sharedIntrosTotal = sharedIntrosThisMonth.reduce((sum, d) => sum + (d.videographerFee ?? 0), 0)
+  const currVariable = curr.videoTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal
   const currTotal = BASE_SALARY + currVariable
 
   const prev = aggregateEarnings(prevMonthBookings)
@@ -180,12 +190,13 @@ export default async function VideographerDashboard() {
             </div>
 
             {/* Breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
                 { icon: Star, label: "Salário base", value: BASE_SALARY, color: "bg-blue-500/20 text-blue-300" },
                 { icon: Video, label: `Vídeos (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE").length})`, value: curr.videoTotal, color: "bg-purple-500/20 text-purple-300" },
                 { icon: Camera, label: "Fotografia", value: curr.photoTotal, color: "bg-pink-500/20 text-pink-300" },
                 { icon: Car, label: "Deslocação", value: curr.travelTotal, color: "bg-amber-500/20 text-amber-300" },
+                { icon: TrendingUp, label: `Intros extras (×${sharedIntrosThisMonth.length})`, value: sharedIntrosTotal, color: "bg-emerald-500/20 text-emerald-300" },
               ].map((item) => (
                 <div key={item.label} className={`rounded-xl p-3 ${item.color.split(" ")[0]}`}>
                   <item.icon className={`w-4 h-4 mb-1 ${item.color.split(" ")[1]}`} />
@@ -201,8 +212,10 @@ export default async function VideographerDashboard() {
             <p className="text-xs text-slate-500">
               Renova a 1 de cada mês · {monthBookings.length} serviço(s) contabilizados
             </p>
-            {curr.introTotal > 0 && (
-              <p className="text-xs text-slate-500">+ {formatPrice(curr.introTotal)} em intros</p>
+            {sharedIntrosThisMonth.length > 0 && (
+              <p className="text-xs text-emerald-600 font-medium">
+                + {formatPrice(sharedIntrosTotal)} em intros partilhadas
+              </p>
             )}
           </div>
         </Card>
