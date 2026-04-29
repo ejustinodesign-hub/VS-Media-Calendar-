@@ -2,8 +2,8 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatPrice } from "@/lib/pricing"
-import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download } from "lucide-react"
+import { formatPrice, IVA_RATE, DEFAULT_PRICES, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE, TRAVEL_FEE_AMOUNT } from "@/lib/pricing"
+import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator } from "lucide-react"
 import { PayInvoiceButton } from "./pay-invoice-button"
 import { SalePriceForm } from "./sale-price-form"
 
@@ -16,7 +16,13 @@ export default async function ConsultantPaymentsPage({
   const session = await auth()
   const consultantId = session!.user.id!
 
-  const [invoices, pendingCommissionBookings, sharedIntros] = await Promise.all([
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+  const [invoices, pendingCommissionBookings, sharedIntros, currentMonthBookings] = await Promise.all([
     prisma.monthlyInvoice.findMany({
       where: { consultantId },
       include: { bookings: { include: { services: true } } },
@@ -38,6 +44,16 @@ export default async function ConsultantPaymentsPage({
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.booking.findMany({
+      where: {
+        consultantId,
+        paymentType: "FLAT_FEE",
+        scheduledAt: { gte: monthStart, lte: monthEnd },
+        status: { notIn: ["CANCELLED", "REJECTED"] },
+      },
+      include: { services: true },
+      orderBy: { scheduledAt: "asc" },
+    }),
   ])
 
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length
@@ -45,6 +61,17 @@ export default async function ConsultantPaymentsPage({
   const totalDue = invoices
     .filter((i) => i.status !== "PAID")
     .reduce((sum, i) => sum + i.total, 0)
+
+  // Current month billing estimate (only shown if no invoice generated yet for this month)
+  const hasCurrentMonthInvoice = invoices.some((i) => i.month === currentMonth)
+  const summaryNet = currentMonthBookings.reduce((sum, b) => {
+    const servicesNet = b.services.reduce((s, svc) => s + (DEFAULT_PRICES[svc.serviceType as keyof typeof DEFAULT_PRICES] ?? 0), 0)
+    const introsNet = (b.additionalIntros ?? 0) * ADDITIONAL_INTRO_PRICE
+    const travel = b.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0
+    return sum + servicesNet + introsNet + travel
+  }, 0)
+  const summaryIva = Math.round(summaryNet * IVA_RATE * 100) / 100
+  const summaryTotal = Math.round(summaryNet * (1 + IVA_RATE) * 100) / 100
 
   return (
     <>
@@ -87,6 +114,58 @@ export default async function ConsultantPaymentsPage({
             </CardContent>
           </Card>
         </div>
+
+        {/* Current month billing summary */}
+        {!hasCurrentMonthInvoice && currentMonthBookings.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calculator className="w-4 h-4 text-[#0f3460]" />
+                Resumo de faturação — {lastDayOfMonth.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-slate-500">
+                Estimativa com base nas marcações confirmadas este mês. A fatura será emitida no último dia do mês ({lastDayOfMonth.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}).
+              </p>
+              <div className="space-y-2">
+                {currentMonthBookings.map((b) => {
+                  const servicesNet = b.services.reduce((s, svc) => s + (DEFAULT_PRICES[svc.serviceType as keyof typeof DEFAULT_PRICES] ?? 0), 0)
+                  const introsNet = (b.additionalIntros ?? 0) * ADDITIONAL_INTRO_PRICE
+                  const travel = b.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0
+                  const bookingNet = servicesNet + introsNet + travel
+                  return (
+                    <div key={b.id} className="flex items-start justify-between gap-2 py-2 border-b border-slate-100 last:border-0">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-800 truncate">{b.propertyAddress}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {b.services.map((s) => SERVICE_LABELS[s.serviceType as keyof typeof SERVICE_LABELS]).join(", ")}
+                          {b.hasTravelFee ? " · Deslocação" : ""}
+                          {(b.additionalIntros ?? 0) > 0 ? ` · ${b.additionalIntros}× Intro adicional` : ""}
+                        </p>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-700 whitespace-nowrap">{formatPrice(bookingNet)} s/ IVA</p>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="pt-2 space-y-1.5 border-t border-slate-200">
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Subtotal (s/ IVA)</span>
+                  <span>{formatPrice(summaryNet)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>IVA 23%</span>
+                  <span>{formatPrice(summaryIva)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold text-slate-900">
+                  <span>Total estimado (c/ IVA)</span>
+                  <span>{formatPrice(summaryTotal)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Shared intros from other bookings */}
         {sharedIntros.length > 0 && (
@@ -201,6 +280,8 @@ export default async function ConsultantPaymentsPage({
                 {invoices.map((invoice) => {
                   const isPaid = invoice.status === "PAID"
                   const isOverdue = invoice.status === "OVERDUE"
+                  const [iy, im] = invoice.month.split("-").map(Number)
+                  const canPayFrom = new Date(iy, im, 0).toISOString()
                   return (
                     <div
                       key={invoice.id}
@@ -242,7 +323,11 @@ export default async function ConsultantPaymentsPage({
                             Pago
                           </span>
                         ) : (
-                          <PayInvoiceButton invoiceId={invoice.id} />
+                          <PayInvoiceButton
+                            invoiceId={invoice.id}
+                            isOverdue={isOverdue}
+                            canPayFrom={canPayFrom}
+                          />
                         )}
                       </div>
                     </div>
