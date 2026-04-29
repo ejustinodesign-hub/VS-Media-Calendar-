@@ -41,6 +41,7 @@ const videographerNav: NavItem[] = [
   { href: "/videographer/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/videographer/bookings", label: "Pedidos", icon: FileVideo },
   { href: "/videographer/schedule", label: "Agenda", icon: Calendar },
+  { href: "/videographer/profile", label: "O Meu Perfil", icon: UserCircle },
 ]
 
 const adminNav: NavItem[] = [
