@@ -102,7 +102,7 @@ export default async function AdminUsersPage() {
                           : "—"}
                       </td>
                       <td className="px-6 py-4">
-                        <UserManagement userId={user.id} currentRole={user.role} currentActive={user.active} />
+                        <UserManagement userId={user.id} currentRole={user.role} currentActive={user.active} currentName={user.name ?? null} />
                       </td>
                     </tr>
                   ))}

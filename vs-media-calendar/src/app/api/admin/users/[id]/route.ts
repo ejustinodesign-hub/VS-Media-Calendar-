@@ -15,11 +15,12 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   const body = await req.json()
-  const { role, active } = body
+  const { role, active, name } = body
 
-  const updateData: Partial<{ role: Role; active: boolean }> = {}
+  const updateData: Partial<{ role: Role; active: boolean; name: string }> = {}
   if (role) updateData.role = role as Role
   if (typeof active === "boolean") updateData.active = active
+  if (typeof name === "string" && name.trim()) updateData.name = name.trim()
 
   const user = await prisma.user.update({
     where: { id },
