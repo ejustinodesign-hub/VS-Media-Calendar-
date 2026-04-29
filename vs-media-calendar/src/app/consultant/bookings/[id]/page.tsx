@@ -4,7 +4,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
-import { formatPrice } from "@/lib/pricing"
+import { formatPrice, applyIva, IVA_RATE } from "@/lib/pricing"
 import { CancelBookingButton } from "./cancel-button"
 import { SERVICE_LABELS } from "@/lib/pricing"
 import { formatDateTime } from "@/lib/utils"
@@ -164,28 +164,46 @@ export default async function BookingDetailPage({ params }: Props) {
                   </div>
                 )}
               </div>
-              <div className="pt-3 border-t border-slate-100">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-900">
-                    {booking.paymentType === "COMMISSION" ? "Tipo de Pagamento" : "Total"}
-                  </span>
-                  <span className="text-xl font-bold text-[#0f3460]">
-                    {booking.paymentType === "COMMISSION"
-                      ? "Comissão 0,25%"
-                      : formatPrice(booking.services.reduce((s, svc) => s + svc.price, 0) + (booking.hasTravelFee ? booking.travelFeeAmount : 0) + booking.additionalIntros * 25)}
-                  </span>
+              {booking.paymentType === "FLAT_FEE" && (() => {
+                const net = booking.services.reduce((s, svc) => s + svc.price, 0)
+                  + (booking.hasTravelFee ? booking.travelFeeAmount : 0)
+                  + booking.additionalIntros * 25
+                const iva = Math.round(net * IVA_RATE * 100) / 100
+                const gross = Math.round(net * (1 + IVA_RATE) * 100) / 100
+                return (
+                  <div className="pt-3 border-t border-slate-100 space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Subtotal (s/ IVA)</span>
+                      <span className="text-slate-700">{formatPrice(net)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">IVA ({Math.round(IVA_RATE * 100)}%)</span>
+                      <span className="text-slate-700">{formatPrice(iva)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-bold text-slate-900">Total</span>
+                      <span className="text-xl font-bold text-[#0f3460]">{formatPrice(gross)}</span>
+                    </div>
+                  </div>
+                )
+              })()}
+              {booking.paymentType === "COMMISSION" && (
+                <div className="pt-3 border-t border-slate-100">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-900">Tipo de Pagamento</span>
+                    <span className="text-xl font-bold text-[#e94560]">Comissão 0,25%</span>
+                  </div>
+                  {booking.salePrice ? (
+                    <p className="text-xs text-slate-400 mt-1 text-right">
+                      Venda: {formatPrice(booking.salePrice)} · Comissão: {formatPrice(applyIva(booking.commissionAmount || 0))} (c/ IVA)
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-1 text-right">
+                      A aguardar registo de venda
+                    </p>
+                  )}
                 </div>
-                {booking.paymentType === "COMMISSION" && booking.salePrice && (
-                  <p className="text-xs text-slate-400 mt-1 text-right">
-                    Venda: {formatPrice(booking.salePrice)} · Comissão: {formatPrice(booking.commissionAmount || 0)}
-                  </p>
-                )}
-                {booking.paymentType === "COMMISSION" && !booking.salePrice && (
-                  <p className="text-xs text-slate-400 mt-1 text-right">
-                    A aguardar registo de venda
-                  </p>
-                )}
-              </div>
+              )}
             </CardContent>
           </Card>
 

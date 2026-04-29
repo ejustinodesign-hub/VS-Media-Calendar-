@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
-import { formatPrice } from "@/lib/pricing"
+import { formatPrice, applyIva } from "@/lib/pricing"
 import Link from "next/link"
 import { Calendar, Clock, Download } from "lucide-react"
 
@@ -43,7 +43,10 @@ export default async function ConsultantBookingsPage() {
         ) : (
           <div className="space-y-3">
             {bookings.map((booking) => {
-              const total = booking.services.reduce((sum, s) => sum + s.price, 0)
+              const net = booking.services.reduce((sum, s) => sum + s.price, 0)
+                + (booking.hasTravelFee ? booking.travelFeeAmount : 0)
+                + booking.additionalIntros * 25
+              const total = booking.paymentType === "FLAT_FEE" ? applyIva(net) : null
               const scheduledDate = new Date(booking.scheduledAt)
               const hasDeliverables = booking.deliverables.length > 0
 
@@ -94,8 +97,14 @@ export default async function ConsultantBookingsPage() {
                       </div>
 
                       <div className="text-right flex-shrink-0">
-                        {total > 0 && (
-                          <p className="font-bold text-slate-900">{formatPrice(total)}</p>
+                        {total !== null && total > 0 && (
+                          <>
+                            <p className="font-bold text-slate-900">{formatPrice(total)}</p>
+                            <p className="text-xs text-slate-400">c/ IVA</p>
+                          </>
+                        )}
+                        {booking.paymentType === "COMMISSION" && (
+                          <p className="text-xs font-medium text-[#e94560]">Comissão 0,25%</p>
                         )}
                         <p className="text-xs text-slate-400 mt-0.5">1h30</p>
                       </div>

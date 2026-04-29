@@ -1,6 +1,6 @@
 import type { ServiceType, TeamType } from "@prisma/client"
 
-// Default pricing table (internal team)
+// Default pricing table (internal team) — net prices, IVA applied separately
 export const DEFAULT_PRICES: Record<ServiceType, number> = {
   VIDEO_STANDARD: 100,
   VIDEO_DRONE: 120,
@@ -13,6 +13,7 @@ export const DEFAULT_PRICES: Record<ServiceType, number> = {
 export const ADDITIONAL_INTRO_PRICE = 25
 export const TRAVEL_FEE_AMOUNT = 50
 export const TRAVEL_FEE_THRESHOLD_HOURS = 1
+export const IVA_RATE = 0.23
 
 export const SERVICE_LABELS: Record<ServiceType, string> = {
   VIDEO_STANDARD: "Vídeo Standard",
@@ -39,6 +40,8 @@ export interface PriceCalculation {
   travelFeeAmount: number
   subtotal: number
   total: number
+  ivaAmount: number
+  totalWithIva: number
 }
 
 export function calculateTotal(
@@ -62,6 +65,8 @@ export function calculateTotal(
 
   const subtotal = servicesTotal + additionalIntrosTotal
   const total = subtotal + travelFeeAmount
+  const ivaAmount = Math.round(total * IVA_RATE * 100) / 100
+  const totalWithIva = Math.round(total * (1 + IVA_RATE) * 100) / 100
 
   return {
     services,
@@ -71,6 +76,8 @@ export function calculateTotal(
     travelFeeAmount,
     subtotal,
     total,
+    ivaAmount,
+    totalWithIva,
   }
 }
 
@@ -79,4 +86,8 @@ export function formatPrice(amount: number): string {
     style: "currency",
     currency: "EUR",
   }).format(amount)
+}
+
+export function applyIva(netAmount: number): number {
+  return Math.round(netAmount * (1 + IVA_RATE) * 100) / 100
 }

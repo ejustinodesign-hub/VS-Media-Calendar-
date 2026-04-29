@@ -11,6 +11,7 @@ import {
   PHOTO_SERVICES,
   ADDITIONAL_INTRO_PRICE,
   TRAVEL_FEE_AMOUNT,
+  IVA_RATE,
   calculateTotal,
   formatPrice,
 } from "@/lib/pricing"
@@ -364,8 +365,9 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
           {pricing && (
             <div className="bg-[#0f3460] text-white rounded-xl p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-300">Total estimado</p>
-                <p className="text-2xl font-bold">{formatPrice(pricing.total)}</p>
+                <p className="text-sm text-slate-300">Total estimado (c/ IVA)</p>
+                <p className="text-2xl font-bold">{formatPrice(pricing.totalWithIva)}</p>
+                <p className="text-xs text-slate-400 mt-0.5">IVA 23%: {formatPrice(pricing.ivaAmount)}</p>
               </div>
               <div className="text-right text-sm text-slate-300">
                 {pricing.services.map((s) => (
@@ -705,9 +707,17 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-3 px-4 bg-[#0f3460] rounded-xl mt-2">
+                <div className="flex justify-between text-sm pt-2 border-t border-slate-100">
+                  <span className="text-slate-500">Subtotal (s/ IVA)</span>
+                  <span className="text-slate-700">{formatPrice(pricing.total)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">IVA ({Math.round(IVA_RATE * 100)}%)</span>
+                  <span className="text-slate-700">{formatPrice(pricing.ivaAmount)}</span>
+                </div>
+                <div className="flex justify-between items-center py-3 px-4 bg-[#0f3460] rounded-xl mt-1">
                   <span className="text-white font-semibold">Total a faturar</span>
-                  <span className="text-white text-2xl font-bold">{formatPrice(pricing.total)}</span>
+                  <span className="text-white text-2xl font-bold">{formatPrice(pricing.totalWithIva)}</span>
                 </div>
               </div>
             )}

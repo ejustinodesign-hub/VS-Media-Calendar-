@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { IVA_RATE } from "@/lib/pricing"
 
 export async function GET(req: NextRequest) {
   const isDev = process.env.NODE_ENV === "development"
@@ -49,12 +50,14 @@ export async function GET(req: NextRequest) {
       return sum + servicesTotal + introsTotal + travelTotal
     }, 0)
 
+    const total = Math.round(subtotal * (1 + IVA_RATE) * 100) / 100
+
     const invoice = await prisma.monthlyInvoice.create({
       data: {
         consultantId,
         month,
         subtotal,
-        total: subtotal,
+        total,
         dueDate,
         status: "PENDING",
       },

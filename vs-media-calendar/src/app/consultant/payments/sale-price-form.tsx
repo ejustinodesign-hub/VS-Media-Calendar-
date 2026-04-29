@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { formatPrice } from "@/lib/pricing"
+import { formatPrice, IVA_RATE } from "@/lib/pricing"
 import { CheckCircle2 } from "lucide-react"
 
 interface Props {
@@ -17,8 +17,11 @@ export function SalePriceForm({ bookingId, propertyAddress, commissionRate }: Pr
   const [error, setError] = useState("")
 
   const numericPrice = parseFloat(salePrice.replace(",", "."))
-  const commission = !isNaN(numericPrice) && numericPrice > 0
+  const commissionNet = !isNaN(numericPrice) && numericPrice > 0
     ? numericPrice * commissionRate
+    : null
+  const commission = commissionNet !== null
+    ? Math.round(commissionNet * (1 + IVA_RATE) * 100) / 100
     : null
 
   async function handleSubmit(e: React.FormEvent) {
@@ -46,7 +49,7 @@ export function SalePriceForm({ bookingId, propertyAddress, commissionRate }: Pr
     return (
       <div className="flex items-center gap-2 text-emerald-700 text-sm">
         <CheckCircle2 className="w-4 h-4" />
-        <span>Comissão registada: {commission ? formatPrice(commission) : ""}</span>
+        <span>Comissão registada: {commission ? formatPrice(commission) : ""} (c/ IVA)</span>
       </div>
     )
   }
@@ -72,9 +75,9 @@ export function SalePriceForm({ bookingId, propertyAddress, commissionRate }: Pr
           {loading ? "..." : "Registar"}
         </button>
       </div>
-      {commission && (
+      {commission && commissionNet && (
         <p className="text-xs text-slate-500">
-          Comissão: <span className="font-semibold text-slate-700">{formatPrice(commission)}</span> (0,25%)
+          Comissão: <span className="font-semibold text-slate-700">{formatPrice(commissionNet)}</span> + IVA = <span className="font-semibold text-slate-900">{formatPrice(commission)}</span>
         </p>
       )}
       {error && <p className="text-xs text-red-600">{error}</p>}

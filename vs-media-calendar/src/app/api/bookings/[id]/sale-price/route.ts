@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { IVA_RATE } from "@/lib/pricing"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const commissionAmount = salePrice * (booking.commissionRate ?? 0.0025)
+  const commissionWithIva = Math.round(commissionAmount * (1 + IVA_RATE) * 100) / 100
 
   await prisma.booking.update({
     where: { id },
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       where: { id: existingInvoice.id },
       data: {
         subtotal: existingInvoice.subtotal + commissionAmount,
-        total: existingInvoice.total + commissionAmount,
+        total: existingInvoice.total + commissionWithIva,
       },
     })
     await prisma.booking.update({
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         consultantId: session.user.id!,
         month,
         subtotal: commissionAmount,
-        total: commissionAmount,
+        total: commissionWithIva,
         dueDate: lastDay,
         status: "PENDING",
       },
@@ -74,5 +76,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
   }
 
-  return NextResponse.json({ success: true, commissionAmount })
+  return NextResponse.json({ success: true, commissionAmount, commissionWithIva })
 }

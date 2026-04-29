@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { sendStatusUpdateEmail } from "@/lib/email"
-import { SERVICE_LABELS } from "@/lib/pricing"
+import { SERVICE_LABELS, IVA_RATE } from "@/lib/pricing"
 
-const INTRO_PRICE = 25
+const INTRO_PRICE_NET = 25
+const INTRO_PRICE_WITH_IVA = Math.round(INTRO_PRICE_NET * (1 + IVA_RATE) * 100) / 100
 const VIDEOGRAPHER_FEE = 20
 
 export async function POST(req: NextRequest) {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Charge 25€ to target consultant's current month invoice
+    // Charge intro to target consultant's current month invoice (net + IVA)
     const now = new Date()
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
     const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
@@ -68,8 +69,8 @@ export async function POST(req: NextRequest) {
       await prisma.monthlyInvoice.update({
         where: { id: existingInvoice.id },
         data: {
-          subtotal: existingInvoice.subtotal + INTRO_PRICE,
-          total: existingInvoice.total + INTRO_PRICE,
+          subtotal: existingInvoice.subtotal + INTRO_PRICE_NET,
+          total: existingInvoice.total + INTRO_PRICE_WITH_IVA,
         },
       })
     } else {
@@ -77,8 +78,8 @@ export async function POST(req: NextRequest) {
         data: {
           consultantId: targetConsultantId,
           month,
-          subtotal: INTRO_PRICE,
-          total: INTRO_PRICE,
+          subtotal: INTRO_PRICE_NET,
+          total: INTRO_PRICE_WITH_IVA,
           dueDate,
           status: "PENDING",
         },
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
         bookingId: booking.id,
         type: "FILE_UPLOADED",
         title: "Intro de vídeo disponível",
-        message: `Uma versão de vídeo com a sua introdução para o imóvel ${booking.propertyAddress} está disponível (25€ adicionados à sua fatura).`,
+        message: `Uma versão de vídeo com a sua introdução para o imóvel ${booking.propertyAddress} está disponível (${INTRO_PRICE_WITH_IVA.toFixed(2).replace(".", ",")}€ c/ IVA adicionados à sua fatura).`,
       },
     })
 
