@@ -13,6 +13,7 @@ export default async function ConsultantProfilePage() {
     select: {
       name: true,
       email: true,
+      image: true,
       phone: true,
       billingName: true,
       billingCompany: true,

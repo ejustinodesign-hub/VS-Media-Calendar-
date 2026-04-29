@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, FileText, CheckCircle2 } from "lucide-react"
+import { User, FileText, CheckCircle2, Camera, Loader2 } from "lucide-react"
 
 interface UserData {
   name: string | null
   email: string | null
+  image: string | null
   phone: string | null
   billingName: string | null
   billingCompany: string | null
@@ -25,10 +27,39 @@ export function ProfileForm({ user }: { user: UserData }) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user.image)
+  const [avatarLoading, setAvatarLoading] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setValues((v) => ({ ...v, [e.target.name]: e.target.value }))
     setSuccess(false)
+  }
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setAvatarLoading(true)
+    setAvatarError(null)
+
+    const formData = new FormData()
+    formData.append("file", file)
+
+    try {
+      const res = await fetch("/api/profile/avatar", { method: "POST", body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erro ao carregar foto")
+      setAvatarUrl(data.url)
+      router.refresh()
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Erro inesperado")
+    } finally {
+      setAvatarLoading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -57,6 +88,57 @@ export function ProfileForm({ user }: { user: UserData }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+
+      {/* Avatar */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Camera className="w-4 h-4 text-[#e94560]" />
+            Foto de Perfil
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-5">
+            <div className="relative flex-shrink-0">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Foto de perfil"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-slate-200"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-[#0f3460] flex items-center justify-center text-white text-2xl font-bold border-2 border-slate-200">
+                  {user.name?.[0]?.toUpperCase() || "?"}
+                </div>
+              )}
+              {avatarLoading && (
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleAvatarChange}
+                className="hidden"
+                id="avatar-upload"
+              />
+              <label
+                htmlFor="avatar-upload"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#0f3460] text-white text-sm font-semibold rounded-lg hover:bg-[#1a4a7a] transition-colors cursor-pointer"
+              >
+                <Camera className="w-4 h-4" />
+                {avatarLoading ? "A carregar..." : "Alterar foto"}
+              </label>
+              <p className="text-xs text-slate-400">JPG, PNG ou WebP · Máx. 5MB</p>
+              {avatarError && <p className="text-xs text-red-600">{avatarError}</p>}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Account info (read-only) */}
       <Card>
