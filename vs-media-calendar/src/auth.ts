@@ -61,17 +61,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Only allow users pre-approved by admin (active: true)
       if (dbUser?.active !== true) return false
 
-      // Always sync name + photo from Google so they stay up to date
+      // Sync name + photo from Google only if not manually overridden
       const googleName = (profile as any)?.name || user.name || null
       const googleImage = (profile as any)?.picture || user.image || null
-      if (googleName || googleImage) {
-        await prisma.user.update({
-          where: { email: user.email },
-          data: {
-            ...(googleName && { name: googleName }),
-            ...(googleImage && { image: googleImage }),
-          },
-        })
+      const updateData: Record<string, string> = {}
+      // Only set name from Google if user has no name yet
+      if (googleName && !dbUser.name) updateData.name = googleName
+      // Only set image from Google if user has no image, or if current image is already a Google URL
+      // (preserve manually uploaded avatars stored on Vercel Blob)
+      if (googleImage && (!dbUser.image || dbUser.image.includes("googleusercontent.com"))) {
+        updateData.image = googleImage
+      }
+      if (Object.keys(updateData).length > 0) {
+        await prisma.user.update({ where: { email: user.email }, data: updateData })
       }
 
       return true
