@@ -1,4 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#0f3460"/>
-  <text x="16" y="22" text-anchor="middle" fill="white" font-size="13" font-weight="900" font-family="Arial Black, Arial, sans-serif" letter-spacing="-0.5">VS.</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#0f2040"/>
+  <text
+    x="256"
+    y="340"
+    text-anchor="middle"
+    fill="white"
+    font-size="260"
+    font-weight="900"
+    font-family="'Arial Black', 'Franklin Gothic Heavy', Impact, sans-serif"
+    letter-spacing="-6"
+  >VS.</text>
 </svg>

@@ -7,8 +7,9 @@ export const metadata: Metadata = {
   title: "VS.MEDIA Calendar",
   description: "Plataforma de agendamento de serviços de vídeo e fotografia imobiliária",
   icons: {
-    icon: "/favicon.svg",
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
   },
 }
 
