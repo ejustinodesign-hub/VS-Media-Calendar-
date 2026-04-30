@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Progressão de Remuneração — VS Media</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #0f172a;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header .logo {
+      width: 36px; height: 36px;
+      background: #e94560;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 16px; color: white;
+      letter-spacing: -1px;
+    }
+    header h1 { color: white; font-size: 18px; font-weight: 700; }
+    header span { color: #94a3b8; font-size: 14px; margin-left: 4px; }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    .page-title { margin-bottom: 28px; }
+    .page-title h2 { font-size: 26px; font-weight: 800; color: #0f172a; }
+    .page-title p { color: #64748b; font-size: 14px; margin-top: 4px; }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 768px) {
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .kpi {
+      background: white;
+      border-radius: 14px;
+      padding: 20px;
+      border: 1px solid #e2e8f0;
+    }
+    .kpi label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi .value { font-size: 24px; font-weight: 800; color: #0f172a; margin: 6px 0 4px; }
+    .kpi .sub { font-size: 12px; color: #64748b; }
+    .kpi.highlight .value { color: #e94560; }
+
+    .chart-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .chart-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+    }
+    .chart-header h3 { font-size: 16px; font-weight: 700; color: #0f172a; }
+    .legend { display: flex; gap: 20px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; font-weight: 500; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    .chart-wrap { position: relative; height: 320px; }
+
+    .table-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+    .table-card h3 { font-size: 16px; font-weight: 700; padding: 20px 24px 16px; border-bottom: 1px solid #f1f5f9; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      font-size: 11px; font-weight: 600; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 12px 24px; text-align: left;
+      background: #f8fafc;
+    }
+    td { padding: 13px 24px; border-top: 1px solid #f1f5f9; font-size: 14px; }
+    tr:hover td { background: #fafafa; }
+    .td-mes { font-weight: 600; color: #0f172a; }
+    .td-bruto { color: #0f172a; }
+    .td-ret { color: #94a3b8; }
+    .td-liq { font-weight: 700; color: #16a34a; }
+    .td-bar-wrap { width: 120px; }
+    .td-bar { height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+    .td-bar-fill { height: 100%; background: #e94560; border-radius: 99px; }
+    .badge-max { background: #fef2f2; color: #e94560; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; margin-left: 8px; }
+    .badge-min { background: #f0fdf4; color: #16a34a; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; margin-left: 8px; }
+
+    .year-sep td { background: #f8fafc; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; padding: 8px 24px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">VS</div>
+  <div>
+    <h1>VS Media <span>/ Remuneração</span></h1>
+  </div>
+</header>
+
+<main>
+  <div class="page-title">
+    <h2>Progressão de Remuneração</h2>
+    <p>Janeiro 2025 — Abril 2026 · 16 meses</p>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <h3>Evolução Mensal</h3>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#e94560"></div> Bruto (c/ extras)
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#16a34a"></div> Líquido (após retenção)
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="mainChart"></canvas>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <h3>Detalhe por Mês</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Mês</th>
+          <th>Bruto</th>
+          <th>Retenção</th>
+          <th>Líquido</th>
+          <th>% Retenção</th>
+          <th style="width:130px">Progresso</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+const DATA = [
+  { mes: 'Jan 25', bruto: 2705,  ret: 616.40,  liq: 2063.60 },
+  { mes: 'Fev 25', bruto: 2675,  ret: 615.25,  liq: 2059.75 },
+  { mes: 'Mar 25', bruto: 2715,  ret: 520.95,  liq: 1744.05 },
+  { mes: 'Abr 25', bruto: 3475,  ret: 703.80,  liq: 2356.20 },
+  { mes: 'Mai 25', bruto: 3480,  ret: 699.20,  liq: 2340.80 },
+  { mes: 'Jun 25', bruto: 2670,  ret: 543.95,  liq: 2126.05 },
+  { mes: 'Jul 25', bruto: 4505,  ret: 796.95,  liq: 3708.05 },
+  { mes: 'Ago 25', bruto: 2475,  ret: 487.60,  liq: 1987.40 },
+  { mes: 'Set 25', bruto: 3535,  ret: 600.30,  liq: 2934.70 },
+  { mes: 'Out 25', bruto: 3950,  ret: 777.40,  liq: 3172.60 },
+  { mes: 'Nov 25', bruto: 4345,  ret: 755.55,  liq: 3589.45 },
+  { mes: 'Dez 25', bruto: 5550,  ret: 1032.70, liq: 4517.30 },
+  { mes: 'Jan 26', bruto: 3570,  ret: 686.55,  liq: 2883.45 },
+  { mes: 'Fev 26', bruto: 4460,  ret: 805.00,  liq: 3655.00 },
+  { mes: 'Mar 26', bruto: 3605,  ret: 729.10,  liq: 2875.90 },
+  { mes: 'Abr 26', bruto: 3770,  ret: 778.55,  liq: 2991.45 },
+];
+
+const fmt = v => v.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
+const fmtShort = v => '€' + v.toLocaleString('pt-PT', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+// KPIs
+const totalBruto = DATA.reduce((s, d) => s + d.bruto, 0);
+const totalLiq   = DATA.reduce((s, d) => s + d.liq, 0);
+const avgBruto   = totalBruto / DATA.length;
+const maxEntry   = DATA.reduce((a, b) => b.bruto > a.bruto ? b : a);
+const minEntry   = DATA.reduce((a, b) => b.bruto < a.bruto ? b : a);
+const growth     = ((DATA[DATA.length-1].bruto - DATA[0].bruto) / DATA[0].bruto * 100);
+const bruto2025  = DATA.slice(0,12).reduce((s,d)=>s+d.bruto,0);
+
+const kpis = [
+  { label: 'Total Faturado', value: fmt(totalBruto), sub: 'Jan 25 → Abr 26', hi: false },
+  { label: 'Média Mensal (Bruto)', value: fmt(avgBruto), sub: 'ao longo de 16 meses', hi: false },
+  { label: 'Melhor Mês', value: fmtShort(maxEntry.bruto), sub: maxEntry.mes, hi: true },
+  { label: 'Crescimento', value: (growth > 0 ? '+' : '') + growth.toFixed(1) + '%', sub: 'Jan 25 → Abr 26', hi: growth > 0 },
+];
+
+document.getElementById('kpis').innerHTML = kpis.map(k => `
+  <div class="kpi ${k.hi ? 'highlight' : ''}">
+    <label>${k.label}</label>
+    <div class="value">${k.value}</div>
+    <div class="sub">${k.sub}</div>
+  </div>
+`).join('');
+
+// Chart
+const ctx = document.getElementById('mainChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: DATA.map(d => d.mes),
+    datasets: [
+      {
+        label: 'Bruto',
+        data: DATA.map(d => d.bruto),
+        backgroundColor: DATA.map(d => d.bruto === maxEntry.bruto ? '#e94560' : 'rgba(233,69,96,0.15)'),
+        borderColor: DATA.map(d => d.bruto === maxEntry.bruto ? '#e94560' : 'rgba(233,69,96,0.6)'),
+        borderWidth: 1.5,
+        borderRadius: 6,
+        order: 2,
+      },
+      {
+        label: 'Líquido',
+        data: DATA.map(d => d.liq),
+        type: 'line',
+        borderColor: '#16a34a',
+        backgroundColor: 'rgba(22,163,74,0.08)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#16a34a',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.35,
+        fill: true,
+        order: 1,
+      },
+    ],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#0f172a',
+        titleColor: '#94a3b8',
+        bodyColor: '#f8fafc',
+        padding: 12,
+        callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`,
+        }
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: '#94a3b8' },
+      },
+      y: {
+        grid: { color: '#f1f5f9' },
+        ticks: {
+          font: { size: 11 }, color: '#94a3b8',
+          callback: v => '€' + (v/1000).toFixed(0) + 'k',
+        },
+        beginAtZero: true,
+      },
+    },
+  },
+});
+
+// Table
+const maxBruto = Math.max(...DATA.map(d => d.bruto));
+const minBruto = Math.min(...DATA.map(d => d.bruto));
+const tbody = document.getElementById('tableBody');
+
+let rows = '';
+DATA.forEach((d, i) => {
+  const isMax = d.bruto === maxBruto;
+  const isMin = d.bruto === minBruto;
+  const pct = (d.ret / d.bruto * 100).toFixed(1);
+  const barW = (d.bruto / maxBruto * 100).toFixed(1);
+
+  if (i === 0) rows += `<tr class="year-sep"><td colspan="6">2025</td></tr>`;
+  if (i === 12) rows += `<tr class="year-sep"><td colspan="6">2026</td></tr>`;
+
+  rows += `
+    <tr>
+      <td class="td-mes">${d.mes}${isMax ? '<span class="badge-max">máx</span>' : ''}${isMin ? '<span class="badge-min">mín</span>' : ''}</td>
+      <td class="td-bruto">${fmt(d.bruto)}</td>
+      <td class="td-ret">− ${fmt(d.ret)}</td>
+      <td class="td-liq">${fmt(d.liq)}</td>
+      <td class="td-ret">${pct}%</td>
+      <td class="td-bar-wrap">
+        <div class="td-bar"><div class="td-bar-fill" style="width:${barW}%"></div></div>
+      </td>
+    </tr>`;
+});
+tbody.innerHTML = rows;
+</script>
+</body>
+</html>
