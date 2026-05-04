@@ -1,16 +1,16 @@
 const MOLONI_API = "https://api.moloni.pt/v1"
 
 async function getMoloniToken(): Promise<string> {
-  const body = new FormData()
-  body.append("grant_type", "password")
-  body.append("client_id", process.env.MOLONI_CLIENT_ID!)
-  body.append("client_secret", process.env.MOLONI_CLIENT_SECRET!)
-  body.append("username", process.env.MOLONI_USERNAME!)
-  body.append("password", process.env.MOLONI_PASSWORD!)
+  const params = new URLSearchParams({
+    grant_type: "password",
+    client_id: process.env.MOLONI_CLIENT_ID!,
+    client_secret: process.env.MOLONI_CLIENT_SECRET!,
+    username: process.env.MOLONI_USERNAME!,
+    password: process.env.MOLONI_PASSWORD!,
+  })
 
-  const res = await fetch(`${MOLONI_API}/grant/`, {
+  const res = await fetch(`${MOLONI_API}/grant/?${params.toString()}`, {
     method: "POST",
-    body,
   })
 
   if (!res.ok) throw new Error(`Moloni auth HTTP ${res.status}`)
