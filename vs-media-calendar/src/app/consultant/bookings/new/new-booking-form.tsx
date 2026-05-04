@@ -642,7 +642,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                       Taxa Fixa
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {pricing ? formatPrice(pricing.total) : "—"} faturado mensalmente
+                      {pricing ? formatPrice(pricing.total) : "—"} faturado no final do mês
                     </p>
                   </div>
                   {paymentType === "FLAT_FEE" && (
