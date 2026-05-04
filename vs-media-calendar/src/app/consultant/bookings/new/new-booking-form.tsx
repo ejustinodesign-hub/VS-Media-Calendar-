@@ -366,10 +366,10 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
               </div>
               <div className="text-right text-sm text-slate-300">
                 {pricing.services.map((s) => (
-                  <div key={s.type}>{s.label}: {formatPrice(s.price)}</div>
+                  <div key={s.type}>{s.label}: {formatPrice(s.price)} + IVA</div>
                 ))}
                 {pricing.additionalIntros > 0 && (
-                  <div>Introduções ({pricing.additionalIntros}×): {formatPrice(pricing.additionalIntrosTotal)}</div>
+                  <div>Introduções ({pricing.additionalIntros}×): {formatPrice(pricing.additionalIntrosTotal)} + IVA</div>
                 )}
               </div>
             </div>
@@ -642,7 +642,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                       Taxa Fixa
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {pricing ? formatPrice(pricing.total) : "—"} faturado no final do mês
+                      {pricing ? formatPrice(pricing.total) : "—"} + IVA faturado no final do mês
                     </p>
                   </div>
                   {paymentType === "FLAT_FEE" && (
@@ -681,7 +681,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                 {pricing.services.map((s) => (
                   <div key={s.type} className="flex justify-between text-sm">
                     <span className="text-slate-600">{s.label}</span>
-                    <span className="font-medium text-slate-900">{formatPrice(s.price)}</span>
+                    <span className="font-medium text-slate-900">{formatPrice(s.price)} + IVA</span>
                   </div>
                 ))}
                 {pricing.additionalIntros > 0 && (
@@ -690,7 +690,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                       Introduções adicionais ({pricing.additionalIntros}×)
                     </span>
                     <span className="font-medium text-slate-900">
-                      {formatPrice(pricing.additionalIntrosTotal)}
+                      {formatPrice(pricing.additionalIntrosTotal)} + IVA
                     </span>
                   </div>
                 )}
@@ -698,7 +698,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                   <div className="flex justify-between text-sm">
                     <span className="text-amber-600">Taxa de deslocação</span>
                     <span className="font-medium text-amber-700">
-                      {formatPrice(pricing.travelFeeAmount)}
+                      {formatPrice(pricing.travelFeeAmount)} + IVA
                     </span>
                   </div>
                 )}
@@ -833,7 +833,7 @@ function ServiceOption({
         </span>
       </div>
       <span className={cn("text-sm font-bold", selected ? "text-[#0f3460]" : "text-slate-600")}>
-        {formatPrice(price)}
+        {formatPrice(price)} <span className="text-xs font-normal opacity-70">+ IVA</span>
       </span>
     </button>
   )
