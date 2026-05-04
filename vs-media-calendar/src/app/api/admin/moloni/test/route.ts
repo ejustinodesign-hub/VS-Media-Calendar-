@@ -27,6 +27,17 @@ export async function GET() {
     ? "OK — todas as variáveis configuradas"
     : `FALTAM: ${missingVars.join(", ")}`
 
+  const mask = (v: string | undefined) => v ? `${v.slice(0, 3)}${"*".repeat(Math.max(0, v.length - 3))}` : "(vazio)"
+  results.credenciais = {
+    client_id:    mask(process.env.MOLONI_CLIENT_ID),
+    client_secret: mask(process.env.MOLONI_CLIENT_SECRET),
+    username:     mask(process.env.MOLONI_USERNAME),
+    password:     mask(process.env.MOLONI_PASSWORD),
+    company_id:   process.env.MOLONI_COMPANY_ID,
+    document_set_id: process.env.MOLONI_DOCUMENT_SET_ID,
+    tax_id:       process.env.MOLONI_TAX_ID,
+  }
+
   if (missingVars.length > 0) {
     return NextResponse.json({ ok: false, results })
   }
