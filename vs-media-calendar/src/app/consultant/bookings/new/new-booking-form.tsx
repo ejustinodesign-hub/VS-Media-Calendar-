@@ -297,7 +297,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                     service={service}
                     selected={selectedServices.includes(service)}
                     onToggle={toggleService}
-                    price={service === "VIDEO_STANDARD" ? 100 : 120}
+                    price={activePrices[service] ?? 0}
                   />
                 ))}
               </div>
@@ -344,23 +344,15 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             </CardHeader>
             <CardContent>
               <div className="grid gap-2">
-                {PHOTO_SERVICES.map((service) => {
-                  const prices: Record<string, number> = {
-                    PHOTO_DRONE: 35,
-                    PHOTO_T1_T2: 25,
-                    PHOTO_T3_T4: 35,
-                    PHOTO_T5_PLUS: 45,
-                  }
-                  return (
-                    <ServiceOption
-                      key={service}
-                      service={service}
-                      selected={selectedServices.includes(service)}
-                      onToggle={toggleService}
-                      price={prices[service]}
-                    />
-                  )
-                })}
+                {PHOTO_SERVICES.map((service) => (
+                  <ServiceOption
+                    key={service}
+                    service={service}
+                    selected={selectedServices.includes(service)}
+                    onToggle={toggleService}
+                    price={activePrices[service] ?? 0}
+                  />
+                ))}
               </div>
             </CardContent>
           </Card>
