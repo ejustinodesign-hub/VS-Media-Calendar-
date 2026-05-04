@@ -269,7 +269,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         <CardContent className="space-y-4">
           <p className="text-xs text-slate-500">
             Filmou uma versão com intro personalizada para outro consultor? Entregue aqui.
-            Será cobrado 25€ ao consultor e receberá 20€ por cada entrega.
+            Receberá 20€ por cada entrega.
           </p>
 
           {/* Already uploaded intros */}
