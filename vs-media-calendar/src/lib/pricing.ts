@@ -2,8 +2,8 @@ import type { ServiceType, TeamType } from "@prisma/client"
 
 // Default pricing table (internal team) — net prices, IVA applied separately
 export const DEFAULT_PRICES: Record<ServiceType, number> = {
-  VIDEO_STANDARD: 100,
-  VIDEO_DRONE: 120,
+  VIDEO_STANDARD: 150,
+  VIDEO_DRONE: 180,
   PHOTO_DRONE: 35,
   PHOTO_T1_T2: 25,
   PHOTO_T3_T4: 35,
