@@ -182,7 +182,7 @@ export function CommissionSimulator({ propertyAddress, consultantName }: Props) 
             <div className="px-8 py-6 space-y-6 text-sm text-slate-800" id="proposal-document">
               {/* Header */}
               <div className="text-center space-y-1 pb-4 border-b border-slate-200">
-                <p className="text-xs text-slate-400 uppercase tracking-widest">VS.Brothers</p>
+                <p className="text-xs text-slate-400 uppercase tracking-widest">VSB Media, Lda</p>
                 <h1 className="text-xl font-bold text-[#0f3460]">Proposta de Prestação de Serviços</h1>
                 <p className="text-xs text-slate-500">Produção de Conteúdo Audiovisual Imobiliário — Regime de Comissão</p>
               </div>
@@ -252,11 +252,11 @@ export function CommissionSimulator({ propertyAddress, consultantName }: Props) 
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Condições</p>
                 <div className="text-xs text-slate-600 space-y-2 leading-relaxed">
-                  <p>1. A VS.Brothers compromete-se a realizar a produção de conteúdo audiovisual (fotografia e/ou vídeo) do imóvel referenciado, sem custo inicial para o consultor.</p>
+                  <p>1. A VSB Media, Lda compromete-se a realizar a produção de conteúdo audiovisual (fotografia e/ou vídeo) do imóvel referenciado, sem custo inicial para o consultor.</p>
                   <p>2. A comissão de <strong>0,15%</strong> sobre o valor final de venda do imóvel, acrescida de IVA à taxa legal em vigor (23%), será devida e exigível <strong>apenas aquando da concretização efectiva da transação</strong> de compra e venda.</p>
-                  <p>3. Caso o imóvel não seja vendido, <strong>nenhuma comissão é devida</strong>. A VS.Brothers assume o risco da prestação do serviço sem garantia de remuneração.</p>
-                  <p>4. O valor final de venda deverá ser comunicado pelo consultor à VS.Brothers no prazo de 30 dias após a escritura de compra e venda, através da plataforma VS.Media Calendar.</p>
-                  <p>5. Os conteúdos produzidos são propriedade do consultor e podem ser utilizados para fins de comercialização do imóvel. A VS.Brothers reserva o direito de utilizar os conteúdos no seu portfólio.</p>
+                  <p>3. Caso o imóvel não seja vendido, <strong>nenhuma comissão é devida</strong>. A VSB Media, Lda assume o risco da prestação do serviço sem garantia de remuneração.</p>
+                  <p>4. O valor final de venda deverá ser comunicado pelo consultor à VSB Media, Lda no prazo de 30 dias após a escritura de compra e venda, através da plataforma VS.Media Calendar.</p>
+                  <p>5. Os conteúdos produzidos são propriedade do consultor e podem ser utilizados para fins de comercialização do imóvel. A VSB Media, Lda reserva o direito de utilizar os conteúdos no seu portfólio.</p>
                 </div>
               </div>
 
