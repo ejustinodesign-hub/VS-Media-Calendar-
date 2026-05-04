@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { CommissionSimulator } from "./commission-simulator"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -388,7 +389,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
           <CardHeader>
             <CardTitle>Escolher Data e Hora</CardTitle>
             <CardDescription>
-              Serviços disponíveis das 08:00 às 17:00 · Duração: 1h30
+              Serviços disponíveis das 08:00 às 17:30 · Duração: 1h30
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -671,7 +672,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                       Comissão de Venda
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      0,25% do valor de venda
+                      0,15% do valor de venda
                     </p>
                   </div>
                   {paymentType === "COMMISSION" && (
@@ -723,17 +724,23 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             )}
 
             {paymentType === "COMMISSION" && (
-              <div className="p-4 bg-[#e94560]/5 border border-[#e94560]/20 rounded-xl">
-                <div className="flex items-start gap-2">
-                  <Percent className="w-4 h-4 text-[#e94560] flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Comissão de 0,25%</p>
-                    <p className="text-xs text-slate-600 mt-1">
-                      Nenhum valor é cobrado agora. Quando o imóvel for vendido, introduza o valor de venda
-                      na página de pagamentos. A comissão de 0,25% será adicionada à próxima fatura.
-                    </p>
+              <div className="space-y-3">
+                <div className="p-4 bg-[#e94560]/5 border border-[#e94560]/20 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <Percent className="w-4 h-4 text-[#e94560] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Comissão de 0,15%</p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        Nenhum valor é cobrado agora. Quando o imóvel for vendido, introduza o valor de venda
+                        na página de pagamentos. A comissão de 0,15% será adicionada à próxima fatura.
+                      </p>
+                    </div>
                   </div>
                 </div>
+                <CommissionSimulator
+                  propertyAddress={propertyAddress}
+                  consultantName={undefined}
+                />
               </div>
             )}
 

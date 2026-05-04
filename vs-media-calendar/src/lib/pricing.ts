@@ -14,6 +14,8 @@ export const ADDITIONAL_INTRO_PRICE = 25
 export const TRAVEL_FEE_AMOUNT = 50
 export const TRAVEL_FEE_THRESHOLD_HOURS = 1
 export const IVA_RATE = 0.23
+export const COMMISSION_RATE = 0.0015
+export const DELIVERABLE_EXPIRY_DAYS = 30
 
 export const SERVICE_LABELS: Record<ServiceType, string> = {
   VIDEO_STANDARD: "Vídeo Standard",

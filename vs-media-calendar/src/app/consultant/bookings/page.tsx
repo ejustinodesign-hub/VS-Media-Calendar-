@@ -104,7 +104,7 @@ export default async function ConsultantBookingsPage() {
                           </>
                         )}
                         {booking.paymentType === "COMMISSION" && (
-                          <p className="text-xs font-medium text-[#e94560]">Comissão 0,25%</p>
+                          <p className="text-xs font-medium text-[#e94560]">Comissão 0,15%</p>
                         )}
                         <p className="text-xs text-slate-400 mt-0.5">1h30</p>
                       </div>

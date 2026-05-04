@@ -182,7 +182,7 @@ export default async function ConsultantPaymentsPage({
               </p>
               {sharedIntros.map((d) => {
                 const expiry = new Date(d.createdAt)
-                expiry.setDate(expiry.getDate() + 15)
+                expiry.setDate(expiry.getDate() + 30)
                 const isExpired = expiry < new Date()
                 return (
                   <div
@@ -230,7 +230,7 @@ export default async function ConsultantPaymentsPage({
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-slate-500">
-                Estes imóveis foram filmados com opção de comissão. Se o imóvel foi vendido, introduza o valor de venda para calcular a comissão de 0,25%.
+                Estes imóveis foram filmados com opção de comissão. Se o imóvel foi vendido, introduza o valor de venda para calcular a comissão de 0,15%.
               </p>
               {pendingCommissionBookings.map((booking) => (
                 <div
@@ -250,7 +250,7 @@ export default async function ConsultantPaymentsPage({
                   <SalePriceForm
                     bookingId={booking.id}
                     propertyAddress={booking.propertyAddress}
-                    commissionRate={booking.commissionRate ?? 0.0025}
+                    commissionRate={booking.commissionRate ?? 0.0015}
                   />
                 </div>
               ))}

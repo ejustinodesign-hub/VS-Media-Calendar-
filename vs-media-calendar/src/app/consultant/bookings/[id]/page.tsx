@@ -191,7 +191,7 @@ export default async function BookingDetailPage({ params }: Props) {
                 <div className="pt-3 border-t border-slate-100">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-slate-900">Tipo de Pagamento</span>
-                    <span className="text-xl font-bold text-[#e94560]">Comissão 0,25%</span>
+                    <span className="text-xl font-bold text-[#e94560]">Comissão 0,15%</span>
                   </div>
                   {booking.salePrice ? (
                     <p className="text-xs text-slate-400 mt-1 text-right">
@@ -216,7 +216,7 @@ export default async function BookingDetailPage({ params }: Props) {
               <CardContent className="space-y-4">
                 {booking.deliverables.map((d) => {
                   const expiresAt = new Date(d.createdAt)
-                  expiresAt.setDate(expiresAt.getDate() + 15)
+                  expiresAt.setDate(expiresAt.getDate() + 30)
                   const isVideo = d.mimeType?.startsWith("video/")
                   const isImage = d.mimeType?.startsWith("image/")
                   return (

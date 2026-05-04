@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { del } from "@vercel/blob"
 
-const EXPIRY_DAYS = 15
+const EXPIRY_DAYS = 30
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization")

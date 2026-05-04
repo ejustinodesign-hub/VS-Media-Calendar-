@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Booking not found" }, { status: 404 })
   }
 
-  const commissionAmount = salePrice * (booking.commissionRate ?? 0.0025)
+  const commissionAmount = salePrice * (booking.commissionRate ?? 0.0015)
   const commissionWithIva = Math.round(commissionAmount * (1 + IVA_RATE) * 100) / 100
 
   await prisma.booking.update({

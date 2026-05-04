@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       notes,
       status: "PENDING_ACCEPTANCE",
       paymentType: isCommission ? "COMMISSION" : "FLAT_FEE",
-      commissionRate: isCommission ? 0.0025 : undefined,
+      commissionRate: isCommission ? 0.0015 : undefined,
       services: {
         create: pricing.services.map((s) => ({
           serviceType: s.type,
