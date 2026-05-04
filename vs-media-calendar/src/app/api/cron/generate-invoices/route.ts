@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { IVA_RATE } from "@/lib/pricing"
+import { IVA_RATE, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
+import { createMoloniInvoice } from "@/lib/moloni"
+import type { ServiceType } from "@prisma/client"
 
 export async function GET(req: NextRequest) {
   const isDev = process.env.NODE_ENV === "development"
@@ -36,6 +38,7 @@ export async function GET(req: NextRequest) {
   }
 
   let created = 0
+  const moloniErrors: string[] = []
 
   for (const [consultantId, consultantBookings] of byConsultant) {
     const existing = await prisma.monthlyInvoice.findFirst({
@@ -43,9 +46,20 @@ export async function GET(req: NextRequest) {
     })
     if (existing) continue
 
+    const consultant = await prisma.user.findUnique({
+      where: { id: consultantId },
+      select: {
+        name: true,
+        email: true,
+        billingNif: true,
+        billingName: true,
+        billingAddress: true,
+      },
+    })
+
     const subtotal = consultantBookings.reduce((sum, b) => {
       const servicesTotal = b.services.reduce((s, svc) => s + svc.price, 0)
-      const introsTotal = b.additionalIntros * 25
+      const introsTotal = b.additionalIntros * ADDITIONAL_INTRO_PRICE
       const travelTotal = b.hasTravelFee ? b.travelFeeAmount : 0
       return sum + servicesTotal + introsTotal + travelTotal
     }, 0)
@@ -68,8 +82,52 @@ export async function GET(req: NextRequest) {
       data: { invoiceId: invoice.id },
     })
 
+    // Create invoice in Moloni — non-blocking, failure doesn't abort the cron
+    if (process.env.MOLONI_CLIENT_ID && consultant) {
+      try {
+        const lines = consultantBookings.flatMap((b) => {
+          const items = b.services.map((svc) => ({
+            description: `${SERVICE_LABELS[svc.serviceType as ServiceType]} — ${b.propertyAddress}`,
+            qty: 1,
+            unitPrice: svc.price,
+          }))
+          if (b.additionalIntros > 0) {
+            items.push({
+              description: `Introduções adicionais (${b.additionalIntros}×) — ${b.propertyAddress}`,
+              qty: b.additionalIntros,
+              unitPrice: ADDITIONAL_INTRO_PRICE,
+            })
+          }
+          if (b.hasTravelFee && b.travelFeeAmount > 0) {
+            items.push({
+              description: `Taxa de deslocação — ${b.propertyAddress}`,
+              qty: 1,
+              unitPrice: b.travelFeeAmount,
+            })
+          }
+          return items
+        })
+
+        const moloniDocumentId = await createMoloniInvoice({
+          consultant,
+          month,
+          dueDate,
+          lines,
+        })
+
+        await prisma.monthlyInvoice.update({
+          where: { id: invoice.id },
+          data: { moloniDocumentId },
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(`[Moloni] Failed for consultant ${consultantId}:`, msg)
+        moloniErrors.push(`${consultantId}: ${msg}`)
+      }
+    }
+
     created++
   }
 
-  return NextResponse.json({ created })
+  return NextResponse.json({ created, moloniErrors })
 }

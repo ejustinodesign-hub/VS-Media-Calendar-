@@ -244,17 +244,18 @@ model Booking {
 }
 
 model MonthlyInvoice {
-  id              String        @id @default(cuid())
-  consultantId    String
-  month           String
-  status          InvoiceStatus @default(PENDING)
-  subtotal        Float         @default(0)
-  total           Float         @default(0)
-  dueDate         DateTime
-  paidAt          DateTime?
-  stripeSessionId String?       @unique
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id               String        @id @default(cuid())
+  consultantId     String
+  month            String
+  status           InvoiceStatus @default(PENDING)
+  subtotal         Float         @default(0)
+  total            Float         @default(0)
+  dueDate          DateTime
+  paidAt           DateTime?
+  stripeSessionId  String?       @unique
+  moloniDocumentId Int?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   consultant User      @relation(fields: [consultantId], references: [id])
   bookings   Booking[]
