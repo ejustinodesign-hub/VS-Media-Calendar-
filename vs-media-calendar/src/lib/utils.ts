@@ -65,7 +65,7 @@ export function generateTimeSlots(
 ): { time: string; available: boolean; datetime: Date }[] {
   const slots: { time: string; available: boolean; datetime: Date }[] = []
   const start = 8 // 08:00
-  const end = 17.5 // 17:30
+  const end = 19 // last slot starts at 17:30, ends 19:00
   const duration = 90 // minutes
 
   for (let hour = start; hour * 60 + 0 + duration <= end * 60; ) {
