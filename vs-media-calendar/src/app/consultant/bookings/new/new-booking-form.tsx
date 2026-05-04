@@ -58,6 +58,7 @@ interface Props {
   videographers: Videographer[]
   consultantId: string
   consultantTeamType: TeamType
+  activePrices: Record<string, number>
 }
 
 const STEPS = [
@@ -68,7 +69,7 @@ const STEPS = [
   { id: 5, label: "Resumo" },
 ]
 
-export function NewBookingForm({ videographers, consultantId, consultantTeamType }: Props) {
+export function NewBookingForm({ videographers, consultantId, consultantTeamType, activePrices }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(1)
 
@@ -93,14 +94,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
-  const [dbPrices, setDbPrices] = useState<Partial<Record<ServiceType, number>>>({})
-
-  useEffect(() => {
-    fetch("/api/pricing", { cache: "no-store" })
-      .then(r => r.json())
-      .then(d => setDbPrices(d.prices || {}))
-      .catch(() => {})
-  }, [])
 
   const selectedVideographer = videographers.find((v) => v.id === selectedVideographerId)
 
@@ -143,9 +136,9 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
       additionalIntros,
       travelEstimate?.hasTravelFee || false,
       consultantTeamType,
-      Object.keys(dbPrices).length > 0 ? dbPrices : undefined
+      activePrices as Partial<Record<ServiceType, number>>
     )
-  }, [selectedServices, additionalIntros, travelEstimate, consultantTeamType, dbPrices])
+  }, [selectedServices, additionalIntros, travelEstimate, consultantTeamType, activePrices])
 
   const hasVideoService = selectedServices.some((s) => VIDEO_SERVICES.includes(s))
 
