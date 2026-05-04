@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { calculateTotal, DEFAULT_PRICES } from "@/lib/pricing"
+import { calculateTotal } from "@/lib/pricing"
 import { sendVideographerRequestEmail } from "@/lib/email"
 import type { ServiceType, PropertyType } from "@prisma/client"
 
@@ -61,22 +61,11 @@ export async function POST(req: NextRequest) {
 
   const isCommission = paymentType === "COMMISSION"
 
-  // Load DB prices (admin-editable), fall back to DEFAULT_PRICES
-  const dbRules = await prisma.pricingRule.findMany({
-    where: { active: true, teamId: null, teamType: "INTERNAL" },
-    select: { serviceType: true, basePrice: true },
-  })
-  const customPrices = dbRules.reduce((acc, r) => {
-    acc[r.serviceType as ServiceType] = r.basePrice
-    return acc
-  }, {} as Partial<Record<ServiceType, number>>)
-
   const pricing = calculateTotal(
     services as ServiceType[],
     additionalIntros,
     hasTravelFee,
-    consultant?.teamType || "INTERNAL",
-    Object.keys(customPrices).length > 0 ? customPrices : undefined
+    consultant?.teamType || "INTERNAL"
   )
 
   const booking = await prisma.booking.create({
