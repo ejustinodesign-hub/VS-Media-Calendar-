@@ -9,11 +9,15 @@ import type { ServiceType } from "@prisma/client"
 
 export default async function AdminPricingPage() {
   const pricingRules = await prisma.pricingRule.findMany({
-    where: { active: true },
-    include: { team: { select: { id: true, name: true, type: true } } },
+    where: { active: true, teamId: null, teamType: "INTERNAL" },
   })
-
   const travelRule = await prisma.travelFeeRule.findFirst({ where: { active: true } })
+
+  // Merge DB prices over DEFAULT_PRICES so DB is the source of truth
+  const effectivePrices = { ...DEFAULT_PRICES } as Record<ServiceType, number>
+  for (const rule of pricingRules) {
+    effectivePrices[rule.serviceType as ServiceType] = rule.basePrice
+  }
 
   return (
     <>
@@ -31,7 +35,7 @@ export default async function AdminPricingPage() {
                 <div key={type} className="flex items-center justify-between py-2.5 px-4 bg-slate-50 rounded-lg">
                   <span className="text-sm font-medium text-slate-700">{label}</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-slate-900">{formatPrice(DEFAULT_PRICES[type])}</span>
+                    <span className="text-sm font-bold text-slate-900">{formatPrice(effectivePrices[type])}</span>
                   </div>
                 </div>
               ))}
@@ -42,7 +46,7 @@ export default async function AdminPricingPage() {
             </div>
 
             <PricingEditor
-              defaultPrices={DEFAULT_PRICES}
+              defaultPrices={effectivePrices}
               additionalIntroPrice={ADDITIONAL_INTRO_PRICE}
             />
           </CardContent>

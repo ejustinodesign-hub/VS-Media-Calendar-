@@ -7,8 +7,8 @@ async function main() {
 
   // Create default pricing rules (internal team)
   const pricingRules = [
-    { serviceType: "VIDEO_STANDARD" as const, basePrice: 50 },
-    { serviceType: "VIDEO_DRONE" as const, basePrice: 60 },
+    { serviceType: "VIDEO_STANDARD" as const, basePrice: 150 },
+    { serviceType: "VIDEO_DRONE" as const, basePrice: 180 },
     { serviceType: "PHOTO_DRONE" as const, basePrice: 35 },
     { serviceType: "PHOTO_T1_T2" as const, basePrice: 25 },
     { serviceType: "PHOTO_T3_T4" as const, basePrice: 35 },

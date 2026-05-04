@@ -93,6 +93,11 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [dbPrices, setDbPrices] = useState<Partial<Record<ServiceType, number>>>({})
+
+  useEffect(() => {
+    fetch("/api/pricing").then(r => r.json()).then(d => setDbPrices(d.prices || {}))
+  }, [])
 
   const selectedVideographer = videographers.find((v) => v.id === selectedVideographerId)
 
@@ -134,7 +139,8 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
           selectedServices,
           additionalIntros,
           travelEstimate?.hasTravelFee || false,
-          consultantTeamType
+          consultantTeamType,
+          Object.keys(dbPrices).length > 0 ? dbPrices : undefined
         )
       : null
 
