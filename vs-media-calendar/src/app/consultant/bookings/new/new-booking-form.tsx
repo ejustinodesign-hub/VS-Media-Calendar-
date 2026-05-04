@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { CommissionSimulator } from "./commission-simulator"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -96,7 +96,10 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   const [dbPrices, setDbPrices] = useState<Partial<Record<ServiceType, number>>>({})
 
   useEffect(() => {
-    fetch("/api/pricing").then(r => r.json()).then(d => setDbPrices(d.prices || {}))
+    fetch("/api/pricing", { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => setDbPrices(d.prices || {}))
+      .catch(() => {})
   }, [])
 
   const selectedVideographer = videographers.find((v) => v.id === selectedVideographerId)
@@ -133,16 +136,16 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
     )
   }
 
-  const pricing =
-    selectedServices.length > 0
-      ? calculateTotal(
-          selectedServices,
-          additionalIntros,
-          travelEstimate?.hasTravelFee || false,
-          consultantTeamType,
-          Object.keys(dbPrices).length > 0 ? dbPrices : undefined
-        )
-      : null
+  const pricing = useMemo(() => {
+    if (selectedServices.length === 0) return null
+    return calculateTotal(
+      selectedServices,
+      additionalIntros,
+      travelEstimate?.hasTravelFee || false,
+      consultantTeamType,
+      Object.keys(dbPrices).length > 0 ? dbPrices : undefined
+    )
+  }, [selectedServices, additionalIntros, travelEstimate, consultantTeamType, dbPrices])
 
   const hasVideoService = selectedServices.some((s) => VIDEO_SERVICES.includes(s))
 

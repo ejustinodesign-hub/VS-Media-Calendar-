@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { DEFAULT_PRICES } from "@/lib/pricing"
 import type { ServiceType } from "@prisma/client"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   const dbRules = await prisma.pricingRule.findMany({
-    where: { active: true, teamId: null, teamType: "INTERNAL" },
+    where: { active: true, teamId: null },
     select: { serviceType: true, basePrice: true },
   })
 
@@ -14,5 +16,7 @@ export async function GET() {
     prices[rule.serviceType as ServiceType] = rule.basePrice
   }
 
-  return NextResponse.json({ prices })
+  return NextResponse.json({ prices }, {
+    headers: { "Cache-Control": "no-store" },
+  })
 }
