@@ -19,13 +19,17 @@ async function getMoloniToken(): Promise<string> {
   return data.access_token as string
 }
 
-// Moloni pattern: access_token in query string, everything else as form-urlencoded body
+// Moloni pattern: access_token in query string, everything else as form-urlencoded body.
+// Build body manually to preserve PHP bracket notation (products[0][name])
+// — URLSearchParams would percent-encode brackets which PHP can't parse as arrays.
 function moloniFetch(endpoint: string, token: string, params: Record<string, string>) {
-  const body = new URLSearchParams(params)
+  const body = Object.entries(params)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join("&")
   return fetch(`${MOLONI_API}/${endpoint}/?access_token=${token}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
+    body,
   })
 }
 
