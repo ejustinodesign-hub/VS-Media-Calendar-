@@ -90,42 +90,43 @@ export async function POST() {
   const dateStr = new Date(y, m, 0).toISOString().split("T")[0]         // last day of TEST_MONTH
   const dueDateStr = new Date(y, m + 1, 0).toISOString().split("T")[0]  // last day of next month
 
-  const baseParams: Record<string, string> = {
-    company_id: String(companyId),
-    document_set_id: String(documentSetId),
-    document_set_wsat_id: "0",
-    customer_id: String(customerId),
+  // JSON body — more reliable than form-urlencoded for nested products array
+  const jsonBody = {
+    company_id: companyId,
+    document_set_id: documentSetId,
+    document_set_wsat_id: 0,
+    customer_id: customerId,
     date: dateStr,
     expiration_date: dueDateStr,
-    financial_discount: "0",
-    special_discount: "0",
-    salesman_commission: "0",
+    financial_discount: 0,
+    special_discount: 0,
+    salesman_commission: 0,
     our_reference: "",
     your_reference: "",
     notes: "",
-    status: "1",
+    status: 1,
+    products: TEST_LINES.map((line, i) => ({
+      product_id: 0,
+      name: line.description,
+      qty: line.qty,
+      price: line.unitPrice,
+      order: i + 1,
+      discount: 0,
+      exemption_reason: "",
+      taxes: [{ tax_id: taxId, value: 23, order: 1, cumulative: 0 }],
+    })),
   }
-  TEST_LINES.forEach((line, i) => {
-    baseParams[`products[${i}][product_id]`] = "0"
-    baseParams[`products[${i}][name]`] = line.description
-    baseParams[`products[${i}][qty]`] = String(line.qty)
-    baseParams[`products[${i}][price]`] = String(line.unitPrice)
-    baseParams[`products[${i}][order]`] = String(i + 1)
-    baseParams[`products[${i}][discount]`] = "0"
-    baseParams[`products[${i}][exemption_reason]`] = ""
-    baseParams[`products[${i}][taxes][0][tax_id]`] = String(taxId)
-    baseParams[`products[${i}][taxes][0][value]`] = "23"
-    baseParams[`products[${i}][taxes][0][order]`] = "1"
-    baseParams[`products[${i}][taxes][0][cumulative]`] = "0"
-  })
 
-  // Try each document type endpoint
-  const endpoints = ["invoices", "simplifiedInvoices", "invoiceReceipts"]
+  const endpoints = ["invoices", "simplifiedInvoices", "invoiceReceipts", "receipts", "proFormaInvoices"]
   const attemptResults: Record<string, unknown> = {}
 
   for (const ep of endpoints) {
     try {
-      const res = await moloniFetch(`${ep}/insert`, token, baseParams)
+      const res = await fetch(`${MOLONI_API}/${ep}/insert/?access_token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(jsonBody),
+      })
       const data = await res.json()
       attemptResults[ep] = data
       if (data.valid) {
