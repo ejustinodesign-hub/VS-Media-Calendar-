@@ -19,6 +19,11 @@ async function getMoloniToken(): Promise<string> {
   return data.access_token as string
 }
 
+function qs(token: string, companyId: number, extra?: Record<string, string>) {
+  const p = new URLSearchParams({ access_token: token, company_id: String(companyId), ...extra })
+  return p.toString()
+}
+
 async function findOrCreateCustomer(
   token: string,
   companyId: number,
@@ -34,39 +39,34 @@ async function findOrCreateCustomer(
   const name = consultant.billingName || consultant.name || "Consultor VS Media"
 
   const searchRes = await fetch(
-    `${MOLONI_API}/customers/getBySearch/?access_token=${token}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company_id: companyId, search: vat }),
-    }
+    `${MOLONI_API}/customers/getBySearch/?${qs(token, companyId, { search: vat })}`,
+    { method: "POST" }
   )
   const results = await searchRes.json()
   if (Array.isArray(results) && results.length > 0) {
     return results[0].id as number
   }
 
+  const createParams = new URLSearchParams({
+    access_token: token,
+    company_id: String(companyId),
+    vat,
+    name,
+    email: consultant.email || "",
+    address: consultant.billingAddress || "",
+    zip_code: "",
+    city: "",
+    country_id: "1",
+    language_id: "1",
+    payment_method_id: "0",
+    payment_day: "0",
+    maturity_date_id: "0",
+    salesman_id: "0",
+  })
+
   const createRes = await fetch(
-    `${MOLONI_API}/customers/insert/?access_token=${token}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        company_id: companyId,
-        vat,
-        name,
-        email: consultant.email || "",
-        address: consultant.billingAddress || "",
-        zip_code: "",
-        city: "",
-        country_id: 1,
-        language_id: 1,
-        payment_method_id: 0,
-        payment_day: 0,
-        maturity_date_id: 0,
-        salesman_id: 0,
-      }),
-    }
+    `${MOLONI_API}/customers/insert/?${createParams.toString()}`,
+    { method: "POST" }
   )
   const created = await createRes.json()
   if (!created.valid) {
@@ -113,35 +113,37 @@ export async function createMoloniInvoice(
   const dateStr = lastDayOfMonth.toISOString().split("T")[0]
   const dueDateStr = params.dueDate.toISOString().split("T")[0]
 
-  const products = params.lines.map((line, i) => ({
-    product_id: 0,
-    name: line.description,
-    qty: line.qty,
-    price: Math.round(line.unitPrice * 100) / 100,
-    order: i + 1,
-    discount: 0,
-    exemption_reason: "",
-    taxes: [{ tax_id: taxId, value: 23, order: 1, cumulative: 0 }],
-  }))
+  const invoiceParams = new URLSearchParams({
+    access_token: token,
+    company_id: String(companyId),
+    document_set_id: String(documentSetId),
+    customer_id: String(customerId),
+    date: dateStr,
+    expiration_date: dueDateStr,
+    financial_discount: "0",
+    special_discount: "0",
+    salesman_commission: "0",
+    status: "1",
+  })
+
+  // Products need to be sent as indexed query params (PHP array notation)
+  params.lines.forEach((line, i) => {
+    invoiceParams.append(`products[${i}][product_id]`, "0")
+    invoiceParams.append(`products[${i}][name]`, line.description)
+    invoiceParams.append(`products[${i}][qty]`, String(line.qty))
+    invoiceParams.append(`products[${i}][price]`, String(Math.round(line.unitPrice * 100) / 100))
+    invoiceParams.append(`products[${i}][order]`, String(i + 1))
+    invoiceParams.append(`products[${i}][discount]`, "0")
+    invoiceParams.append(`products[${i}][exemption_reason]`, "")
+    invoiceParams.append(`products[${i}][taxes][0][tax_id]`, String(taxId))
+    invoiceParams.append(`products[${i}][taxes][0][value]`, "23")
+    invoiceParams.append(`products[${i}][taxes][0][order]`, "1")
+    invoiceParams.append(`products[${i}][taxes][0][cumulative]`, "0")
+  })
 
   const res = await fetch(
-    `${MOLONI_API}/invoices/insert/?access_token=${token}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        company_id: companyId,
-        document_set_id: documentSetId,
-        customer_id: customerId,
-        date: dateStr,
-        expiration_date: dueDateStr,
-        financial_discount: 0,
-        special_discount: 0,
-        salesman_commission: 0,
-        products,
-        status: 1,
-      }),
-    }
+    `${MOLONI_API}/invoices/insert/?${invoiceParams.toString()}`,
+    { method: "POST" }
   )
 
   const data = await res.json()

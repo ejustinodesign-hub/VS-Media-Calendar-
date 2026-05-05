@@ -88,12 +88,8 @@ export async function GET() {
   try {
     const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)
     const res = await fetch(
-      `${MOLONI_API}/documentSets/getAll/?access_token=${token}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: companyId }),
-      }
+      `${MOLONI_API}/documentSets/getAll/?access_token=${token}&company_id=${companyId}`,
+      { method: "POST" }
     )
     const sets = await res.json()
     const documentSetId = parseInt(process.env.MOLONI_DOCUMENT_SET_ID!)
@@ -113,12 +109,8 @@ export async function GET() {
   try {
     const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)
     const res = await fetch(
-      `${MOLONI_API}/taxes/getAll/?access_token=${token}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: companyId }),
-      }
+      `${MOLONI_API}/taxes/getAll/?access_token=${token}&company_id=${companyId}`,
+      { method: "POST" }
     )
     const taxes = await res.json()
     const taxId = parseInt(process.env.MOLONI_TAX_ID!)
