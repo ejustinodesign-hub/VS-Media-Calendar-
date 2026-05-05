@@ -8,7 +8,13 @@ const TEST_LINES = [
   { description: "Vídeo Standard — Rua Teste 123, Lisboa (FATURA TESTE)", qty: 1, unitPrice: 150 },
   { description: "Fotografia T2 — Rua Teste 123, Lisboa (FATURA TESTE)", qty: 1, unitPrice: 25 },
 ]
-const TEST_MONTH = "2025-04"
+
+function getPrevMonth() {
+  const now = new Date()
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`
+}
+const TEST_MONTH = getPrevMonth()
 
 export async function POST() {
   const session = await auth()
@@ -71,8 +77,9 @@ export async function POST() {
     return NextResponse.json({ ok: false, invoiceId: invoice.id, step: "customer", error: String(e) })
   }
 
-  const dateStr = "2025-04-30"
-  const dueDateStr = "2025-05-31"
+  const [y, m] = TEST_MONTH.split("-").map(Number)
+  const dateStr = new Date(y, m, 0).toISOString().split("T")[0]         // last day of TEST_MONTH
+  const dueDateStr = new Date(y, m + 1, 0).toISOString().split("T")[0]  // last day of next month
 
   const baseParams: Record<string, string> = {
     company_id: String(companyId),

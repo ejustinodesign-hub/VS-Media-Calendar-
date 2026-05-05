@@ -53,7 +53,8 @@ async function findOrCreateCustomer(
   })
   const results = await searchRes.json()
   if (Array.isArray(results) && results.length > 0) {
-    return results[0].id as number
+    // Moloni returns customer_id (not id) in search results
+    return (results[0].customer_id ?? results[0].id) as number
   }
 
   const createRes = await moloniFetch("customers/insert", token, {
