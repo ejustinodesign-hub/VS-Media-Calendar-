@@ -117,6 +117,38 @@ export async function POST() {
     })),
   }
 
+  // Build form-urlencoded body manually (brackets must NOT be encoded — PHP parses them as arrays)
+  const flatParams: Record<string, string> = {
+    company_id: String(jsonBody.company_id),
+    document_set_id: String(jsonBody.document_set_id),
+    document_set_wsat_id: "0",
+    customer_id: String(jsonBody.customer_id),
+    date: jsonBody.date,
+    expiration_date: jsonBody.expiration_date,
+    financial_discount: "0",
+    special_discount: "0",
+    salesman_commission: "0",
+    our_reference: "",
+    your_reference: "",
+    notes: "",
+    status: "1",
+  }
+  jsonBody.products.forEach((p, i) => {
+    flatParams[`products[${i}][product_id]`] = "0"
+    flatParams[`products[${i}][name]`] = p.name
+    flatParams[`products[${i}][qty]`] = String(p.qty)
+    flatParams[`products[${i}][price]`] = String(p.price)
+    flatParams[`products[${i}][order]`] = String(p.order)
+    flatParams[`products[${i}][discount]`] = "0"
+    flatParams[`products[${i}][exemption_reason]`] = ""
+    flatParams[`products[${i}][taxes][0][tax_id]`] = String(taxId)
+    flatParams[`products[${i}][taxes][0][value]`] = "23"
+    flatParams[`products[${i}][taxes][0][order]`] = "1"
+    flatParams[`products[${i}][taxes][0][cumulative]`] = "0"
+  })
+  const formBody = Object.entries(flatParams)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")
+
   const endpoints = ["invoices", "simplifiedInvoices", "invoiceReceipts", "receipts", "proFormaInvoices"]
   const attemptResults: Record<string, unknown> = {}
 
@@ -124,8 +156,8 @@ export async function POST() {
     try {
       const res = await fetch(`${MOLONI_API}/${ep}/insert/?access_token=${token}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(jsonBody),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formBody,
       })
       const data = await res.json()
       attemptResults[ep] = data
