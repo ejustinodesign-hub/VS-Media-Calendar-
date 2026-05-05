@@ -117,8 +117,8 @@ export async function POST() {
     })),
   }
 
-  // Build form-urlencoded body manually (brackets must NOT be encoded — PHP parses them as arrays)
-  const flatParams: Record<string, string> = {
+  // Base params in body (confirmed working)
+  const bodyParams: Record<string, string> = {
     company_id: String(jsonBody.company_id),
     document_set_id: String(jsonBody.document_set_id),
     document_set_wsat_id: "0",
@@ -133,32 +133,41 @@ export async function POST() {
     notes: "",
     status: "1",
   }
-  jsonBody.products.forEach((p, i) => {
-    flatParams[`products[${i}][product_id]`] = "0"
-    flatParams[`products[${i}][name]`] = p.name
-    flatParams[`products[${i}][qty]`] = String(p.qty)
-    flatParams[`products[${i}][price]`] = String(p.price)
-    flatParams[`products[${i}][order]`] = String(p.order)
-    flatParams[`products[${i}][discount]`] = "0"
-    flatParams[`products[${i}][exemption_reason]`] = ""
-    flatParams[`products[${i}][taxes][0][tax_id]`] = String(taxId)
-    flatParams[`products[${i}][taxes][0][value]`] = "23"
-    flatParams[`products[${i}][taxes][0][order]`] = "1"
-    flatParams[`products[${i}][taxes][0][cumulative]`] = "0"
-  })
-  const formBody = Object.entries(flatParams)
+  const formBody = Object.entries(bodyParams)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")
 
-  const endpoints = ["invoices", "simplifiedInvoices", "invoiceReceipts", "receipts", "proFormaInvoices"]
+  // Products in query string (brackets encoded — PHP decodes %5B%5D as [] for array parsing)
+  const productParts: string[] = []
+  jsonBody.products.forEach((p, i) => {
+    const add = (k: string, v: string | number) =>
+      productParts.push(`products%5B${i}%5D%5B${k}%5D=${encodeURIComponent(String(v))}`)
+    add("product_id", 0)
+    add("name", p.name)
+    add("qty", p.qty)
+    add("price", p.price)
+    add("order", p.order)
+    add("discount", 0)
+    add("unit_id", 0)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Btax_id%5D=${taxId}`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bvalue%5D=23`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Border%5D=1`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bcumulative%5D=0`)
+  })
+  const productQs = productParts.join("&")
+
+  const endpoints = ["invoices", "simplifiedInvoices", "invoiceReceipts", "proFormaInvoices"]
   const attemptResults: Record<string, unknown> = {}
 
   for (const ep of endpoints) {
     try {
-      const res = await fetch(`${MOLONI_API}/${ep}/insert/?access_token=${token}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: formBody,
-      })
+      const res = await fetch(
+        `${MOLONI_API}/${ep}/insert/?access_token=${token}&${productQs}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: formBody,
+        }
+      )
       const data = await res.json()
       attemptResults[ep] = data
       if (data.valid) {
