@@ -87,9 +87,10 @@ export async function GET() {
   // 4. Fetch document sets to validate document set ID
   try {
     const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)
+    const body = new URLSearchParams({ company_id: String(companyId) })
     const res = await fetch(
-      `${MOLONI_API}/documentSets/getAll/?access_token=${token}&company_id=${companyId}`,
-      { method: "POST" }
+      `${MOLONI_API}/documentSets/getAll/?access_token=${token}`,
+      { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() }
     )
     const sets = await res.json()
     const documentSetId = parseInt(process.env.MOLONI_DOCUMENT_SET_ID!)
@@ -108,9 +109,10 @@ export async function GET() {
   // 5. Fetch taxes to validate tax ID
   try {
     const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)
+    const body = new URLSearchParams({ company_id: String(companyId) })
     const res = await fetch(
-      `${MOLONI_API}/taxes/getAll/?access_token=${token}&company_id=${companyId}`,
-      { method: "POST" }
+      `${MOLONI_API}/taxes/getAll/?access_token=${token}`,
+      { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() }
     )
     const taxes = await res.json()
     const taxId = parseInt(process.env.MOLONI_TAX_ID!)
