@@ -117,12 +117,16 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
   const invoiceParams: Record<string, string> = {
     company_id: String(companyId),
     document_set_id: String(documentSetId),
+    document_set_wsat_id: "0",
     customer_id: String(customerId),
     date: dateStr,
     expiration_date: dueDateStr,
     financial_discount: "0",
     special_discount: "0",
     salesman_commission: "0",
+    our_reference: "",
+    your_reference: "",
+    notes: "",
     status: "1",
   }
 
