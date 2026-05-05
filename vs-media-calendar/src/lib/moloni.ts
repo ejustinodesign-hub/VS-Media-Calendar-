@@ -1,6 +1,6 @@
-const MOLONI_API = "https://api.moloni.pt/v1"
+export const MOLONI_API = "https://api.moloni.pt/v1"
 
-async function getMoloniToken(): Promise<string> {
+export async function getMoloniToken(): Promise<string> {
   const params = new URLSearchParams({
     grant_type: "password",
     client_id: process.env.MOLONI_CLIENT_ID!,
@@ -22,7 +22,7 @@ async function getMoloniToken(): Promise<string> {
 // Moloni pattern: access_token in query string, everything else as form-urlencoded body.
 // Build body manually to preserve PHP bracket notation (products[0][name])
 // — URLSearchParams would percent-encode brackets which PHP can't parse as arrays.
-function moloniFetch(endpoint: string, token: string, params: Record<string, string>) {
+export function moloniFetch(endpoint: string, token: string, params: Record<string, string>) {
   const body = Object.entries(params)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&")
