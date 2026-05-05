@@ -54,6 +54,7 @@ async function findOrCreateCustomer(
 
   const createRes = await moloniFetch("customers/insert", token, {
     company_id: String(companyId),
+    number: "0",
     vat,
     name,
     email: consultant.email || "",
@@ -65,7 +66,10 @@ async function findOrCreateCustomer(
     payment_method_id: "0",
     payment_day: "0",
     maturity_date_id: "0",
+    delivery_method_id: "0",
     salesman_id: "0",
+    discount: "0",
+    credit_limit: "0",
   })
   const created = await createRes.json()
   if (!created.valid) {
