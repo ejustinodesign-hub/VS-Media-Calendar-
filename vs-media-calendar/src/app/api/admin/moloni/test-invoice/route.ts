@@ -52,6 +52,15 @@ export async function POST() {
     return NextResponse.json({ ok: false, invoiceId: invoice.id, error: String(e) })
   }
 
+  // List valid document sets for invoices (diagnostic)
+  let validDocumentSets: unknown = null
+  try {
+    const dsRes = await moloniFetch("invoices/getDocumentSets", token, { company_id: String(companyId) })
+    validDocumentSets = await dsRes.json()
+  } catch (e) {
+    validDocumentSets = String(e)
+  }
+
   // Find or create customer
   let customerId: number
   try {
@@ -60,7 +69,7 @@ export async function POST() {
     })
     const found = await searchRes.json()
     if (Array.isArray(found) && found.length > 0) {
-      customerId = found[0].id
+      customerId = (found[0].customer_id ?? found[0].id) as number
     } else {
       const createRes = await moloniFetch("customers/insert", token, {
         company_id: String(companyId), number: "0", vat: "999999990",
@@ -128,5 +137,5 @@ export async function POST() {
     }
   }
 
-  return NextResponse.json({ ok: false, invoiceId: invoice.id, total, attemptResults })
+  return NextResponse.json({ ok: false, invoiceId: invoice.id, total, validDocumentSets, attemptResults })
 }
