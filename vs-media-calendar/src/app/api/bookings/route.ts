@@ -16,14 +16,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User ID not found" }, { status: 401 })
   }
 
-  // Check for OVERDUE invoices
-  const overdueInvoice = await prisma.monthlyInvoice.findFirst({
-    where: { consultantId, status: "OVERDUE" },
+  // Block if any invoice is unpaid (PENDING or OVERDUE)
+  const unpaidInvoice = await prisma.monthlyInvoice.findFirst({
+    where: { consultantId, status: { in: ["PENDING", "OVERDUE"] } },
     select: { id: true },
   })
-  if (overdueInvoice) {
+  if (unpaidInvoice) {
     return NextResponse.json(
-      { error: "Tem faturas em atraso. Por favor regularize os pagamentos.", overdueInvoices: true },
+      { error: "Tem faturas por pagar. Regularize os pagamentos antes de criar novas marcações.", overdueInvoices: true },
       { status: 402 }
     )
   }

@@ -3,11 +3,48 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { NewBookingForm } from "./new-booking-form"
 import { DEFAULT_PRICES } from "@/lib/pricing"
+import { AlertCircle } from "lucide-react"
+import Link from "next/link"
 import type { ServiceType } from "@prisma/client"
 
 export default async function NewBookingPage() {
   const session = await auth()
   const user = session?.user as any
+  const consultantId = user?.id
+
+  const unpaidInvoice = consultantId
+    ? await prisma.monthlyInvoice.findFirst({
+        where: { consultantId, status: { in: ["PENDING", "OVERDUE"] } },
+        select: { id: true },
+      })
+    : null
+
+  if (unpaidInvoice) {
+    return (
+      <>
+        <Header title="Nova Marcação" subtitle="Agende um novo serviço de vídeo ou fotografia" />
+        <div className="flex-1 p-6 flex items-start justify-center">
+          <div className="max-w-md w-full bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center space-y-4 mt-8">
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Marcações bloqueadas</h2>
+              <p className="text-sm text-slate-600 mt-1">
+                Tem faturas por pagar. Para criar novas marcações, regularize primeiro todos os pagamentos pendentes.
+              </p>
+            </div>
+            <Link
+              href="/consultant/payments"
+              className="inline-flex items-center justify-center px-4 py-2 bg-[#0f3460] text-white text-sm font-semibold rounded-xl hover:bg-[#1a4a7a] transition-colors"
+            >
+              Ver faturas pendentes
+            </Link>
+          </div>
+        </div>
+      </>
+    )
+  }
 
   const [videographers, dbRules] = await Promise.all([
     prisma.user.findMany({
