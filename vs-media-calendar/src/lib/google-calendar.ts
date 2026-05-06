@@ -57,7 +57,6 @@ export async function createCalendarEvent(data: BookingEventData): Promise<strin
 
     const event = await calendar.events.insert({
       calendarId: CALENDAR_ID,
-      sendUpdates: "all", // sends email invites to all attendees
       requestBody: {
         summary: `📸 ${data.propertyAddress}`,
         description: buildDescription(data),
@@ -71,12 +70,6 @@ export async function createCalendarEvent(data: BookingEventData): Promise<strin
           timeZone: "Europe/Lisbon",
         },
         colorId: "7",
-        attendees: [
-          { email: data.consultantEmail, displayName: data.consultantName },
-          { email: data.videographerEmail, displayName: data.videographerName },
-        ],
-        // Allow attendees to see each other
-        guestsCanSeeOtherGuests: true,
       },
     })
 
