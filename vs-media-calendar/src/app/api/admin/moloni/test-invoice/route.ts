@@ -38,16 +38,25 @@ async function findOrCreateServiceProduct(
   // Get first measurement unit (required for product creation)
   const unitsRes = await moloniFetch("measurementUnits/getAll", token, { company_id: String(companyId) })
   const units = await unitsRes.json()
-  diag.measurementUnits = units
+  diag.measurementUnits = Array.isArray(units) ? units.map((u: any) => ({ id: u.unit_id ?? u.id, name: u.name })) : units
   if (!Array.isArray(units) || units.length === 0) {
     throw new Error(`measurementUnits/getAll failed: ${JSON.stringify(units)}`)
   }
   const unitId = units[0].unit_id ?? units[0].id
 
+  // Get first product category (category_id:0 is invalid)
+  const catsRes = await moloniFetch("productCategories/getAll", token, { company_id: String(companyId) })
+  const cats = await catsRes.json()
+  diag.productCategories = Array.isArray(cats) ? cats.map((c: any) => ({ id: c.category_id ?? c.id, name: c.name })) : cats
+  if (!Array.isArray(cats) || cats.length === 0) {
+    throw new Error(`productCategories/getAll failed: ${JSON.stringify(cats)}`)
+  }
+  const categoryId = cats[0].category_id ?? cats[0].id
+
   // Create a generic service product (product_id=0 is rejected by Moloni on invoice lines)
   const createRes = await moloniFetch("products/insert", token, {
     company_id: String(companyId),
-    category_id: "0",
+    category_id: String(categoryId),
     type: "2",              // 2 = service
     reference: "VSMEDIA_SVC",
     name: "Servico VS Media",
