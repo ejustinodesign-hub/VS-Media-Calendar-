@@ -25,7 +25,7 @@ export function Header({ title, subtitle }: HeaderProps) {
   }, [])
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+    <header className="h-14 border-b border-slate-100 bg-white/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 flex-shrink-0">
       <div className="flex items-center gap-3 min-w-0">
         {/* Mobile hamburger */}
         <button
@@ -37,9 +37,9 @@ export function Header({ title, subtitle }: HeaderProps) {
         </button>
 
         <div className="min-w-0">
-          <h2 className="text-lg md:text-xl font-bold text-slate-900 truncate">{title}</h2>
+          <h2 className="text-base font-semibold text-slate-900 truncate">{title}</h2>
           {subtitle && (
-            <p className="text-xs md:text-sm text-slate-500 truncate">{subtitle}</p>
+            <p className="text-xs text-slate-400 truncate">{subtitle}</p>
           )}
         </div>
       </div>
@@ -68,22 +68,17 @@ export function Header({ title, subtitle }: HeaderProps) {
         </div>
 
         {/* User avatar */}
-        <div className="flex items-center gap-2">
-          {session?.user?.image ? (
-            <img
-              src={session.user.image}
-              alt={session.user.name || ""}
-              className="w-8 h-8 rounded-full border border-slate-200"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-[#0f3460] flex items-center justify-center text-white text-xs font-bold">
-              {session?.user?.name?.[0] || "U"}
-            </div>
-          )}
-          <span className="text-sm font-medium text-slate-700 hidden sm:block">
-            {session?.user?.name?.split(" ")[0] || session?.user?.email?.split("@")[0]}
-          </span>
-        </div>
+        {session?.user?.image ? (
+          <img
+            src={session.user.image}
+            alt={session.user.name || ""}
+            className="w-8 h-8 rounded-full border border-slate-200"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-[#0f3460] flex items-center justify-center text-white text-xs font-bold">
+            {session?.user?.name?.[0] || "U"}
+          </div>
+        )}
       </div>
     </header>
   )

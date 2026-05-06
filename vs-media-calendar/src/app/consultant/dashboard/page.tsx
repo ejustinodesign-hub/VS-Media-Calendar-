@@ -56,21 +56,21 @@ export default async function ConsultantDashboard() {
   return (
     <>
       <Header
-        title={`Bom dia, ${session?.user?.name?.split(" ")[0] || "!"} 👋`}
-        subtitle="Aqui está o resumo das suas marcações"
+        title={`Olá, ${session?.user?.name?.split(" ")[0] || "!"}`}
+        subtitle="Resumo das suas marcações"
       />
       <div className="flex-1 p-6 space-y-6">
         {/* Quick Action */}
-        <div className="bg-gradient-to-r from-[#0f3460] to-[#1a4a7a] rounded-xl p-6 flex items-center justify-between">
+        <div className="bg-[#0f172a] rounded-xl p-5 flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-white font-bold text-lg">Agendar novo serviço</h3>
-            <p className="text-slate-300 text-sm mt-1">
+            <h3 className="text-white font-semibold text-base">Agendar novo serviço</h3>
+            <p className="text-slate-400 text-sm mt-0.5">
               Vídeo, fotografia ou ambos — escolha o videógrafo e a data
             </p>
           </div>
           <Link
             href="/consultant/bookings/new"
-            className="flex items-center gap-2 bg-[#e94560] text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#d63050] transition-colors shadow-lg shadow-[#e94560]/30"
+            className="flex-shrink-0 flex items-center gap-2 bg-[#e94560] text-white px-4 py-2.5 rounded-lg font-semibold text-sm hover:bg-[#d63050] transition-colors"
           >
             <CalendarPlus className="w-4 h-4" />
             Nova Marcação
@@ -92,37 +92,30 @@ export default async function ConsultantDashboard() {
               label: "Total de Marcações",
               value: stats.reduce((sum, s) => sum + s._count.id, 0),
               icon: Calendar,
-              color: "text-blue-600 bg-blue-50",
             },
             {
               label: "Próximas",
               value: upcoming.length,
               icon: Clock,
-              color: "text-purple-600 bg-purple-50",
             },
             {
               label: "Concluídas",
               value: statusCount("COMPLETED"),
               icon: CheckCircle2,
-              color: "text-emerald-600 bg-emerald-50",
             },
             {
               label: "Total Investido",
               value: fp(totalPaid._sum.amount || 0),
               icon: FileVideo,
-              color: "text-orange-600 bg-orange-50",
-              isText: true,
             },
           ].map((stat) => (
             <Card key={stat.label}>
-              <CardContent className="flex items-center gap-4 py-5">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${stat.color}`}>
-                  <stat.icon className="w-5 h-5" />
+              <CardContent className="py-5 px-5">
+                <div className="flex items-start justify-between mb-3">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{stat.label}</p>
+                  <stat.icon className="w-3.5 h-3.5 text-slate-300 mt-0.5 flex-shrink-0" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                  <p className="text-xs text-slate-500">{stat.label}</p>
-                </div>
+                <p className="text-2xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
               </CardContent>
             </Card>
           ))}

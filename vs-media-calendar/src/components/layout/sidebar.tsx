@@ -15,7 +15,6 @@ import {
   DollarSign,
   BarChart3,
   FileVideo,
-  ChevronRight,
   X,
   UserCircle,
   CreditCard,
@@ -183,38 +182,41 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/")
             const Icon = item.icon
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group",
-                  isActive
-                    ? "bg-white/10 text-white"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
+              <div key={item.href} className="relative">
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#e94560] rounded-full" />
                 )}
-              >
-                <Icon
+                <Link
+                  href={item.href}
                   className={cn(
-                    "w-4 h-4 flex-shrink-0 transition-colors",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group pl-4",
                     isActive
-                      ? "text-[#e94560]"
-                      : "text-slate-500 group-hover:text-slate-300"
+                      ? "bg-white/[0.08] text-white"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
                   )}
-                />
-                <span className="flex-1">{item.label}</span>
-                {isActive && <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
-                {item.badge && (
-                  <span className="ml-auto bg-[#e94560] text-white text-xs px-1.5 py-0.5 rounded-full">
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
+                >
+                  <Icon
+                    className={cn(
+                      "w-4 h-4 flex-shrink-0 transition-colors",
+                      isActive
+                        ? "text-[#e94560]"
+                        : "text-slate-500 group-hover:text-slate-300"
+                    )}
+                  />
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge && (
+                    <span className="bg-[#e94560] text-white text-xs px-1.5 py-0.5 rounded-full font-semibold">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              </div>
             )
           })}
         </nav>
