@@ -16,32 +16,6 @@ function getPrevMonth() {
 }
 const TEST_MONTH = getPrevMonth()
 
-function buildProductQs(
-  products: Array<{ name: string; qty: number; price: number }>,
-  opts: { unitId?: number; taxId?: number; withTaxValue?: boolean },
-) {
-  const parts: string[] = []
-  products.forEach((p, i) => {
-    const add = (k: string, v: string | number) =>
-      parts.push(`products%5B${i}%5D%5B${k}%5D=${encodeURIComponent(String(v))}`)
-    add("name", p.name)
-    add("qty", p.qty)
-    add("price", p.price)
-    add("order", i + 1)
-    add("discount", 0)
-    if (opts.unitId != null) add("unit_id", opts.unitId)
-    if (opts.taxId != null) {
-      parts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Btax_id%5D=${opts.taxId}`)
-      if (opts.withTaxValue !== false) {
-        parts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bvalue%5D=23`)
-        parts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Border%5D=1`)
-        parts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bcumulative%5D=0`)
-      }
-    }
-  })
-  return parts.join("&")
-}
-
 export async function POST() {
   const session = await auth()
   const userRole = (session?.user as any)?.role
@@ -78,22 +52,6 @@ export async function POST() {
     return NextResponse.json({ ok: false, invoiceId: invoice.id, error: String(e) })
   }
 
-  // Probe several possible unit class names
-  const unitDiag: Record<string, unknown> = {}
-  let unitId: number | null = null
-  for (const cls of ["units", "measurementUnits", "unitMeasures", "measures"]) {
-    try {
-      const r = await moloniFetch(`${cls}/getAll`, token, { company_id: String(companyId) })
-      const d = await r.json()
-      unitDiag[cls] = d
-      if (Array.isArray(d) && d.length > 0 && unitId == null) {
-        unitId = (d[0].unit_id ?? d[0].id) as number
-      }
-    } catch (e) {
-      unitDiag[cls] = String(e)
-    }
-  }
-
   // Find or create customer
   let customerId: number
   try {
@@ -123,12 +81,7 @@ export async function POST() {
   const dateStr = new Date(y, m, 0).toISOString().split("T")[0]
   const dueDateStr = new Date(y, m + 1, 0).toISOString().split("T")[0]
 
-  const products = TEST_LINES.map((line) => ({
-    name: line.description,
-    qty: line.qty,
-    price: line.unitPrice,
-  }))
-
+  // Base invoice params in POST body
   const bodyParams: Record<string, string> = {
     company_id: String(companyId),
     document_set_id: String(documentSetId),
@@ -147,40 +100,50 @@ export async function POST() {
   const formBody = Object.entries(bodyParams)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")
 
-  // Variants to isolate: (a) no tax, (b) tax_id only, (c) tax with value — each with/without unitId
-  const variants: Array<{ label: string; opts: Parameters<typeof buildProductQs>[1] }> = [
-    { label: "noTax_noUnit",    opts: {} },
-    { label: "noTax_unit1",     opts: { unitId: 1 } },
-    { label: "taxIdOnly_unit1", opts: { taxId, unitId: 1, withTaxValue: false } },
-    { label: "fullTax_unit1",   opts: { taxId, unitId: 1 } },
-    ...(unitId != null ? [
-      { label: `noTax_unit${unitId}`,     opts: { unitId } as Parameters<typeof buildProductQs>[1] },
-      { label: `fullTax_unit${unitId}`,   opts: { taxId, unitId } as Parameters<typeof buildProductQs>[1] },
-    ] : []),
-  ]
+  // Products in URL query string with %5B%5D-encoded brackets (PHP parses as array).
+  // Fields confirmed from official Moloni WooCommerce/PrestaShop integrations:
+  //   product_id, name, summary, qty, price, discount, order (0-based),
+  //   exemption_reason (empty string when tax is present), warehouse_id,
+  //   taxes[n][tax_id], taxes[n][value], taxes[n][order] (0-based), taxes[n][cumulative]
+  // unit_id is NOT a valid invoice line field (only used in product catalog creation)
+  const productParts: string[] = []
+  TEST_LINES.forEach((line, i) => {
+    const add = (k: string, v: string | number) =>
+      productParts.push(`products%5B${i}%5D%5B${k}%5D=${encodeURIComponent(String(v))}`)
+    add("product_id", 0)
+    add("name", line.description)
+    add("summary", "")
+    add("qty", line.qty)
+    add("price", line.unitPrice)
+    add("discount", 0)
+    add("order", i)               // 0-based
+    add("exemption_reason", "")   // required (empty string when tax applies)
+    add("warehouse_id", 0)
+    // taxes — order is also 0-based
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Btax_id%5D=${taxId}`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bvalue%5D=23`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Border%5D=0`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bcumulative%5D=0`)
+  })
+  const productQs = productParts.join("&")
 
-  const attemptResults: Record<string, unknown> = {}
+  try {
+    const res = await fetch(
+      `${MOLONI_API}/invoices/insert/?access_token=${token}&${productQs}`,
+      { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: formBody }
+    )
+    const text = await res.text()
+    let data: unknown
+    try { data = JSON.parse(text) } catch { data = text.slice(0, 500) }
 
-  for (const { label, opts } of variants) {
-    const productQs = buildProductQs(products, opts)
-    try {
-      const res = await fetch(
-        `${MOLONI_API}/invoices/insert/?access_token=${token}&${productQs}`,
-        { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: formBody }
-      )
-      const text = await res.text()
-      let data: unknown
-      try { data = JSON.parse(text) } catch { data = text.slice(0, 200) }
-      attemptResults[label] = data
-      if ((data as any)?.valid) {
-        const docId = (data as any).document_id
-        await prisma.monthlyInvoice.update({ where: { id: invoice.id }, data: { moloniDocumentId: docId } })
-        return NextResponse.json({ ok: true, invoiceId: invoice.id, total, label, moloniDocumentId: docId })
-      }
-    } catch (e) {
-      attemptResults[label] = String(e)
+    if ((data as any)?.valid) {
+      const docId = (data as any).document_id
+      await prisma.monthlyInvoice.update({ where: { id: invoice.id }, data: { moloniDocumentId: docId } })
+      return NextResponse.json({ ok: true, invoiceId: invoice.id, total, moloniDocumentId: docId })
     }
-  }
 
-  return NextResponse.json({ ok: false, invoiceId: invoice.id, total, unitId, unitDiag, attemptResults })
+    return NextResponse.json({ ok: false, invoiceId: invoice.id, total, moloniResponse: data })
+  } catch (e) {
+    return NextResponse.json({ ok: false, invoiceId: invoice.id, error: String(e) })
+  }
 }

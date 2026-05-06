@@ -135,22 +135,37 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     status: "1",
   }
 
-  // PHP array notation for products
+  // Products go in the URL query string with %5B%5D-encoded brackets.
+  // Fields confirmed from official Moloni WooCommerce/PrestaShop integrations.
+  // unit_id is NOT valid for invoice lines (only for product catalog creation).
+  // order and taxes[n][order] are 0-based.
+  const productParts: string[] = []
   params.lines.forEach((line, i) => {
-    invoiceParams[`products[${i}][product_id]`] = "0"
-    invoiceParams[`products[${i}][name]`] = line.description
-    invoiceParams[`products[${i}][qty]`] = String(line.qty)
-    invoiceParams[`products[${i}][price]`] = String(Math.round(line.unitPrice * 100) / 100)
-    invoiceParams[`products[${i}][order]`] = String(i + 1)
-    invoiceParams[`products[${i}][discount]`] = "0"
-    invoiceParams[`products[${i}][exemption_reason]`] = ""
-    invoiceParams[`products[${i}][taxes][0][tax_id]`] = String(taxId)
-    invoiceParams[`products[${i}][taxes][0][value]`] = "23"
-    invoiceParams[`products[${i}][taxes][0][order]`] = "1"
-    invoiceParams[`products[${i}][taxes][0][cumulative]`] = "0"
+    const add = (k: string, v: string | number) =>
+      productParts.push(`products%5B${i}%5D%5B${k}%5D=${encodeURIComponent(String(v))}`)
+    add("product_id", 0)
+    add("name", line.description)
+    add("summary", "")
+    add("qty", line.qty)
+    add("price", Math.round(line.unitPrice * 100) / 100)
+    add("discount", 0)
+    add("order", i)
+    add("exemption_reason", "")
+    add("warehouse_id", 0)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Btax_id%5D=${taxId}`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bvalue%5D=23`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Border%5D=0`)
+    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bcumulative%5D=0`)
   })
+  const productQs = productParts.join("&")
 
-  const res = await moloniFetch("invoices/insert", token, invoiceParams)
+  const bodyStr = Object.entries(invoiceParams)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")
+
+  const res = await fetch(
+    `${MOLONI_API}/invoices/insert/?access_token=${token}&${productQs}`,
+    { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: bodyStr }
+  )
   const data = await res.json()
   if (!data.valid) {
     throw new Error(`Moloni invoice insert failed: ${JSON.stringify(data)}`)
