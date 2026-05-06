@@ -16,6 +16,55 @@ function getPrevMonth() {
 }
 const TEST_MONTH = getPrevMonth()
 
+async function findOrCreateServiceProduct(
+  token: string,
+  companyId: number,
+  taxId: number,
+): Promise<{ productId: number; diag: unknown }> {
+  const diag: Record<string, unknown> = {}
+
+  // Search for existing generic service product
+  const searchRes = await moloniFetch("products/getBySearch", token, {
+    company_id: String(companyId), search: "VSMEDIA_SVC",
+  })
+  const found = await searchRes.json()
+  diag.productSearch = found
+  if (Array.isArray(found) && found.length > 0) {
+    const pid = found[0].product_id ?? found[0].id
+    diag.productFound = pid
+    return { productId: pid as number, diag }
+  }
+
+  // Get first measurement unit (required for product creation)
+  const unitsRes = await moloniFetch("measurementUnits/getAll", token, { company_id: String(companyId) })
+  const units = await unitsRes.json()
+  diag.measurementUnits = units
+  if (!Array.isArray(units) || units.length === 0) {
+    throw new Error(`measurementUnits/getAll failed: ${JSON.stringify(units)}`)
+  }
+  const unitId = units[0].unit_id ?? units[0].id
+
+  // Create a generic service product (product_id=0 is rejected by Moloni on invoice lines)
+  const createRes = await moloniFetch("products/insert", token, {
+    company_id: String(companyId),
+    category_id: "0",
+    type: "2",              // 2 = service
+    reference: "VSMEDIA_SVC",
+    name: "Servico VS Media",
+    unit_id: String(unitId),
+    price: "0",
+    has_stock: "0",
+    [`taxes[0][tax_id]`]: String(taxId),
+    [`taxes[0][value]`]: "23",
+    [`taxes[0][order]`]: "0",
+    [`taxes[0][cumulative]`]: "0",
+  })
+  const created = await createRes.json()
+  diag.productCreate = created
+  if (!created.valid) throw new Error(`products/insert failed: ${JSON.stringify(created)}`)
+  return { productId: created.product_id as number, diag }
+}
+
 export async function POST() {
   const session = await auth()
   const userRole = (session?.user as any)?.role
@@ -52,6 +101,17 @@ export async function POST() {
     return NextResponse.json({ ok: false, invoiceId: invoice.id, error: String(e) })
   }
 
+  // Find or create the generic service product in Moloni catalog
+  let productId: number
+  let productDiag: unknown
+  try {
+    const result = await findOrCreateServiceProduct(token, companyId, taxId)
+    productId = result.productId
+    productDiag = result.diag
+  } catch (e) {
+    return NextResponse.json({ ok: false, invoiceId: invoice.id, step: "product", error: String(e) })
+  }
+
   // Find or create customer
   let customerId: number
   try {
@@ -81,7 +141,6 @@ export async function POST() {
   const dateStr = new Date(y, m, 0).toISOString().split("T")[0]
   const dueDateStr = new Date(y, m + 1, 0).toISOString().split("T")[0]
 
-  // Base invoice params in POST body
   const bodyParams: Record<string, string> = {
     company_id: String(companyId),
     document_set_id: String(documentSetId),
@@ -100,26 +159,20 @@ export async function POST() {
   const formBody = Object.entries(bodyParams)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")
 
-  // Products in URL query string with %5B%5D-encoded brackets (PHP parses as array).
-  // Fields confirmed from official Moloni WooCommerce/PrestaShop integrations:
-  //   product_id, name, summary, qty, price, discount, order (0-based),
-  //   exemption_reason (empty string when tax is present), warehouse_id,
-  //   taxes[n][tax_id], taxes[n][value], taxes[n][order] (0-based), taxes[n][cumulative]
-  // unit_id is NOT a valid invoice line field (only used in product catalog creation)
+  // Products in URL query string with real product_id
   const productParts: string[] = []
   TEST_LINES.forEach((line, i) => {
     const add = (k: string, v: string | number) =>
       productParts.push(`products%5B${i}%5D%5B${k}%5D=${encodeURIComponent(String(v))}`)
-    add("product_id", 0)
+    add("product_id", productId)
     add("name", line.description)
     add("summary", "")
     add("qty", line.qty)
     add("price", line.unitPrice)
     add("discount", 0)
-    add("order", i)               // 0-based
-    add("exemption_reason", "")   // required (empty string when tax applies)
+    add("order", i)
+    add("exemption_reason", "")
     add("warehouse_id", 0)
-    // taxes — order is also 0-based
     productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Btax_id%5D=${taxId}`)
     productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bvalue%5D=23`)
     productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Border%5D=0`)
@@ -139,10 +192,10 @@ export async function POST() {
     if ((data as any)?.valid) {
       const docId = (data as any).document_id
       await prisma.monthlyInvoice.update({ where: { id: invoice.id }, data: { moloniDocumentId: docId } })
-      return NextResponse.json({ ok: true, invoiceId: invoice.id, total, moloniDocumentId: docId })
+      return NextResponse.json({ ok: true, invoiceId: invoice.id, total, productId, moloniDocumentId: docId })
     }
 
-    return NextResponse.json({ ok: false, invoiceId: invoice.id, total, moloniResponse: data })
+    return NextResponse.json({ ok: false, invoiceId: invoice.id, total, productId, productDiag, moloniResponse: data })
   } catch (e) {
     return NextResponse.json({ ok: false, invoiceId: invoice.id, error: String(e) })
   }
