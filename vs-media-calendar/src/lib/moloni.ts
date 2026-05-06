@@ -89,23 +89,32 @@ async function findOrCreateServiceProduct(
   companyId: number,
   taxId: number,
 ): Promise<number> {
-  const searchRes = await moloniFetch("products/getBySearch", token, {
-    company_id: String(companyId),
-    search: "VSMEDIA_SVC",
-  })
-  const found = await searchRes.json()
-  if (Array.isArray(found) && found.length > 0) {
-    return (found[0].product_id ?? found[0].id) as number
-  }
-
-  // Need a valid unit_id for product creation
+  // Always fetch units so we can ensure the product uses "Unidade"
   const unitsRes = await moloniFetch("measurementUnits/getAll", token, { company_id: String(companyId) })
   const units = await unitsRes.json()
   if (!Array.isArray(units) || units.length === 0) {
     throw new Error(`measurementUnits/getAll failed: ${JSON.stringify(units)}`)
   }
   const unidade = units.find((u: any) => u.name === "Unidade") ?? units[0]
-  const unitId = unidade.unit_id ?? unidade.id
+  const unitId = (unidade.unit_id ?? unidade.id) as number
+
+  const searchRes = await moloniFetch("products/getBySearch", token, {
+    company_id: String(companyId),
+    search: "VSMEDIA_SVC",
+  })
+  const found = await searchRes.json()
+  if (Array.isArray(found) && found.length > 0) {
+    const productId = (found[0].product_id ?? found[0].id) as number
+    // Update unit if needed (product may have been created with wrong unit)
+    if ((found[0].unit_id ?? found[0].unit?.unit_id) !== unitId) {
+      await moloniFetch("products/update", token, {
+        company_id: String(companyId),
+        product_id: String(productId),
+        unit_id: String(unitId),
+      })
+    }
+    return productId
+  }
 
   // Get or create a product category (required by Moloni)
   let categoryId: number

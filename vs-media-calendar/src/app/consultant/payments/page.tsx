@@ -316,19 +316,32 @@ export default async function ConsultantPaymentsPage({
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 sm:flex-col sm:items-end">
+                      <div className="flex items-center gap-3 sm:flex-col sm:items-end">
                         <p className="text-lg font-bold text-slate-900">{formatPrice(invoice.total)}</p>
-                        {isPaid ? (
-                          <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-full">
-                            Pago
-                          </span>
-                        ) : (
-                          <PayInvoiceButton
-                            invoiceId={invoice.id}
-                            isOverdue={isOverdue}
-                            canPayFrom={canPayFrom}
-                          />
-                        )}
+                        <div className="flex items-center gap-2">
+                          {(invoice as any).moloniDocumentId && (
+                            <a
+                              href={`/api/invoices/${invoice.id}/pdf`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              PDF
+                            </a>
+                          )}
+                          {isPaid ? (
+                            <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-full">
+                              Pago
+                            </span>
+                          ) : (
+                            <PayInvoiceButton
+                              invoiceId={invoice.id}
+                              isOverdue={isOverdue}
+                              canPayFrom={canPayFrom}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
