@@ -163,7 +163,9 @@ export async function POST() {
   const dateStr = new Date(y, m, 0).toISOString().split("T")[0]
   const dueDateStr = new Date(y, m + 1, 0).toISOString().split("T")[0]
 
-  const bodyParams: Record<string, string> = {
+  // All params — including products — go in the POST body with literal bracket keys.
+  // This is the same pattern used by moloniFetch for products/insert (which works).
+  const invoiceParams: Record<string, string> = {
     company_id: String(companyId),
     document_set_id: String(documentSetId),
     document_set_wsat_id: "0",
@@ -178,35 +180,25 @@ export async function POST() {
     notes: "",
     status: "1",
   }
-  const formBody = Object.entries(bodyParams)
-    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")
 
-  // Products in URL query string with real product_id
-  const productParts: string[] = []
   TEST_LINES.forEach((line, i) => {
-    const add = (k: string, v: string | number) =>
-      productParts.push(`products%5B${i}%5D%5B${k}%5D=${encodeURIComponent(String(v))}`)
-    add("product_id", productId)
-    add("name", line.description)
-    add("summary", "")
-    add("qty", line.qty)
-    add("price", line.unitPrice)
-    add("discount", 0)
-    add("order", i)
-    add("exemption_reason", "")
-    add("warehouse_id", 0)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Btax_id%5D=${taxId}`)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bvalue%5D=23`)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Border%5D=0`)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bcumulative%5D=0`)
+    invoiceParams[`products[${i}][product_id]`] = String(productId)
+    invoiceParams[`products[${i}][name]`]        = line.description
+    invoiceParams[`products[${i}][summary]`]     = ""
+    invoiceParams[`products[${i}][qty]`]         = String(line.qty)
+    invoiceParams[`products[${i}][price]`]       = String(line.unitPrice)
+    invoiceParams[`products[${i}][discount]`]    = "0"
+    invoiceParams[`products[${i}][order]`]       = String(i)
+    invoiceParams[`products[${i}][exemption_reason]`] = ""
+    invoiceParams[`products[${i}][warehouse_id]`]= "0"
+    invoiceParams[`products[${i}][taxes][0][tax_id]`]    = String(taxId)
+    invoiceParams[`products[${i}][taxes][0][value]`]     = "23"
+    invoiceParams[`products[${i}][taxes][0][order]`]     = "0"
+    invoiceParams[`products[${i}][taxes][0][cumulative]`]= "0"
   })
-  const productQs = productParts.join("&")
 
   try {
-    const res = await fetch(
-      `${MOLONI_API}/invoices/insert/?access_token=${token}&${productQs}`,
-      { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: formBody }
-    )
+    const res = await moloniFetch("invoices/insert", token, invoiceParams)
     const text = await res.text()
     let data: unknown
     try { data = JSON.parse(text) } catch { data = text.slice(0, 500) }
