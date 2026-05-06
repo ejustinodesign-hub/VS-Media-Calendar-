@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
     videographerName: videographer.name || "",
     videographerEmail: videographer.email || "",
     propertyAddress,
+    propertyType: propertyType as string | undefined,
     scheduledAt: new Date(scheduledAt),
     services: pricing.services.map((s) => s.label),
     totalAmount: isCommission ? undefined : pricing.total,

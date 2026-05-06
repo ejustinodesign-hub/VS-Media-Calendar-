@@ -23,6 +23,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       videographer: { select: { name: true, email: true } },
       services: true,
     },
+    // propertyType is a scalar field, included automatically
   })
 
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 })
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     videographerName: booking.videographer.name || "",
     videographerEmail: booking.videographer.email || "",
     propertyAddress: booking.propertyAddress,
+    propertyType: booking.propertyType as string | null,
     scheduledAt: new Date(booking.scheduledAt),
     services: serviceLabels,
     status: "ACCEPTED" as const,

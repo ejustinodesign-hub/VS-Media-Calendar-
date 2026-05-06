@@ -21,11 +21,17 @@ interface BookingEmailData {
   videographerName: string
   videographerEmail: string
   propertyAddress: string
+  propertyType?: string | null
   scheduledAt: Date
   services: string[]
   totalAmount?: number
   status: BookingStatus
   durationMinutes?: number
+}
+
+function formatPropertyType(type?: string | null): string {
+  if (!type) return ""
+  return type === "T5_PLUS" ? "T5+" : type
 }
 
 function formatICSDate(date: Date): string {
@@ -55,7 +61,7 @@ export function generateICS(data: BookingEmailData): string {
     `DTSTAMP:${formatICSDate(new Date())}`,
     `DTSTART:${formatICSDate(start)}`,
     `DTEND:${formatICSDate(end)}`,
-    `SUMMARY:📸 ${data.propertyAddress}`,
+    `SUMMARY:📸 ${data.propertyAddress}${data.propertyType ? ` (${formatPropertyType(data.propertyType)})` : ""}`,
     `DESCRIPTION:${description}`,
     `LOCATION:${data.propertyAddress}`,
     "END:VEVENT",
@@ -119,7 +125,7 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
       <h3 style="color:#1a1a2e;margin:0 0 16px;font-size:14px;text-transform:uppercase;letter-spacing:1px;">Detalhes da Marcação</h3>
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Data e Hora</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${formatDate(data.scheduledAt)}</td></tr>
-        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}${data.propertyType ? ` <span style="color:#666;font-weight:400;">(${formatPropertyType(data.propertyType)})</span>` : ""}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Videógrafo</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.videographerName}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Serviços</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.services.join(", ")}</td></tr>
         ${data.totalAmount ? `<tr><td style="color:#666;padding:6px 0;font-size:14px;">Total Pago</td><td style="color:#10b981;padding:6px 0;font-size:14px;font-weight:700;">${formatAmount(data.totalAmount)}</td></tr>` : ""}
@@ -148,7 +154,7 @@ export async function sendVideographerRequestEmail(data: BookingEmailData) {
       <h3 style="color:#1a1a2e;margin:0 0 16px;font-size:14px;text-transform:uppercase;letter-spacing:1px;">Detalhes do Serviço</h3>
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Data e Hora</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${formatDate(data.scheduledAt)}</td></tr>
-        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}${data.propertyType ? ` <span style="color:#666;font-weight:400;">(${formatPropertyType(data.propertyType)})</span>` : ""}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Consultor</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.consultantName}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Serviços</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.services.join(", ")}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Duração</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">1h30</td></tr>
@@ -248,7 +254,7 @@ export async function sendStatusUpdateEmail(
     <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Data e Hora</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${formatDate(data.scheduledAt)}</td></tr>
-        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}${data.propertyType ? ` <span style="color:#666;font-weight:400;">(${formatPropertyType(data.propertyType)})</span>` : ""}</td></tr>
       </table>
     </div>
 
