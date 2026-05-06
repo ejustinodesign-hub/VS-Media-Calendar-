@@ -19,9 +19,8 @@ export async function getMoloniToken(): Promise<string> {
   return data.access_token as string
 }
 
-// Moloni pattern: access_token in query string, everything else as form-urlencoded body.
-// Build body manually to preserve PHP bracket notation (products[0][name])
-// — URLSearchParams would percent-encode brackets which PHP can't parse as arrays.
+// access_token goes in the query string; all other params as form-urlencoded body.
+// Keys with bracket notation (products[0][name]) are passed literally — PHP parses them as arrays.
 export function moloniFetch(endpoint: string, token: string, params: Record<string, string>) {
   const body = Object.entries(params)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
@@ -53,7 +52,6 @@ async function findOrCreateCustomer(
   })
   const results = await searchRes.json()
   if (Array.isArray(results) && results.length > 0) {
-    // Moloni returns customer_id (not id) in search results
     return (results[0].customer_id ?? results[0].id) as number
   }
 
@@ -81,6 +79,69 @@ async function findOrCreateCustomer(
     throw new Error(`Moloni customer insert failed: ${JSON.stringify(created)}`)
   }
   return created.customer_id as number
+}
+
+// Moloni requires a real product_id on invoice lines (product_id:0 is rejected).
+// We use a single generic service product (ref: VSMEDIA_SVC) for all lines,
+// overriding name and price per line. Created automatically on first use.
+async function findOrCreateServiceProduct(
+  token: string,
+  companyId: number,
+  taxId: number,
+): Promise<number> {
+  const searchRes = await moloniFetch("products/getBySearch", token, {
+    company_id: String(companyId),
+    search: "VSMEDIA_SVC",
+  })
+  const found = await searchRes.json()
+  if (Array.isArray(found) && found.length > 0) {
+    return (found[0].product_id ?? found[0].id) as number
+  }
+
+  // Need a valid unit_id for product creation
+  const unitsRes = await moloniFetch("measurementUnits/getAll", token, { company_id: String(companyId) })
+  const units = await unitsRes.json()
+  if (!Array.isArray(units) || units.length === 0) {
+    throw new Error(`measurementUnits/getAll failed: ${JSON.stringify(units)}`)
+  }
+  const unitId = units[0].unit_id ?? units[0].id
+
+  // Get or create a product category (required by Moloni)
+  let categoryId: number
+  const catsRes = await moloniFetch("productCategories/getAll", token, { company_id: String(companyId) })
+  const cats = await catsRes.json()
+  if (Array.isArray(cats) && cats.length > 0) {
+    categoryId = (cats[0].category_id ?? cats[0].id) as number
+  } else {
+    const catRes = await moloniFetch("productCategories/insert", token, {
+      company_id: String(companyId),
+      parent_id: "0",
+      name: "Servicos",
+    })
+    const cat = await catRes.json()
+    if (!cat.valid) throw new Error(`productCategories/insert failed: ${JSON.stringify(cat)}`)
+    categoryId = cat.category_id as number
+  }
+
+  const createRes = await moloniFetch("products/insert", token, {
+    company_id: String(companyId),
+    category_id: String(categoryId),
+    type: "2",
+    reference: "VSMEDIA_SVC",
+    name: "Servico VS Media",
+    unit_id: String(unitId),
+    price: "0",
+    has_stock: "0",
+    [`taxes[0][tax_id]`]: String(taxId),
+    [`taxes[0][value]`]: "23",
+    [`taxes[0][order]`]: "0",
+    [`taxes[0][cumulative]`]: "0",
+  })
+  const created = await createRes.json()
+  if (!created.valid) {
+    throw new Error(`Moloni product insert failed: ${JSON.stringify(created)}`)
+  }
+  return created.product_id as number
 }
 
 export interface MoloniInvoiceLine {
@@ -113,6 +174,7 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
 
   const token = await getMoloniToken()
   const customerId = await findOrCreateCustomer(token, companyId, params.consultant)
+  const productId = await findOrCreateServiceProduct(token, companyId, taxId)
 
   const [year, month] = params.month.split("-").map(Number)
   const lastDayOfMonth = new Date(year, month, 0)
@@ -135,37 +197,25 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     status: "1",
   }
 
-  // Products go in the URL query string with %5B%5D-encoded brackets.
-  // Fields confirmed from official Moloni WooCommerce/PrestaShop integrations.
-  // unit_id is NOT valid for invoice lines (only for product catalog creation).
-  // order and taxes[n][order] are 0-based.
-  const productParts: string[] = []
+  // Products in body with literal bracket keys — same pattern that works for products/insert.
+  // unit_id is NOT valid for invoice lines. order and taxes[n][order] are 0-based.
   params.lines.forEach((line, i) => {
-    const add = (k: string, v: string | number) =>
-      productParts.push(`products%5B${i}%5D%5B${k}%5D=${encodeURIComponent(String(v))}`)
-    add("product_id", 0)
-    add("name", line.description)
-    add("summary", "")
-    add("qty", line.qty)
-    add("price", Math.round(line.unitPrice * 100) / 100)
-    add("discount", 0)
-    add("order", i)
-    add("exemption_reason", "")
-    add("warehouse_id", 0)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Btax_id%5D=${taxId}`)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bvalue%5D=23`)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Border%5D=0`)
-    productParts.push(`products%5B${i}%5D%5Btaxes%5D%5B0%5D%5Bcumulative%5D=0`)
+    invoiceParams[`products[${i}][product_id]`]          = String(productId)
+    invoiceParams[`products[${i}][name]`]                = line.description
+    invoiceParams[`products[${i}][summary]`]             = ""
+    invoiceParams[`products[${i}][qty]`]                 = String(line.qty)
+    invoiceParams[`products[${i}][price]`]               = String(Math.round(line.unitPrice * 100) / 100)
+    invoiceParams[`products[${i}][discount]`]            = "0"
+    invoiceParams[`products[${i}][order]`]               = String(i)
+    invoiceParams[`products[${i}][exemption_reason]`]    = ""
+    invoiceParams[`products[${i}][warehouse_id]`]        = "0"
+    invoiceParams[`products[${i}][taxes][0][tax_id]`]    = String(taxId)
+    invoiceParams[`products[${i}][taxes][0][value]`]     = "23"
+    invoiceParams[`products[${i}][taxes][0][order]`]     = "0"
+    invoiceParams[`products[${i}][taxes][0][cumulative]`]= "0"
   })
-  const productQs = productParts.join("&")
 
-  const bodyStr = Object.entries(invoiceParams)
-    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")
-
-  const res = await fetch(
-    `${MOLONI_API}/invoices/insert/?access_token=${token}&${productQs}`,
-    { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: bodyStr }
-  )
+  const res = await moloniFetch("invoices/insert", token, invoiceParams)
   const data = await res.json()
   if (!data.valid) {
     throw new Error(`Moloni invoice insert failed: ${JSON.stringify(data)}`)
