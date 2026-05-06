@@ -206,7 +206,7 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     our_reference: "",
     your_reference: "",
     notes: "",
-    status: "0",
+    status: "1",
   }
 
   // Products in body with literal bracket keys — same pattern that works for products/insert.
