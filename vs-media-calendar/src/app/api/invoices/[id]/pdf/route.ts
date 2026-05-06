@@ -20,7 +20,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 })
   }
 
-  // Consultants can only download their own invoices; admins can download any
   const userRole = (session.user as any)?.role
   if (userRole !== "ADMIN" && invoice.consultantId !== session.user.id) {
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
@@ -35,7 +34,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     const token = await getMoloniToken()
 
-    // Moloni returns a URL string for the PDF
     const res = await fetch(
       `${MOLONI_API}/invoiceReceipts/getPDFLink/?access_token=${token}`,
       {
@@ -44,29 +42,40 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         body: `company_id=${companyId}&document_id=${invoice.moloniDocumentId}`,
       }
     )
-    const data = await res.json()
 
-    // Moloni returns the URL as a plain string in the response
-    const pdfUrl = typeof data === "string" ? data : data?.url ?? data?.pdf_url ?? null
+    // getPDFLink may return a JSON string, a JSON object, or raw text
+    const raw = await res.text()
+    let pdfUrl: string | null = null
+    try {
+      const parsed = JSON.parse(raw)
+      if (typeof parsed === "string") pdfUrl = parsed
+      else pdfUrl = parsed?.url ?? parsed?.pdf_url ?? parsed?.link ?? null
+    } catch {
+      // Raw text might already be the URL
+      if (raw.startsWith("http")) pdfUrl = raw.trim()
+    }
 
     if (!pdfUrl) {
-      return NextResponse.json({ error: "Moloni não devolveu URL do PDF", raw: data }, { status: 502 })
+      return NextResponse.json({ error: "Moloni não devolveu URL do PDF", raw }, { status: 502 })
     }
 
-    // Proxy the PDF so the user doesn't need a Moloni session
-    const pdfRes = await fetch(pdfUrl)
-    if (!pdfRes.ok) {
-      // If proxy fails, redirect to the URL directly
-      return NextResponse.redirect(pdfUrl)
+    // Fetch the PDF — include access token in case the URL requires it
+    const urlWithToken = pdfUrl.includes("access_token") ? pdfUrl : `${pdfUrl}${pdfUrl.includes("?") ? "&" : "?"}access_token=${token}`
+    const pdfRes = await fetch(urlWithToken)
+    const contentType = pdfRes.headers.get("content-type") ?? ""
+
+    if (pdfRes.ok && contentType.includes("pdf")) {
+      const pdfBuffer = await pdfRes.arrayBuffer()
+      return new Response(pdfBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="fatura-${invoice.month}.pdf"`,
+        },
+      })
     }
 
-    const pdfBuffer = await pdfRes.arrayBuffer()
-    return new Response(pdfBuffer, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="fatura-${invoice.month}.pdf"`,
-      },
-    })
+    // PDF URL not directly fetchable — redirect so browser follows it
+    return NextResponse.redirect(pdfUrl)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
