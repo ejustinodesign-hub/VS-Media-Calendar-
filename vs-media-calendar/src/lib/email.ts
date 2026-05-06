@@ -25,6 +25,42 @@ interface BookingEmailData {
   services: string[]
   totalAmount?: number
   status: BookingStatus
+  durationMinutes?: number
+}
+
+function formatICSDate(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")
+}
+
+export function generateICS(data: BookingEmailData): string {
+  const start = new Date(data.scheduledAt)
+  const end = new Date(start)
+  end.setMinutes(end.getMinutes() + (data.durationMinutes ?? 90))
+
+  const description = [
+    `Consultor: ${data.consultantName}`,
+    `Videógrafo: ${data.videographerName}`,
+    `Serviços: ${data.services.join(", ")}`,
+    `Ver marcação: ${APP_URL}/consultant/bookings/${data.bookingId}`,
+  ].join("\\n")
+
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//VS Media Calendar//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${data.bookingId}@calendar.vsmedia.pt`,
+    `DTSTAMP:${formatICSDate(new Date())}`,
+    `DTSTART:${formatICSDate(start)}`,
+    `DTEND:${formatICSDate(end)}`,
+    `SUMMARY:📸 ${data.propertyAddress}`,
+    `DESCRIPTION:${description}`,
+    `LOCATION:${data.propertyAddress}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n")
 }
 
 function formatDate(date: Date): string {
@@ -186,7 +222,8 @@ export async function sendInviteEmail({
 export async function sendStatusUpdateEmail(
   data: BookingEmailData,
   to: "consultant" | "videographer",
-  customMessage?: string
+  customMessage?: string,
+  icsContent?: string
 ) {
   const recipient =
     to === "consultant"
@@ -223,5 +260,15 @@ export async function sendStatusUpdateEmail(
     to: recipient.email,
     subject: `Atualização — ${formatDate(data.scheduledAt)}`,
     html: emailBase(content),
+    ...(icsContent
+      ? {
+          attachments: [
+            {
+              filename: "marcacao.ics",
+              content: Buffer.from(icsContent).toString("base64"),
+            },
+          ],
+        }
+      : {}),
   })
 }
