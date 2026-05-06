@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { calculateTotal, DEFAULT_PRICES } from "@/lib/pricing"
-import { sendVideographerRequestEmail } from "@/lib/email"
+import { sendVideographerRequestEmail, sendBookingConfirmationEmail } from "@/lib/email"
 import type { ServiceType, PropertyType } from "@prisma/client"
 
 export async function POST(req: NextRequest) {
@@ -99,22 +99,24 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  try {
-    await sendVideographerRequestEmail({
-      bookingId: booking.id,
-      consultantName: consultant?.name || "",
-      consultantEmail: consultant?.email || "",
-      videographerName: videographer.name || "",
-      videographerEmail: videographer.email || "",
-      propertyAddress,
-      scheduledAt: new Date(scheduledAt),
-      services: pricing.services.map((s) => s.label),
-      totalAmount: isCommission ? undefined : pricing.total,
-      status: "PENDING_ACCEPTANCE",
-    })
-  } catch (e) {
-    console.error("Email error:", e)
+  const emailData = {
+    bookingId: booking.id,
+    consultantName: consultant?.name || "",
+    consultantEmail: consultant?.email || "",
+    videographerName: videographer.name || "",
+    videographerEmail: videographer.email || "",
+    propertyAddress,
+    scheduledAt: new Date(scheduledAt),
+    services: pricing.services.map((s) => s.label),
+    totalAmount: isCommission ? undefined : pricing.total,
+    status: "PENDING_ACCEPTANCE" as const,
   }
+
+  // Send emails to both parties simultaneously
+  await Promise.allSettled([
+    sendVideographerRequestEmail(emailData),
+    sendBookingConfirmationEmail(emailData),
+  ])
 
   return NextResponse.json({ bookingId: booking.id })
 }

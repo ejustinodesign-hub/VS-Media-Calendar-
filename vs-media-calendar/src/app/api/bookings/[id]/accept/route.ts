@@ -32,17 +32,21 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     data: { status: "ACCEPTED" },
   })
 
-  // Create Google Calendar event
+  const serviceLabels = booking.services.map(
+    (s) => SERVICE_LABELS[s.serviceType as keyof typeof SERVICE_LABELS]
+  )
+
+  // Create Google Calendar event — both consultant and videographer receive email invite (.ics)
   const calendarEventId = await createCalendarEvent({
     bookingId: booking.id,
     propertyAddress: booking.propertyAddress,
     scheduledAt: new Date(booking.scheduledAt),
     durationMinutes: booking.durationMinutes,
     consultantName: booking.consultant.name || "",
+    consultantEmail: booking.consultant.email || "",
     videographerName: booking.videographer.name || "",
-    services: booking.services.map(
-      (s) => SERVICE_LABELS[s.serviceType as keyof typeof SERVICE_LABELS]
-    ),
+    videographerEmail: booking.videographer.email || "",
+    services: serviceLabels,
     notes: booking.notes,
   })
 
@@ -53,21 +57,22 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     })
   }
 
+  // Email consultant: booking accepted
   try {
-    const emailData = {
-      bookingId: booking.id,
-      consultantName: booking.consultant.name || "",
-      consultantEmail: booking.consultant.email || "",
-      videographerName: booking.videographer.name || "",
-      videographerEmail: booking.videographer.email || "",
-      propertyAddress: booking.propertyAddress,
-      scheduledAt: new Date(booking.scheduledAt),
-      services: booking.services.map(
-        (s) => SERVICE_LABELS[s.serviceType as keyof typeof SERVICE_LABELS]
-      ),
-      status: "ACCEPTED" as const,
-    }
-    await sendStatusUpdateEmail(emailData, "consultant")
+    await sendStatusUpdateEmail(
+      {
+        bookingId: booking.id,
+        consultantName: booking.consultant.name || "",
+        consultantEmail: booking.consultant.email || "",
+        videographerName: booking.videographer.name || "",
+        videographerEmail: booking.videographer.email || "",
+        propertyAddress: booking.propertyAddress,
+        scheduledAt: new Date(booking.scheduledAt),
+        services: serviceLabels,
+        status: "ACCEPTED",
+      },
+      "consultant"
+    )
   } catch (e) {
     console.error("Email error:", e)
   }
