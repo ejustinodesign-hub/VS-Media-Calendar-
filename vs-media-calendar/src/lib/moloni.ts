@@ -104,7 +104,8 @@ async function findOrCreateServiceProduct(
   if (!Array.isArray(units) || units.length === 0) {
     throw new Error(`measurementUnits/getAll failed: ${JSON.stringify(units)}`)
   }
-  const unitId = units[0].unit_id ?? units[0].id
+  const unidade = units.find((u: any) => u.name === "Unidade") ?? units[0]
+  const unitId = unidade.unit_id ?? unidade.id
 
   // Get or create a product category (required by Moloni)
   let categoryId: number
