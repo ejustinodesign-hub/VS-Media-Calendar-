@@ -13,7 +13,7 @@ import {
 
 // Videographer earnings model
 const BASE_SALARY = 1200
-const VIDEO_RATE = 20      // per video service delivered
+const VIDEO_RATE = 10      // per video service delivered
 const INTRO_RATE = 10      // per additional intro (within same booking)
 // Photography: full service price goes to videographer
 const PHOTO_RATES: Record<string, number> = {
