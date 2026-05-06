@@ -262,7 +262,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
             <Users className="w-4 h-4 text-[#e94560]" />
             Versões para outros consultores
             <span className="ml-auto text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-              25€ / consultor
+              10€ / consultor
             </span>
           </CardTitle>
         </CardHeader>
