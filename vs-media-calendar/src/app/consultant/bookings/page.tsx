@@ -6,6 +6,7 @@ import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice, applyIva } from "@/lib/pricing"
 import Link from "next/link"
 import { Calendar, Clock, Download } from "lucide-react"
+import { StaggerList, StaggerItem } from "@/components/ui/motion"
 
 export default async function ConsultantBookingsPage() {
   const session = await auth()
@@ -41,7 +42,7 @@ export default async function ConsultantBookingsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <StaggerList className="space-y-3">
             {bookings.map((booking) => {
               const net = booking.services.reduce((sum, s) => sum + s.price, 0)
                 + (booking.hasTravelFee ? booking.travelFeeAmount : 0)
@@ -51,7 +52,7 @@ export default async function ConsultantBookingsPage() {
               const hasDeliverables = booking.deliverables.length > 0
 
               return (
-                <div key={booking.id}>
+                <StaggerItem key={booking.id}>
                 <Link href={`/consultant/bookings/${booking.id}`}>
                   <Card className={`hover:shadow-md transition-shadow cursor-pointer ${booking.status === "FILE_DELIVERED" ? "border-emerald-300 bg-emerald-50/40" : ""}`}>
                     <CardContent className="flex items-center gap-4 py-4">
@@ -111,10 +112,10 @@ export default async function ConsultantBookingsPage() {
                     </CardContent>
                   </Card>
                 </Link>
-                </div>
+                </StaggerItem>
               )
             })}
-          </div>
+          </StaggerList>
         )}
       </div>
     </>

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -188,14 +189,28 @@ export function Sidebar() {
               pathname === item.href || pathname.startsWith(item.href + "/")
             const Icon = item.icon
             return (
-              <div key={item.href} className="relative">
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#e94560] rounded-full" />
-                )}
+              <motion.div
+                key={item.href}
+                className="relative"
+                whileHover={{ x: 2 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              >
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.div
+                      layoutId="sidebar-active-pill"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#e94560] rounded-full"
+                      initial={{ opacity: 0, scaleY: 0.5 }}
+                      animate={{ opacity: 1, scaleY: 1 }}
+                      exit={{ opacity: 0, scaleY: 0.5 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                </AnimatePresence>
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group pl-4",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 group pl-4",
                     isActive
                       ? "bg-white/[0.08] text-white"
                       : "text-slate-400 hover:text-white hover:bg-white/5"
@@ -216,7 +231,7 @@ export function Sidebar() {
                     </span>
                   )}
                 </Link>
-              </div>
+              </motion.div>
             )
           })}
         </nav>

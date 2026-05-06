@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils"
 import { formatPrice as fp } from "@/lib/pricing"
 import Link from "next/link"
 import { CalendarPlus, Calendar, Clock, CheckCircle2, AlertCircle, FileVideo } from "lucide-react"
+import { FadeInUp, StaggerList, StaggerItem } from "@/components/ui/motion"
 
 export default async function ConsultantDashboard() {
   const session = await auth()
@@ -61,6 +62,7 @@ export default async function ConsultantDashboard() {
       />
       <div className="flex-1 p-6 space-y-6">
         {/* Quick Action */}
+        <FadeInUp>
         <div className="bg-[#0f172a] rounded-xl p-5 flex items-center justify-between gap-4">
           <div>
             <h3 className="text-white font-semibold text-base">Agendar novo serviço</h3>
@@ -76,6 +78,7 @@ export default async function ConsultantDashboard() {
             Nova Marcação
           </Link>
         </div>
+        </FadeInUp>
 
         {/* DB error banner */}
         {dbError && (
@@ -86,7 +89,7 @@ export default async function ConsultantDashboard() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StaggerList className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
               label: "Total de Marcações",
@@ -109,19 +112,22 @@ export default async function ConsultantDashboard() {
               icon: FileVideo,
             },
           ].map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="py-5 px-5">
-                <div className="flex items-start justify-between mb-3">
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{stat.label}</p>
-                  <stat.icon className="w-3.5 h-3.5 text-slate-300 mt-0.5 flex-shrink-0" />
-                </div>
-                <p className="text-2xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
-              </CardContent>
-            </Card>
+            <StaggerItem key={stat.label}>
+              <Card>
+                <CardContent className="py-5 px-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{stat.label}</p>
+                    <stat.icon className="w-3.5 h-3.5 text-slate-300 mt-0.5 flex-shrink-0" />
+                  </div>
+                  <p className="text-2xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
+                </CardContent>
+              </Card>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerList>
 
         {/* Recent bookings */}
+        <FadeInUp delay={0.18}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Marcações Recentes</CardTitle>
@@ -183,6 +189,7 @@ export default async function ConsultantDashboard() {
             )}
           </CardContent>
         </Card>
+        </FadeInUp>
       </div>
     </>
   )
