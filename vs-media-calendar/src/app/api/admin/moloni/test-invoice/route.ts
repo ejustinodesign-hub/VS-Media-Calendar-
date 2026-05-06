@@ -44,20 +44,27 @@ async function findOrCreateServiceProduct(
   }
   const unitId = units[0].unit_id ?? units[0].id
 
-  // Get first product category (category_id:0 is invalid)
-  const catsRes = await moloniFetch("productCategories/getAll", token, { company_id: String(companyId) })
-  const cats = await catsRes.json()
-  diag.productCategories = Array.isArray(cats) ? cats.map((c: any) => ({ id: c.category_id ?? c.id, name: c.name })) : cats
-  if (!Array.isArray(cats) || cats.length === 0) {
-    throw new Error(`productCategories/getAll failed: ${JSON.stringify(cats)}`)
+  // Try to get a valid category_id — probe several possible endpoint names
+  let categoryId: number | null = null
+  for (const ep of ["productCategories/getAll", "productCategories/getTree", "categories/getAll"]) {
+    try {
+      const r = await moloniFetch(ep, token, { company_id: String(companyId) })
+      const d = await r.json()
+      diag[ep] = d
+      if (Array.isArray(d) && d.length > 0) {
+        categoryId = (d[0].category_id ?? d[0].id) as number
+        break
+      }
+    } catch (e) {
+      diag[ep] = String(e)
+    }
   }
-  const categoryId = cats[0].category_id ?? cats[0].id
+  diag.resolvedCategoryId = categoryId
 
-  // Create a generic service product (product_id=0 is rejected by Moloni on invoice lines)
-  const createRes = await moloniFetch("products/insert", token, {
+  // Build product params — omit category_id if we couldn't find one
+  const productParams: Record<string, string> = {
     company_id: String(companyId),
-    category_id: String(categoryId),
-    type: "2",              // 2 = service
+    type: "2",
     reference: "VSMEDIA_SVC",
     name: "Servico VS Media",
     unit_id: String(unitId),
@@ -67,10 +74,13 @@ async function findOrCreateServiceProduct(
     [`taxes[0][value]`]: "23",
     [`taxes[0][order]`]: "0",
     [`taxes[0][cumulative]`]: "0",
-  })
+  }
+  if (categoryId != null) productParams.category_id = String(categoryId)
+
+  const createRes = await moloniFetch("products/insert", token, productParams)
   const created = await createRes.json()
   diag.productCreate = created
-  if (!created.valid) throw new Error(`products/insert failed: ${JSON.stringify(created)}`)
+  if (!created.valid) throw new Error(`products/insert failed: ${JSON.stringify(created)} | diag: ${JSON.stringify(diag)}`)
   return { productId: created.product_id as number, diag }
 }
 
