@@ -225,7 +225,7 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     invoiceParams[`products[${i}][taxes][0][cumulative]`]= "0"
   })
 
-  const res = await moloniFetch("invoices/insert", token, invoiceParams)
+  const res = await moloniFetch("invoiceReceipts/insert", token, invoiceParams)
   const data = await res.json()
   if (!data.valid) {
     throw new Error(`Moloni invoice insert failed: ${JSON.stringify(data)}`)

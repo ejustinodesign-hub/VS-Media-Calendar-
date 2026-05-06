@@ -37,7 +37,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     // Moloni returns a URL string for the PDF
     const res = await fetch(
-      `${MOLONI_API}/invoices/getPDFLink/?access_token=${token}`,
+      `${MOLONI_API}/invoiceReceipts/getPDFLink/?access_token=${token}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },

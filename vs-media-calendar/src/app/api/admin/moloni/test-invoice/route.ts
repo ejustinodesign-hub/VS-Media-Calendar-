@@ -198,7 +198,7 @@ export async function POST() {
   })
 
   try {
-    const res = await moloniFetch("invoices/insert", token, invoiceParams)
+    const res = await moloniFetch("invoiceReceipts/insert", token, invoiceParams)
     const text = await res.text()
     let data: unknown
     try { data = JSON.parse(text) } catch { data = text.slice(0, 500) }
