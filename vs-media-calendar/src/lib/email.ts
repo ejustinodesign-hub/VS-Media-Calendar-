@@ -76,8 +76,8 @@ const emailBase = (content: string) => `
 
 export async function sendBookingConfirmationEmail(data: BookingEmailData) {
   const content = `
-    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Marcação Confirmada</h2>
-    <p style="color:#666;margin:0 0 24px;">O seu pagamento foi processado com sucesso e a sua marcação está confirmada.</p>
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Pedido de Marcação Enviado</h2>
+    <p style="color:#666;margin:0 0 24px;">O seu pedido foi enviado ao videógrafo e está a aguardar confirmação.</p>
 
     <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:24px;">
       <h3 style="color:#1a1a2e;margin:0 0 16px;font-size:14px;text-transform:uppercase;letter-spacing:1px;">Detalhes da Marcação</h3>
@@ -93,12 +93,14 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
     <a href="${APP_URL}/consultant/bookings/${data.bookingId}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Marcação</a>
   `
 
-  await getResend().emails.send({
+  const result = await getResend().emails.send({
     from: FROM,
     to: data.consultantEmail,
-    subject: `Marcação confirmada — ${formatDate(data.scheduledAt)}`,
+    subject: `Pedido de marcação enviado — ${formatDate(data.scheduledAt)}`,
     html: emailBase(content),
   })
+  console.log(`[email] sendBookingConfirmationEmail → ${data.consultantEmail}`, result)
+  return result
 }
 
 export async function sendVideographerRequestEmail(data: BookingEmailData) {
@@ -123,12 +125,14 @@ export async function sendVideographerRequestEmail(data: BookingEmailData) {
     </div>
   `
 
-  await getResend().emails.send({
+  const result = await getResend().emails.send({
     from: FROM,
     to: data.videographerEmail,
     subject: `Novo pedido de serviço — ${formatDate(data.scheduledAt)}`,
     html: emailBase(content),
   })
+  console.log(`[email] sendVideographerRequestEmail → ${data.videographerEmail}`, result)
+  return result
 }
 
 export async function sendInviteEmail({

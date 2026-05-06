@@ -112,11 +112,19 @@ export async function POST(req: NextRequest) {
     status: "PENDING_ACCEPTANCE" as const,
   }
 
-  // Send emails to both parties simultaneously
-  await Promise.allSettled([
+  console.log(`[bookings] sending emails → videographer: ${emailData.videographerEmail}, consultant: ${emailData.consultantEmail}`)
+  const emailResults = await Promise.allSettled([
     sendVideographerRequestEmail(emailData),
     sendBookingConfirmationEmail(emailData),
   ])
+  emailResults.forEach((r, i) => {
+    const label = i === 0 ? "videographer" : "consultant"
+    if (r.status === "rejected") {
+      console.error(`[bookings] email[${label}] failed:`, r.reason)
+    } else {
+      console.log(`[bookings] email[${label}] result:`, JSON.stringify(r.value))
+    }
+  })
 
   return NextResponse.json({ bookingId: booking.id })
 }
