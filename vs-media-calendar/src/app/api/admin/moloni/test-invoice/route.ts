@@ -44,26 +44,30 @@ async function findOrCreateServiceProduct(
   }
   const unitId = units[0].unit_id ?? units[0].id
 
-  // Try to get a valid category_id — probe several possible endpoint names
+  // Get or create a product category (productCategories/getAll returns [] if none exist)
   let categoryId: number | null = null
-  for (const ep of ["productCategories/getAll", "productCategories/getTree", "categories/getAll"]) {
-    try {
-      const r = await moloniFetch(ep, token, { company_id: String(companyId) })
-      const d = await r.json()
-      diag[ep] = d
-      if (Array.isArray(d) && d.length > 0) {
-        categoryId = (d[0].category_id ?? d[0].id) as number
-        break
-      }
-    } catch (e) {
-      diag[ep] = String(e)
-    }
+  const catsRes = await moloniFetch("productCategories/getAll", token, { company_id: String(companyId) })
+  const cats = await catsRes.json()
+  diag.productCategories = cats
+  if (Array.isArray(cats) && cats.length > 0) {
+    categoryId = (cats[0].category_id ?? cats[0].id) as number
+  } else {
+    // No categories exist — create one
+    const catCreateRes = await moloniFetch("productCategories/insert", token, {
+      company_id: String(companyId),
+      parent_id: "0",
+      name: "Servicos",
+    })
+    const catCreated = await catCreateRes.json()
+    diag.categoryCreate = catCreated
+    if (!catCreated.valid) throw new Error(`productCategories/insert failed: ${JSON.stringify(catCreated)}`)
+    categoryId = catCreated.category_id as number
   }
   diag.resolvedCategoryId = categoryId
 
-  // Build product params — omit category_id if we couldn't find one
   const productParams: Record<string, string> = {
     company_id: String(companyId),
+    category_id: String(categoryId),
     type: "2",
     reference: "VSMEDIA_SVC",
     name: "Servico VS Media",
@@ -75,7 +79,6 @@ async function findOrCreateServiceProduct(
     [`taxes[0][order]`]: "0",
     [`taxes[0][cumulative]`]: "0",
   }
-  if (categoryId != null) productParams.category_id = String(categoryId)
 
   const createRes = await moloniFetch("products/insert", token, productParams)
   const created = await createRes.json()
