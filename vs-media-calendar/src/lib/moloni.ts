@@ -105,13 +105,15 @@ async function findOrCreateServiceProduct(
   const found = await searchRes.json()
   if (Array.isArray(found) && found.length > 0) {
     const productId = (found[0].product_id ?? found[0].id) as number
-    // Update unit if needed (product may have been created with wrong unit)
+    // Best-effort unit update — don't let it block invoice creation
     if ((found[0].unit_id ?? found[0].unit?.unit_id) !== unitId) {
-      await moloniFetch("products/update", token, {
-        company_id: String(companyId),
-        product_id: String(productId),
-        unit_id: String(unitId),
-      })
+      try {
+        await moloniFetch("products/update", token, {
+          company_id: String(companyId),
+          product_id: String(productId),
+          unit_id: String(unitId),
+        })
+      } catch { /* non-critical */ }
     }
     return productId
   }
