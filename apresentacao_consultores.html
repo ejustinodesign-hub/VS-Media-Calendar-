@@ -137,17 +137,17 @@
   .vs-logo {
     height: clamp(24px, 3.2vw, 44px);
     width: auto;
-    margin-bottom: 5vh;
+    margin-bottom: 1vh;
     opacity: 0.9;
   }
 
   #s1 .cover-tagline {
-    font-size: clamp(14px, 1.8vw, 22px);
+    font-size: clamp(11px, 1.3vw, 16px);
     font-weight: 300;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 5vh;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 5.5vh;
   }
 
   #s1 .cover-sub {
@@ -308,23 +308,25 @@
   /* ── Services table ── */
   .services {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 1.4vh 3vw;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 6vw;
     margin-top: 3vh;
     width: 100%;
+    max-width: 900px;
   }
 
-  .service-group-label {
+  .service-col { display: flex; flex-direction: column; }
+
+  .service-col-label {
     font-size: clamp(10px, 1vw, 12px);
-    font-weight: 600;
-    letter-spacing: 0.12em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--accent-light);
-    opacity: 0.6;
-    padding-bottom: 0.8vh;
-    border-bottom: 1px solid rgba(59,130,246,0.2);
-    margin-bottom: 0.4vh;
-    grid-column: 1 / -1;
+    opacity: 0.65;
+    padding-bottom: 1.2vh;
+    border-bottom: 1px solid rgba(59,130,246,0.25);
+    margin-bottom: 0.5vh;
   }
 
   .service-row {
@@ -332,34 +334,28 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 1vw;
-    padding: 0.9vh 0;
+    padding: 0.85vh 0;
     border-bottom: 1px solid rgba(255,255,255,0.06);
   }
 
   .service-name {
-    font-size: clamp(13px, 1.35vw, 17px);
+    font-size: clamp(13px, 1.3vw, 16px);
     font-weight: 400;
-    color: rgba(255,255,255,0.75);
+    color: rgba(255,255,255,0.72);
   }
 
   .service-price {
-    font-size: clamp(13px, 1.35vw, 17px);
+    font-size: clamp(13px, 1.3vw, 16px);
     font-weight: 600;
     color: var(--white);
     white-space: nowrap;
   }
 
-  .service-note {
-    font-size: clamp(10px, 0.9vw, 12px);
-    color: rgba(255,255,255,0.3);
-    margin-top: 2px;
-  }
-
   .price-note {
     grid-column: 1 / -1;
-    margin-top: 1.5vh;
-    font-size: clamp(11px, 1.05vw, 13px);
-    color: rgba(255,255,255,0.3);
+    margin-top: 2vh;
+    font-size: clamp(11px, 1vw, 13px);
+    color: rgba(255,255,255,0.28);
   }
 
   /* ── Two-col layout ── */
@@ -414,17 +410,17 @@
 
   #s8 .vs-logo {
     height: clamp(30px, 4vw, 54px);
-    margin-bottom: 5vh;
+    margin-bottom: 1vh;
     opacity: 0.85;
   }
 
   #s8 .end-tagline {
-    font-size: clamp(14px, 1.8vw, 22px);
+    font-size: clamp(11px, 1.3vw, 16px);
     font-weight: 300;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.45);
-    margin-bottom: 4.5vh;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 5.5vh;
   }
 
   #s8 .end-url {
@@ -585,43 +581,49 @@
     <span class="eyebrow">Preços · todos os valores + IVA 23%</span>
     <div class="slide-title">Serviços</div>
     <div class="services">
-      <div class="service-row">
-        <div class="service-name">Vídeo Standard</div>
-        <div class="service-price">150 € + IVA</div>
+      <div class="service-col">
+        <div class="service-col-label">Vídeo</div>
+        <div class="service-row">
+          <div class="service-name">Vídeo Standard</div>
+          <div class="service-price">150 € + IVA</div>
+        </div>
+        <div class="service-row">
+          <div class="service-name">Vídeo + Drone</div>
+          <div class="service-price">180 € + IVA</div>
+        </div>
+        <div class="service-row">
+          <div class="service-name">Taxa IA</div>
+          <div class="service-price">25 € + IVA</div>
+        </div>
+        <div class="service-row">
+          <div class="service-name">Intro personalizada</div>
+          <div class="service-price">25 € + IVA</div>
+        </div>
+        <div class="service-row">
+          <div class="service-name">Deslocação</div>
+          <div class="service-price">50 € + IVA</div>
+        </div>
       </div>
-      <div class="service-row">
-        <div class="service-name">Vídeo + Drone</div>
-        <div class="service-price">180 € + IVA</div>
+      <div class="service-col">
+        <div class="service-col-label">Fotografia</div>
+        <div class="service-row">
+          <div class="service-name">Drone</div>
+          <div class="service-price">50 € + IVA</div>
+        </div>
+        <div class="service-row">
+          <div class="service-name">T1 / T2</div>
+          <div class="service-price">45 € + IVA</div>
+        </div>
+        <div class="service-row">
+          <div class="service-name">T3 / T4</div>
+          <div class="service-price">55 € + IVA</div>
+        </div>
+        <div class="service-row">
+          <div class="service-name">T5+</div>
+          <div class="service-price">65 € + IVA</div>
+        </div>
       </div>
-      <div class="service-row">
-        <div class="service-name">Taxa IA no Vídeo</div>
-        <div class="service-price">25 € + IVA</div>
-      </div>
-      <div class="service-row">
-        <div class="service-name">Fotografia Drone</div>
-        <div class="service-price">50 € + IVA</div>
-      </div>
-      <div class="service-row">
-        <div class="service-name">Fotografia T1 / T2</div>
-        <div class="service-price">45 € + IVA</div>
-      </div>
-      <div class="service-row">
-        <div class="service-name">Fotografia T3 / T4</div>
-        <div class="service-price">55 € + IVA</div>
-      </div>
-      <div class="service-row">
-        <div class="service-name">Fotografia T5+</div>
-        <div class="service-price">65 € + IVA</div>
-      </div>
-      <div class="service-row">
-        <div class="service-name">Intro personalizada</div>
-        <div class="service-price">25 € + IVA</div>
-      </div>
-      <div class="service-row">
-        <div class="service-name">Deslocação</div>
-        <div class="service-price">50 € + IVA</div>
-      </div>
-      <div class="price-note">Taxa de deslocação aplicada em viagens superiores a 1h a partir do Metropolitan Business Center, Lisboa</div>
+      <div class="price-note">Deslocação aplicada em viagens superiores a 1h a partir do Metropolitan Business Center, Lisboa</div>
     </div>
   </div>
 
