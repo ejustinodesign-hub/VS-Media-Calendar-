@@ -24,7 +24,7 @@ const PHOTO_RATES: Record<string, number> = {
 }
 
 function calcBookingEarnings(booking: {
-  services: { serviceType: string; price: number }[]
+  services: { serviceType: string }[]
   additionalIntros: number
   hasTravelFee: boolean
   travelFeeAmount: number
@@ -39,7 +39,7 @@ function calcBookingEarnings(booking: {
 
   const photoEarnings = booking.services
     .filter((s) => s.serviceType.startsWith("PHOTO_"))
-    .reduce((sum, s) => sum + (PHOTO_RATES[s.serviceType] ?? s.price), 0)
+    .reduce((sum, s) => sum + (PHOTO_RATES[s.serviceType] ?? 0), 0)
 
   const travelEarnings = booking.hasTravelFee ? booking.travelFeeAmount : 0
 
@@ -72,7 +72,7 @@ export default async function VideographerDashboard() {
       await Promise.all([
         prisma.booking.findMany({
           where: { videographerId: userId, status: "PENDING_ACCEPTANCE" },
-          include: { consultant: { select: { name: true, email: true } }, services: true },
+          include: { consultant: { select: { name: true, email: true } }, services: { select: { serviceType: true } } },
           orderBy: { scheduledAt: "asc" },
         }),
         prisma.booking.findMany({
@@ -81,7 +81,7 @@ export default async function VideographerDashboard() {
             status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED"] },
             scheduledAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
           },
-          include: { consultant: { select: { name: true } }, services: true },
+          include: { consultant: { select: { name: true } }, services: { select: { serviceType: true } } },
           orderBy: { scheduledAt: "asc" },
           take: 5,
         }),
@@ -96,7 +96,7 @@ export default async function VideographerDashboard() {
             scheduledAt: { gte: monthStart, lte: monthEnd },
             status: { in: COUNTED_STATUSES },
           },
-          include: { services: true },
+          include: { services: { select: { serviceType: true } } },
         }),
         prisma.booking.findMany({
           where: {
@@ -104,7 +104,7 @@ export default async function VideographerDashboard() {
             scheduledAt: { gte: prevMonthStart, lte: prevMonthEnd },
             status: { in: COUNTED_STATUSES },
           },
-          include: { services: true },
+          include: { services: { select: { serviceType: true } } },
         }),
         prisma.deliverable.findMany({
           where: {

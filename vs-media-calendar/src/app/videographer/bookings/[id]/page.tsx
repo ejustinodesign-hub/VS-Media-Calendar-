@@ -24,7 +24,7 @@ export default async function VideographerBookingDetailPage({ params, searchPara
     where: { id, videographerId: session!.user.id },
     include: {
       consultant: { select: { name: true, email: true, image: true } },
-      services: true,
+      services: { select: { id: true, serviceType: true } },
       deliverables: true,
     },
   })

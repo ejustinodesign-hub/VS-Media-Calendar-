@@ -12,7 +12,7 @@ export default async function VideographerBookingsPage() {
     where: { videographerId: session!.user.id },
     include: {
       consultant: { select: { name: true, email: true, image: true } },
-      services: true,
+      services: { select: { serviceType: true } },
     },
     orderBy: { scheduledAt: "desc" },
   })
