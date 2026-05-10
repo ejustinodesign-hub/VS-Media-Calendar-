@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VS Media Calendar — Guia do Consultor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --navy: #0f172a;
+    --blue: #0f3460;
+    --red: #e94560;
+    --slate: #64748b;
+    --light: #f8fafc;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #e2e8f0;
+    color: #1e293b;
+  }
+
+  .slide {
+    width: 297mm;
+    height: 210mm;
+    background: white;
+    margin: 12mm auto;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  /* ── COVER ────────────────────────────── */
+  .slide-cover {
+    background: linear-gradient(135deg, #0f172a 0%, #0f3460 60%, #1a4a7a 100%);
+    justify-content: center;
+    align-items: flex-start;
+    padding: 18mm 20mm;
+  }
+  .cover-tag {
+    font-size: 9pt;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #e94560;
+    margin-bottom: 6mm;
+  }
+  .cover-title {
+    font-size: 40pt;
+    font-weight: 800;
+    color: white;
+    line-height: 1.1;
+    margin-bottom: 5mm;
+  }
+  .cover-title span { color: #e94560; }
+  .cover-sub {
+    font-size: 13pt;
+    font-weight: 400;
+    color: #94a3b8;
+    margin-bottom: 14mm;
+    max-width: 140mm;
+    line-height: 1.5;
+  }
+  .cover-date {
+    font-size: 9pt;
+    color: #475569;
+    font-weight: 500;
+  }
+  .cover-dots {
+    position: absolute;
+    right: 18mm;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4mm;
+    opacity: 0.12;
+  }
+  .cover-dots span {
+    width: 4mm;
+    height: 4mm;
+    background: white;
+    border-radius: 50%;
+    display: block;
+  }
+  .cover-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1.5mm;
+    background: #e94560;
+  }
+
+  /* ── CONTENT SLIDES ───────────────────── */
+  .slide-header {
+    padding: 8mm 12mm 5mm;
+    border-bottom: 0.3mm solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .slide-header-logo {
+    font-size: 9pt;
+    font-weight: 700;
+    color: #0f3460;
+    letter-spacing: -0.02em;
+  }
+  .slide-header-logo span { color: #e94560; }
+  .slide-num {
+    font-size: 8pt;
+    font-weight: 500;
+    color: #cbd5e1;
+  }
+
+  .slide-body {
+    flex: 1;
+    padding: 8mm 12mm 8mm;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .slide-eyebrow {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #e94560;
+    margin-bottom: 2mm;
+  }
+  .slide-title {
+    font-size: 22pt;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+    margin-bottom: 6mm;
+  }
+
+  /* ── GRID LAYOUTS ─────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; flex: 1; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5mm; flex: 1; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4mm; }
+
+  /* ── CARD ─────────────────────────────── */
+  .card {
+    background: #f8fafc;
+    border-radius: 3mm;
+    padding: 5mm;
+    border: 0.3mm solid #e2e8f0;
+  }
+  .card-blue { background: #eff6ff; border-color: #bfdbfe; }
+  .card-red  { background: #fff1f2; border-color: #fecdd3; }
+  .card-green { background: #f0fdf4; border-color: #bbf7d0; }
+  .card-violet { background: #f5f3ff; border-color: #ddd6fe; }
+  .card-amber { background: #fffbeb; border-color: #fde68a; }
+
+  .card-icon {
+    width: 8mm;
+    height: 8mm;
+    border-radius: 2mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 3mm;
+    font-size: 12pt;
+  }
+  .icon-blue { background: #0f3460; }
+  .icon-red { background: #e94560; }
+  .icon-green { background: #16a34a; }
+  .icon-violet { background: #7c3aed; }
+  .icon-amber { background: #d97706; }
+
+  .card-label {
+    font-size: 7.5pt;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 1.5mm;
+    letter-spacing: -0.01em;
+  }
+  .card-text {
+    font-size: 7pt;
+    color: #64748b;
+    line-height: 1.55;
+  }
+  .card-value {
+    font-size: 18pt;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1;
+    margin-bottom: 1mm;
+  }
+
+  /* ── STEPS ────────────────────────────── */
+  .steps { display: flex; gap: 3mm; align-items: flex-start; flex: 1; }
+  .step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 5mm;
+    left: calc(50% + 5mm);
+    width: calc(100% - 10mm);
+    height: 0.4mm;
+    background: #e2e8f0;
+  }
+  .step-num {
+    width: 10mm;
+    height: 10mm;
+    border-radius: 50%;
+    background: #0f3460;
+    color: white;
+    font-size: 10pt;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 3mm;
+    flex-shrink: 0;
+  }
+  .step-label {
+    font-size: 8pt;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 1.5mm;
+  }
+  .step-text {
+    font-size: 6.5pt;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  /* ── PILL / BADGE ─────────────────────── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.5mm;
+    padding: 1mm 3mm;
+    border-radius: 10mm;
+    font-size: 7pt;
+    font-weight: 600;
+  }
+  .pill-blue   { background: #dbeafe; color: #1d4ed8; }
+  .pill-amber  { background: #fef3c7; color: #b45309; }
+  .pill-green  { background: #dcfce7; color: #15803d; }
+  .pill-red    { background: #fee2e2; color: #dc2626; }
+  .pill-violet { background: #ede9fe; color: #7c3aed; }
+  .dot { width: 1.5mm; height: 1.5mm; border-radius: 50%; background: currentColor; }
+
+  /* ── STATUS FLOW ──────────────────────── */
+  .status-flow { display: flex; align-items: center; gap: 2mm; flex-wrap: wrap; }
+  .arrow { color: #cbd5e1; font-size: 9pt; }
+
+  /* ── TWO-COL WITH ACCENT ──────────────── */
+  .accent-col {
+    background: linear-gradient(135deg, #0f172a 0%, #0f3460 100%);
+    border-radius: 3mm;
+    padding: 6mm;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .accent-col h3 { font-size: 13pt; font-weight: 700; margin-bottom: 3mm; }
+  .accent-col p  { font-size: 7.5pt; color: #94a3b8; line-height: 1.6; }
+
+  .check-list { list-style: none; display: flex; flex-direction: column; gap: 2mm; }
+  .check-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 2.5mm;
+    font-size: 7.5pt;
+    color: #334155;
+    line-height: 1.4;
+  }
+  .check-list li::before {
+    content: '✓';
+    font-size: 8pt;
+    font-weight: 700;
+    color: #16a34a;
+    flex-shrink: 0;
+    margin-top: 0.2mm;
+  }
+
+  /* ── URL CHIP ─────────────────────────── */
+  .url-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2mm;
+    background: #0f172a;
+    color: #e94560;
+    padding: 2mm 5mm;
+    border-radius: 2mm;
+    font-size: 11pt;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 5mm;
+  }
+
+  /* ── LAST SLIDE ───────────────────────── */
+  .slide-end {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .slide-end h2 { font-size: 28pt; font-weight: 800; color: white; margin-bottom: 3mm; }
+  .slide-end p  { font-size: 11pt; color: #94a3b8; margin-bottom: 8mm; }
+  .slide-end .url { font-size: 14pt; font-weight: 700; color: #e94560; }
+
+  /* ── PRINT ────────────────────────────── */
+  @media print {
+    @page { size: A4 landscape; margin: 0; }
+    body { background: white; }
+    .slide { margin: 0; width: 100vw; height: 100vh; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════╗ -->
+<!-- ║  SLIDE 1 — COVER            ║ -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="slide slide-cover">
+  <div class="cover-dots">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <div class="cover-tag">Formação Interna · Maio 2026</div>
+  <div class="cover-title">VS Media<br><span>Calendar</span></div>
+  <div class="cover-sub">Guia rápido para consultores — como agendar serviços de vídeo e fotografia, gerir pagamentos e acompanhar as tuas marcações.</div>
+  <div class="cover-date">calendar.vsmedia.pt</div>
+  <div class="cover-bar"></div>
+</div>
+
+
+<!-- ╔══════════════════════════════╗ -->
+<!-- ║  SLIDE 2 — ACESSO           ║ -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="slide">
+  <div class="slide-header">
+    <div class="slide-header-logo">VS Media<span>.</span></div>
+    <div class="slide-num">02 / 07</div>
+  </div>
+  <div class="slide-body">
+    <div class="slide-eyebrow">Primeiros passos</div>
+    <div class="slide-title">Como entrar na plataforma</div>
+    <div class="grid-2" style="align-items:start; gap: 6mm;">
+      <div>
+        <div class="url-chip">🌐 calendar.vsmedia.pt</div>
+        <ul class="check-list">
+          <li>Abre o browser e vai a <strong>calendar.vsmedia.pt</strong></li>
+          <li>Clica em <strong>"Entrar com Google"</strong> e selecciona a tua conta Gmail</li>
+          <li>O teu perfil (nome e foto) é importado automaticamente do Google</li>
+          <li>Só contas aprovadas pela VS Media têm acesso — se não conseguires entrar, contacta a equipa</li>
+          <li>A plataforma funciona no <strong>telemóvel e no computador</strong></li>
+        </ul>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:3mm;">
+        <div class="card card-blue">
+          <div class="card-label">📱 Acesso mobile</div>
+          <div class="card-text">A plataforma é optimizada para telemóvel. Podes gerir tudo a partir do teu iPhone ou Android, sem instalar nenhuma app.</div>
+        </div>
+        <div class="card card-amber">
+          <div class="card-label">🔐 Segurança</div>
+          <div class="card-text">O login é feito pelo Google — não precisas de memorizar palavras-passe. A tua conta Gmail é a chave de acesso.</div>
+        </div>
+        <div class="card">
+          <div class="card-label">❓ Problemas de acesso</div>
+          <div class="card-text">Se o teu email não está autorizado, contacta a equipa VS Media para ativar o acesso.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ╔══════════════════════════════╗ -->
+<!-- ║  SLIDE 3 — NOVA MARCAÇÃO    ║ -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="slide">
+  <div class="slide-header">
+    <div class="slide-header-logo">VS Media<span>.</span></div>
+    <div class="slide-num">03 / 07</div>
+  </div>
+  <div class="slide-body">
+    <div class="slide-eyebrow">Marcar um serviço</div>
+    <div class="slide-title">Como criar uma marcação</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-label">Videógrafo</div>
+        <div class="step-text">Escolhe o videógrafo disponível para a data que precisas</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-label">Serviços</div>
+        <div class="step-text">Selecciona um ou mais serviços: vídeo, drone, fotografia, IA</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-label">Data & Hora</div>
+        <div class="step-text">Escolhe o dia e hora disponível no calendário do videógrafo</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-label">Imóvel</div>
+        <div class="step-text">Introduz a morada completa e tipologia do imóvel (T1, T2…)</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-label">Confirmação</div>
+        <div class="step-text">Revê o resumo, escolhe o tipo de pagamento e submete</div>
+      </div>
+    </div>
+    <div style="margin-top: 5mm; padding: 3mm 5mm; background: #f8fafc; border-radius: 2mm; border-left: 1mm solid #0f3460;">
+      <span style="font-size: 7.5pt; color: #0f3460;">💡 <strong>O videógrafo recebe o pedido imediatamente por email</strong> e tem de aceitar antes da marcação ficar confirmada.</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ╔══════════════════════════════╗ -->
+<!-- ║  SLIDE 4 — SERVIÇOS         ║ -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="slide">
+  <div class="slide-header">
+    <div class="slide-header-logo">VS Media<span>.</span></div>
+    <div class="slide-num">04 / 07</div>
+  </div>
+  <div class="slide-body">
+    <div class="slide-eyebrow">Catálogo</div>
+    <div class="slide-title">Serviços disponíveis</div>
+    <div class="grid-4" style="margin-bottom: 4mm;">
+      <div class="card card-blue">
+        <div style="font-size:14pt; margin-bottom:2mm;">🎬</div>
+        <div class="card-label">Vídeo Standard</div>
+        <div class="card-text">Vídeo profissional do imóvel com edição incluída</div>
+      </div>
+      <div class="card card-blue">
+        <div style="font-size:14pt; margin-bottom:2mm;">🚁</div>
+        <div class="card-label">Vídeo Drone</div>
+        <div class="card-text">Filmagem aérea exterior com drone profissional</div>
+      </div>
+      <div class="card card-violet">
+        <div style="font-size:14pt; margin-bottom:2mm;">✦</div>
+        <div class="card-label">Taxa IA no Vídeo</div>
+        <div class="card-text">Melhorias com inteligência artificial aplicadas ao vídeo</div>
+      </div>
+      <div class="card">
+        <div style="font-size:14pt; margin-bottom:2mm;">📷</div>
+        <div class="card-label">Fotografia</div>
+        <div class="card-text">Fotografia profissional com preço por tipologia do imóvel</div>
+      </div>
+    </div>
+    <div class="grid-2" style="flex:0;">
+      <div class="card card-amber">
+        <div class="card-label">🚗 Taxa de deslocação</div>
+        <div class="card-text">Aplicada automaticamente quando o imóvel está fora da área de cobertura. O valor é calculado com base na distância.</div>
+      </div>
+      <div class="card card-red">
+        <div class="card-label">🎙️ Introduções personalizadas</div>
+        <div class="card-text">Versões do vídeo com a tua introdução pessoal, filmadas para outros consultores na mesma propriedade. Cobradas por consultor.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ╔══════════════════════════════╗ -->
+<!-- ║  SLIDE 5 — PAGAMENTOS       ║ -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="slide">
+  <div class="slide-header">
+    <div class="slide-header-logo">VS Media<span>.</span></div>
+    <div class="slide-num">05 / 07</div>
+  </div>
+  <div class="slide-body">
+    <div class="slide-eyebrow">Pagamentos</div>
+    <div class="slide-title">Dois modelos de faturação</div>
+    <div class="grid-2">
+      <div class="accent-col">
+        <div style="font-size:11pt; font-weight:700; color:#e94560; margin-bottom:2mm; text-transform:uppercase; letter-spacing:0.1em; font-size:8pt;">Taxa Fixa</div>
+        <h3>Pago no final do mês</h3>
+        <p style="margin-bottom:4mm;">Os serviços são faturados mensalmente. No último dia do mês, recebes uma fatura com todos os serviços realizados.</p>
+        <ul class="check-list" style="gap:2mm;">
+          <li style="color:#cbd5e1;">Fatura enviada por email no último dia do mês</li>
+          <li style="color:#cbd5e1;">Pagamento por cartão de crédito/débito</li>
+          <li style="color:#cbd5e1;">Histórico dos últimos 6 meses disponível</li>
+        </ul>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:3mm;">
+        <div class="card card-violet">
+          <div class="card-label">✦ Comissão de Venda — alternativa sem pagamento imediato</div>
+          <div class="card-text" style="margin-bottom:2mm;">Em vez de pagar a taxa fixa, podes optar por pagar <strong>0,15% do valor de venda do imóvel</strong>, apenas quando a venda se concretizar.</div>
+          <div class="card-text">⚠️ Tens de registar o valor de venda na plataforma quando o imóvel for vendido.</div>
+        </div>
+        <div class="card card-amber">
+          <div class="card-label">🔒 Faturas em atraso</div>
+          <div class="card-text">Se tiveres faturas por pagar, as novas marcações em taxa fixa ficam bloqueadas. Podes continuar a marcar em modo comissão enquanto regularizas.</div>
+        </div>
+        <div class="card card-green">
+          <div class="card-label">✅ Pagamento online seguro</div>
+          <div class="card-text">Os pagamentos são processados pelo Stripe, com toda a segurança. Aceita Visa, Mastercard e outros cartões.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ╔══════════════════════════════╗ -->
+<!-- ║  SLIDE 6 — ESTADOS          ║ -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="slide">
+  <div class="slide-header">
+    <div class="slide-header-logo">VS Media<span>.</span></div>
+    <div class="slide-num">06 / 07</div>
+  </div>
+  <div class="slide-body">
+    <div class="slide-eyebrow">Acompanhamento</div>
+    <div class="slide-title">Estados de uma marcação</div>
+    <div style="margin-bottom: 6mm;">
+      <div class="status-flow">
+        <span class="pill pill-amber"><span class="dot"></span>Pendente</span>
+        <span class="arrow">→</span>
+        <span class="pill pill-blue"><span class="dot"></span>Aceite</span>
+        <span class="arrow">→</span>
+        <span class="pill pill-blue"><span class="dot"></span>Em Progresso</span>
+        <span class="arrow">→</span>
+        <span class="pill pill-violet"><span class="dot"></span>Ficheiro Entregue</span>
+        <span class="arrow">→</span>
+        <span class="pill pill-green"><span class="dot"></span>Concluído</span>
+      </div>
+    </div>
+    <div class="grid-3" style="flex:0; margin-bottom:4mm;">
+      <div class="card">
+        <div class="card-label">🟡 Pendente de aceitação</div>
+        <div class="card-text">O pedido foi enviado ao videógrafo. Aguarda a sua confirmação. Recebes um email quando aceitar ou recusar.</div>
+      </div>
+      <div class="card card-blue">
+        <div class="card-label">🔵 Aceite / Em Progresso</div>
+        <div class="card-text">O videógrafo confirmou. A sessão está agendada. No dia, o videógrafo vai ao imóvel realizar o serviço.</div>
+      </div>
+      <div class="card card-green">
+        <div class="card-label">✅ Ficheiro entregue</div>
+        <div class="card-text">O vídeo ou fotos ficam disponíveis na página da marcação. Tens 15 dias para fazer o download antes do link expirar.</div>
+      </div>
+    </div>
+    <div style="padding: 3mm 5mm; background: #f8fafc; border-radius: 2mm; border-left: 1mm solid #e94560;">
+      <span style="font-size: 7.5pt; color: #334155;">📧 <strong>Recebes um email em cada mudança de estado.</strong> Podes também ver todas as tuas marcações em <strong>Marcações → Os meus pedidos</strong>.</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ╔══════════════════════════════╗ -->
+<!-- ║  SLIDE 7 — FIM              ║ -->
+<!-- ╚══════════════════════════════╝ -->
+<div class="slide slide-end">
+  <div class="cover-bar"></div>
+  <div>
+    <div style="font-size:9pt; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#475569; margin-bottom:5mm;">Pronto para começar?</div>
+    <h2>Entra já na plataforma</h2>
+    <p>Faz login com a tua conta Google e cria a tua primeira marcação</p>
+    <div class="url">calendar.vsmedia.pt</div>
+    <div style="margin-top:8mm; font-size:7.5pt; color:#334155;">
+      Dúvidas? Contacta a equipa VS Media
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
