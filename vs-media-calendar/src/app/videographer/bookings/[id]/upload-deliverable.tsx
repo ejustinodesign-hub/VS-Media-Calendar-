@@ -62,6 +62,14 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     })
   }, [existingFiles])
 
+  // Pre-load consultants if there are already intro files, so names display correctly
+  useEffect(() => {
+    if (existingFiles.some(f => f.targetConsultantId)) {
+      loadConsultants()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const loadConsultants = async () => {
     if (consultants.length > 0) return
     setConsultantsLoading(true)
@@ -269,7 +277,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         <CardContent className="space-y-4">
           <p className="text-xs text-slate-500">
             Filmou uma versão com intro personalizada para outro consultor? Entregue aqui.
-            Receberá 20€ por cada entrega.
+            Receberá 10€ por cada entrega.
           </p>
 
           {/* Already uploaded intros */}
