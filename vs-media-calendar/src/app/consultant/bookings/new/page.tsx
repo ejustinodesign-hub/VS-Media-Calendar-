@@ -48,7 +48,7 @@ export default async function NewBookingPage() {
 
   const [videographers, dbRules] = await Promise.all([
     prisma.user.findMany({
-      where: { role: { in: ["VIDEOGRAPHER", "ADMIN"] }, active: true },
+      where: { role: "VIDEOGRAPHER", active: true },
       select: {
         id: true,
         name: true,

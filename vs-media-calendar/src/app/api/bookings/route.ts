@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   const videographer = await prisma.user.findFirst({
-    where: { id: videographerId, role: { in: ["VIDEOGRAPHER", "ADMIN"] }, active: true },
+    where: { id: videographerId, role: "VIDEOGRAPHER", active: true },
     select: { id: true, name: true, email: true },
   })
   if (!videographer) {
