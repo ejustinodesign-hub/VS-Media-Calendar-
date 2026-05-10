@@ -4,6 +4,7 @@ import type { ServiceType, TeamType } from "@prisma/client"
 export const DEFAULT_PRICES: Record<ServiceType, number> = {
   VIDEO_STANDARD: 150,
   VIDEO_DRONE: 180,
+  VIDEO_AI: 25,
   PHOTO_DRONE: 35,
   PHOTO_T1_T2: 25,
   PHOTO_T3_T4: 35,
@@ -20,13 +21,14 @@ export const DELIVERABLE_EXPIRY_DAYS = 30
 export const SERVICE_LABELS: Record<ServiceType, string> = {
   VIDEO_STANDARD: "Vídeo Standard",
   VIDEO_DRONE: "Vídeo Standard + Drone",
+  VIDEO_AI: "Taxa IA no Vídeo",
   PHOTO_DRONE: "Fotografia Drone",
   PHOTO_T1_T2: "Fotografia T1/T2",
   PHOTO_T3_T4: "Fotografia T3/T4",
   PHOTO_T5_PLUS: "Fotografia T5+",
 }
 
-export const VIDEO_SERVICES: ServiceType[] = ["VIDEO_STANDARD", "VIDEO_DRONE"]
+export const VIDEO_SERVICES: ServiceType[] = ["VIDEO_STANDARD", "VIDEO_DRONE", "VIDEO_AI"]
 export const PHOTO_SERVICES: ServiceType[] = [
   "PHOTO_DRONE",
   "PHOTO_T1_T2",

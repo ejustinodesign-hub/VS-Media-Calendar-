@@ -29,9 +29,11 @@ function calcBookingEarnings(booking: {
   hasTravelFee: boolean
   travelFeeAmount: number
 }) {
+  const AI_RATE = 15
   const videoEarnings = booking.services.filter((s) =>
     s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE"
   ).length * VIDEO_RATE
+    + booking.services.filter((s) => s.serviceType === "VIDEO_AI").length * AI_RATE
 
   const introEarnings = booking.additionalIntros * INTRO_RATE
 

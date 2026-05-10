@@ -71,6 +71,7 @@ enum BookingStatus {
 enum ServiceType {
   VIDEO_STANDARD
   VIDEO_DRONE
+  VIDEO_AI
   PHOTO_DRONE
   PHOTO_T1_T2
   PHOTO_T3_T4
