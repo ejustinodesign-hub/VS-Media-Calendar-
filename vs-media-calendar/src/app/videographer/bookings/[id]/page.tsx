@@ -122,6 +122,17 @@ export default async function VideographerBookingDetailPage({ params, searchPara
                 </div>
               ))}
             </div>
+            {booking.services.some((s) => s.serviceType === "VIDEO_AI") && (
+              <div className="mt-3 p-3 bg-violet-50 rounded-lg border border-violet-200 flex items-start gap-2">
+                <span className="text-violet-500 text-base leading-none mt-0.5">✦</span>
+                <div>
+                  <p className="text-sm font-semibold text-violet-800">Vídeo com Inteligência Artificial</p>
+                  <p className="text-xs text-violet-600 mt-0.5">
+                    Este vídeo inclui tratamento com IA. Certifica-te de que o conteúdo entregue inclui os efeitos e melhorias de IA acordados.
+                  </p>
+                </div>
+              </div>
+            )}
             {booking.notes && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                 <p className="text-xs text-blue-600 font-medium mb-1">Notas do Consultor</p>

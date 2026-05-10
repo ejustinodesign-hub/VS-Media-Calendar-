@@ -75,7 +75,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
 
   const [selectedVideographerId, setSelectedVideographerId] = useState("")
   const [selectedServices, setSelectedServices] = useState<ServiceType[]>([])
-  const [additionalIntros, setAdditionalIntros] = useState(0)
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
   const [propertyAddress, setPropertyAddress] = useState("")
@@ -133,12 +132,12 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
     if (selectedServices.length === 0) return null
     return calculateTotal(
       selectedServices,
-      additionalIntros,
+      0,
       travelEstimate?.hasTravelFee || false,
       consultantTeamType,
       activePrices as Partial<Record<ServiceType, number>>
     )
-  }, [selectedServices, additionalIntros, travelEstimate, consultantTeamType, activePrices])
+  }, [selectedServices, travelEstimate, consultantTeamType, activePrices])
 
   const hasVideoService = selectedServices.some((s) => VIDEO_SERVICES.includes(s))
 
@@ -162,7 +161,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
           videographerId: selectedVideographerId,
           scheduledAt: selectedSlot.datetime,
           services: selectedServices,
-          additionalIntros,
           propertyAddress,
           hasTravelFee: travelEstimate?.hasTravelFee || false,
           travelFeeAmount: travelEstimate?.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0,
@@ -302,36 +300,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                 ))}
               </div>
 
-              {selectedServices.some((s) => VIDEO_SERVICES.includes(s)) && (
-                <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">Introduções Adicionais</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Outros consultores no mesmo vídeo (+{ADDITIONAL_INTRO_PRICE}€ cada)
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setAdditionalIntros(Math.max(0, additionalIntros - 1))}
-                        disabled={additionalIntros === 0}
-                        className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center hover:bg-slate-100 disabled:opacity-40"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-6 text-center font-bold text-slate-900">
-                        {additionalIntros}
-                      </span>
-                      <button
-                        onClick={() => setAdditionalIntros(additionalIntros + 1)}
-                        className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center hover:bg-slate-100"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -368,9 +336,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                 {pricing.services.map((s) => (
                   <div key={s.type}>{s.label}: {formatPrice(s.price)} + IVA</div>
                 ))}
-                {pricing.additionalIntros > 0 && (
-                  <div>Introduções ({pricing.additionalIntros}×): {formatPrice(pricing.additionalIntrosTotal)} + IVA</div>
-                )}
               </div>
             </div>
           )}
@@ -684,16 +649,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                     <span className="font-medium text-slate-900">{formatPrice(s.price)} + IVA</span>
                   </div>
                 ))}
-                {pricing.additionalIntros > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">
-                      Introduções adicionais ({pricing.additionalIntros}×)
-                    </span>
-                    <span className="font-medium text-slate-900">
-                      {formatPrice(pricing.additionalIntrosTotal)} + IVA
-                    </span>
-                  </div>
-                )}
                 {pricing.hasTravelFee && (
                   <div className="flex justify-between text-sm">
                     <span className="text-amber-600">Taxa de deslocação</span>
