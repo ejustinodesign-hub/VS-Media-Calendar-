@@ -82,6 +82,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
       select: {
         id: true,
         name: true,
+        email: true,
         image: true,
         videographerProfile: {
           select: { displayName: true, bio: true, weeklyCapacity: true, acceptingWork: true },

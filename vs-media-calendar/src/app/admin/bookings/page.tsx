@@ -23,7 +23,7 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
       where,
       include: {
         consultant: { select: { name: true, email: true } },
-        videographer: { select: { name: true } },
+        videographer: { select: { name: true, email: true } },
         services: true,
         payment: true,
       },
@@ -103,7 +103,7 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
 
                       <div className="col-span-2">
                         <p className="text-xs text-slate-500">Videógrafo</p>
-                        <p className="text-sm font-semibold text-slate-900">{booking.videographer.name}</p>
+                        <p className="text-sm font-semibold text-slate-900">{booking.videographer.name || booking.videographer.email || "Sem nome"}</p>
                       </div>
 
                       <div className="col-span-2">

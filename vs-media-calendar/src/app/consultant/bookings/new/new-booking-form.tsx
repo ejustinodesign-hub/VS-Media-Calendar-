@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils"
 interface Videographer {
   id: string
   name: string | null
+  email: string | null
   image: string | null
   videographerProfile: {
     displayName: string
@@ -249,13 +250,13 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                         />
                       ) : (
                         <div className="w-14 h-14 rounded-full bg-[#0f3460] flex items-center justify-center text-white text-xl font-bold">
-                          {v.name?.[0]}
+                          {v.name?.[0] || v.email?.[0]?.toUpperCase() || "?"}
                         </div>
                       )}
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-slate-900">
-                        {profile?.displayName || v.name}
+                        {profile?.displayName || v.name || v.email?.split("@")[0]}
                       </p>
                       {profile?.bio && (
                         <p className="text-sm text-slate-500 mt-0.5">{profile.bio}</p>
@@ -554,7 +555,8 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                 value={
                   selectedVideographer.videographerProfile?.displayName ||
                   selectedVideographer.name ||
-                  ""
+                  selectedVideographer.email?.split("@")[0] ||
+                  "Sem nome"
                 }
               />
               <SummaryRow

@@ -18,7 +18,7 @@ export default async function AdminDashboard() {
       prisma.booking.findMany({
         include: {
           consultant: { select: { name: true } },
-          videographer: { select: { name: true } },
+          videographer: { select: { name: true, email: true } },
           payment: { select: { amount: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -141,7 +141,7 @@ export default async function AdminDashboard() {
                           {booking.consultant.name}
                         </span>
                         <span className="text-slate-300">→</span>
-                        <span className="text-sm text-slate-600">{booking.videographer.name}</span>
+                        <span className="text-sm text-slate-600">{booking.videographer.name || booking.videographer.email || "Sem nome"}</span>
                       </div>
                       <p className="text-xs text-slate-500 truncate">{booking.propertyAddress}</p>
                     </div>
