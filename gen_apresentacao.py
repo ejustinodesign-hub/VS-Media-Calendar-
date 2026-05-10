@@ -1,565 +1,607 @@
-from reportlab.lib.pagesizes import A4
+"""
+VS Media Calendar — Apresentação para Consultores
+A4 landscape · azul navy + branco · sem vermelho
+"""
+from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    HRFlowable, KeepTogether
+    BaseDocTemplate, PageTemplate, Frame,
+    Paragraph, Spacer, Table, TableStyle,
+    HRFlowable, PageBreak, KeepTogether, Image
 )
-from reportlab.platypus import PageBreak
-from reportlab.pdfgen import canvas as pdfcanvas
+from reportlab.platypus.flowables import Flowable
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPDF
+
+W, H = landscape(A4)   # 841.9 x 595.3 pt
 
 NAVY  = colors.HexColor("#0f172a")
 BLUE  = colors.HexColor("#0f3460")
-RED   = colors.HexColor("#e94560")
+BLUE2 = colors.HexColor("#1e3a5f")
 SLATE = colors.HexColor("#64748b")
-LIGHT = colors.HexColor("#f8fafc")
+LIGHT = colors.HexColor("#f1f5f9")
 BORDER= colors.HexColor("#e2e8f0")
-GREEN = colors.HexColor("#16a34a")
-AMBER = colors.HexColor("#d97706")
-VIOLET= colors.HexColor("#7c3aed")
+WHITE = colors.white
 
-W, H = A4  # 595 x 842 pt
+LOGO_PATH = "/home/user/VS-Media-Calendar-/vs-media-calendar/public/logo.svg"
 
-# ── Styles ────────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def make_styles():
-    return {
-        "title": ParagraphStyle("title",
-            fontName="Helvetica-Bold", fontSize=28, leading=34,
-            textColor=colors.white, spaceAfter=4*mm),
-        "cover_sub": ParagraphStyle("cover_sub",
-            fontName="Helvetica", fontSize=11, leading=16,
-            textColor=colors.HexColor("#94a3b8"), spaceAfter=8*mm),
-        "cover_tag": ParagraphStyle("cover_tag",
-            fontName="Helvetica-Bold", fontSize=8, leading=10,
-            textColor=RED, spaceAfter=4*mm, charSpace=1.5),
-        "h1": ParagraphStyle("h1",
-            fontName="Helvetica-Bold", fontSize=16, leading=20,
-            textColor=NAVY, spaceBefore=6*mm, spaceAfter=2*mm),
-        "h2": ParagraphStyle("h2",
-            fontName="Helvetica-Bold", fontSize=12, leading=15,
-            textColor=BLUE, spaceBefore=5*mm, spaceAfter=1.5*mm),
-        "eyebrow": ParagraphStyle("eyebrow",
-            fontName="Helvetica-Bold", fontSize=7.5, leading=10,
-            textColor=RED, spaceBefore=4*mm, spaceAfter=1*mm, charSpace=1.2),
-        "body": ParagraphStyle("body",
-            fontName="Helvetica", fontSize=9.5, leading=14,
-            textColor=colors.HexColor("#334155"), spaceAfter=2*mm),
-        "body_small": ParagraphStyle("body_small",
-            fontName="Helvetica", fontSize=8.5, leading=13,
-            textColor=SLATE, spaceAfter=1.5*mm),
-        "bullet": ParagraphStyle("bullet",
-            fontName="Helvetica", fontSize=9.5, leading=14,
-            textColor=colors.HexColor("#334155"),
-            leftIndent=10, firstLineIndent=-10, spaceAfter=1.5*mm),
-        "caption": ParagraphStyle("caption",
-            fontName="Helvetica-Oblique", fontSize=8, leading=11,
-            textColor=SLATE, spaceAfter=2*mm, alignment=TA_CENTER),
-        "footer": ParagraphStyle("footer",
-            fontName="Helvetica", fontSize=7.5, leading=10,
-            textColor=colors.HexColor("#94a3b8"), alignment=TA_CENTER),
-        "th": ParagraphStyle("th",
-            fontName="Helvetica-Bold", fontSize=8.5, leading=11,
-            textColor=colors.white),
-        "td": ParagraphStyle("td",
-            fontName="Helvetica", fontSize=8.5, leading=12,
-            textColor=colors.HexColor("#1e293b")),
-        "td_accent": ParagraphStyle("td_accent",
-            fontName="Helvetica-Bold", fontSize=8.5, leading=12,
-            textColor=BLUE),
-        "note": ParagraphStyle("note",
-            fontName="Helvetica", fontSize=8.5, leading=13,
-            textColor=colors.HexColor("#1e3a5f"),
-            leftIndent=4*mm, rightIndent=4*mm, spaceAfter=3*mm),
-        "step_num": ParagraphStyle("step_num",
-            fontName="Helvetica-Bold", fontSize=10, leading=12,
-            textColor=colors.white, alignment=TA_CENTER),
-        "step_label": ParagraphStyle("step_label",
-            fontName="Helvetica-Bold", fontSize=9, leading=11,
-            textColor=NAVY),
-        "step_text": ParagraphStyle("step_text",
-            fontName="Helvetica", fontSize=8, leading=12,
-            textColor=SLATE),
-        "url": ParagraphStyle("url",
-            fontName="Helvetica-Bold", fontSize=13, leading=16,
-            textColor=RED, alignment=TA_CENTER, spaceAfter=2*mm),
-        "end_title": ParagraphStyle("end_title",
-            fontName="Helvetica-Bold", fontSize=22, leading=26,
-            textColor=colors.white, alignment=TA_CENTER, spaceAfter=3*mm),
-        "end_sub": ParagraphStyle("end_sub",
-            fontName="Helvetica", fontSize=10, leading=14,
-            textColor=colors.HexColor("#94a3b8"), alignment=TA_CENTER, spaceAfter=4*mm),
-    }
+def s(name, **kw):
+    defaults = dict(fontName="Helvetica", fontSize=9, leading=13,
+                    textColor=colors.HexColor("#1e293b"), spaceAfter=2*mm)
+    defaults.update(kw)
+    return ParagraphStyle(name, **defaults)
 
-# ── Canvas callbacks (header/footer per page) ─────────────────────────────────
+STYLES = {
+    # cover
+    "cover_tag":  s("cover_tag",  fontName="Helvetica-Bold", fontSize=7.5,
+                    textColor=colors.HexColor("#94a3b8"), charSpace=2, spaceAfter=3*mm),
+    "cover_title":s("cover_title",fontName="Helvetica-Bold", fontSize=36, leading=40,
+                    textColor=WHITE, spaceAfter=4*mm),
+    "cover_sub":  s("cover_sub",  fontSize=11, leading=17,
+                    textColor=colors.HexColor("#94a3b8"), spaceAfter=6*mm),
+    "cover_url":  s("cover_url",  fontName="Helvetica-Bold", fontSize=11,
+                    textColor=colors.HexColor("#60a5fa"), spaceAfter=0),
+    # body
+    "eyebrow":    s("eyebrow",    fontName="Helvetica-Bold", fontSize=7, charSpace=1.5,
+                    textColor=BLUE, spaceAfter=1*mm, spaceBefore=0),
+    "h1":         s("h1",         fontName="Helvetica-Bold", fontSize=19, leading=23,
+                    textColor=NAVY, spaceAfter=2*mm),
+    "h2":         s("h2",         fontName="Helvetica-Bold", fontSize=11, leading=14,
+                    textColor=BLUE, spaceBefore=3*mm, spaceAfter=1.5*mm),
+    "body":       s("body",       fontSize=9.5, leading=14,
+                    textColor=colors.HexColor("#334155"), spaceAfter=2*mm),
+    "body_sm":    s("body_sm",    fontSize=8.5, leading=13,
+                    textColor=SLATE, spaceAfter=1.5*mm),
+    "bullet":     s("bullet",     fontSize=9, leading=13,
+                    textColor=colors.HexColor("#334155"),
+                    leftIndent=8, firstLineIndent=-8, spaceAfter=1.5*mm),
+    "th":         s("th",         fontName="Helvetica-Bold", fontSize=8.5, leading=11,
+                    textColor=WHITE),
+    "td":         s("td",         fontSize=8.5, leading=12,
+                    textColor=colors.HexColor("#1e293b")),
+    "td_b":       s("td_b",       fontName="Helvetica-Bold", fontSize=8.5, leading=12,
+                    textColor=BLUE),
+    "note":       s("note",       fontSize=8.5, leading=13,
+                    textColor=colors.HexColor("#1e3a5f")),
+    "caption":    s("caption",    fontSize=7.5, leading=10,
+                    textColor=SLATE, alignment=TA_CENTER, spaceAfter=2*mm),
+    "end_tag":    s("end_tag",    fontName="Helvetica-Bold", fontSize=7.5, charSpace=1.5,
+                    textColor=colors.HexColor("#475569"), alignment=TA_CENTER, spaceAfter=3*mm),
+    "end_title":  s("end_title",  fontName="Helvetica-Bold", fontSize=26, leading=30,
+                    textColor=WHITE, alignment=TA_CENTER, spaceAfter=3*mm),
+    "end_sub":    s("end_sub",    fontSize=10, leading=14,
+                    textColor=colors.HexColor("#94a3b8"), alignment=TA_CENTER, spaceAfter=4*mm),
+    "end_url":    s("end_url",    fontName="Helvetica-Bold", fontSize=14,
+                    textColor=colors.HexColor("#60a5fa"), alignment=TA_CENTER),
+}
 
-class NumberedCanvas(pdfcanvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        pdfcanvas.Canvas.__init__(self, *args, **kwargs)
-        self._saved_page_states = []
-
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        num_pages = len(self._saved_page_states)
-        for i, state in enumerate(self._saved_page_states):
-            self.__dict__.update(state)
-            self.draw_page(i + 1, num_pages)
-            pdfcanvas.Canvas.showPage(self)
-        pdfcanvas.Canvas.save(self)
-
-    def draw_page(self, page_num, total):
-        w, h = A4
-        is_cover = (page_num == 1)
-        is_end   = (page_num == total)
-
-        if is_cover or is_end:
-            # Full dark background
-            self.setFillColor(NAVY)
-            self.rect(0, 0, w, h, fill=1, stroke=0)
-            # Red bottom bar
-            self.setFillColor(RED)
-            self.rect(0, 0, w, 3, fill=1, stroke=0)
-            # Dot pattern (top-right)
-            self.setFillColor(colors.white)
-            self.setFillAlpha(0.07)
-            for row in range(8):
-                for col in range(10):
-                    cx = w - 50*mm + col * 5*mm
-                    cy = h - 20*mm - row * 5*mm
-                    if 0 < cx < w and 0 < cy < h:
-                        self.circle(cx, cy, 1.2, fill=1, stroke=0)
-            self.setFillAlpha(1)
-        else:
-            # White page — light header bar
-            self.setFillColor(colors.white)
-            self.rect(0, 0, w, h, fill=1, stroke=0)
-            # Top accent line
-            self.setFillColor(BLUE)
-            self.rect(0, h - 2, w, 2, fill=1, stroke=0)
-            # Header bar
-            self.setFillColor(colors.HexColor("#f8fafc"))
-            self.rect(0, h - 14*mm, w, 12*mm, fill=1, stroke=0)
-            self.setStrokeColor(BORDER)
-            self.setLineWidth(0.5)
-            self.line(0, h - 14*mm, w, h - 14*mm)
-            # Logo in header
-            self.setFillColor(BLUE)
-            self.setFont("Helvetica-Bold", 9)
-            self.drawString(15*mm, h - 9.5*mm, "VS Media")
-            self.setFillColor(RED)
-            self.drawString(15*mm + self.stringWidth("VS Media", "Helvetica-Bold", 9), h - 9.5*mm, " Calendar")
-            # Page number
-            self.setFillColor(colors.HexColor("#cbd5e1"))
-            self.setFont("Helvetica", 7.5)
-            pg_text = f"{page_num - 1} / {total - 2}"  # skip cover + end
-            self.drawRightString(w - 15*mm, h - 9.5*mm, pg_text)
-            # Footer
-            self.setFillColor(BORDER)
-            self.rect(0, 0, w, 8*mm, fill=1, stroke=0)
-            self.setFillColor(colors.HexColor("#94a3b8"))
-            self.setFont("Helvetica", 7)
-            self.drawCentredString(w / 2, 3*mm, "calendar.vsmedia.pt  ·  Uso interno — Maio 2026")
-            # Red bottom bar
-            self.setFillColor(RED)
-            self.rect(0, 0, w, 1.5, fill=1, stroke=0)
-
-
-def build_pdf(path):
-    S = make_styles()
-    doc = SimpleDocTemplate(
-        path,
-        pagesize=A4,
-        leftMargin=15*mm, rightMargin=15*mm,
-        topMargin=18*mm, bottomMargin=14*mm,
-    )
-
-    story = []
-
-    # ══════════════════════════════════════════════════════════════
-    # PÁGINA 1 — CAPA
-    # ══════════════════════════════════════════════════════════════
-    story.append(Spacer(1, 38*mm))
-    story.append(Paragraph("FORMAÇÃO INTERNA · MAIO 2026", S["cover_tag"]))
-    story.append(Paragraph("Guia do Consultor", S["title"]))
-    story.append(Paragraph(
-        "Tudo o que precisas saber para usar a plataforma VS Media Calendar — "
-        "desde criar a tua primeira marcação até gerir faturas e receber os teus conteúdos.",
-        S["cover_sub"]
-    ))
-    story.append(Spacer(1, 6*mm))
-    story.append(Paragraph("calendar.vsmedia.pt", S["url"]))
-    story.append(PageBreak())
-
-    # ══════════════════════════════════════════════════════════════
-    # PÁGINA 2 — ACESSO
-    # ══════════════════════════════════════════════════════════════
-    story.append(Paragraph("PRIMEIROS PASSOS", S["eyebrow"]))
-    story.append(Paragraph("Como entrar na plataforma", S["h1"]))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
-
-    story.append(Paragraph(
-        "A VS Media Calendar é acessível em qualquer browser, no telemóvel ou no computador. "
-        "O acesso é feito exclusivamente com a tua conta Google (Gmail).",
-        S["body"]
-    ))
-
-    steps_data = [
-        ["1", "Abre o browser", "Vai a calendar.vsmedia.pt no Chrome, Safari ou outro browser."],
-        ["2", "Entra com Google", 'Clica em "Entrar com Google" e selecciona a tua conta Gmail.'],
-        ["3", "Perfil automático", "O teu nome e foto são importados automaticamente do Google."],
-        ["4", "Acesso imediato", "Só contas aprovadas pela VS Media têm acesso. Se não conseguires entrar, contacta a equipa."],
-    ]
-
-    step_table_data = []
-    for num, label, text in steps_data:
-        step_table_data.append([
-            Table([[Paragraph(num, S["step_num"])]], colWidths=[8*mm], rowHeights=[8*mm],
-                  style=TableStyle([
-                      ("BACKGROUND", (0,0), (-1,-1), BLUE),
-                      ("ROUNDEDCORNERS", (0,0), (-1,-1), [4,4,4,4]),
-                      ("ALIGN", (0,0), (-1,-1), "CENTER"),
-                      ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-                  ])),
-            Paragraph(f"<b>{label}</b><br/><font size='8' color='#64748b'>{text}</font>", S["body_small"]),
-        ])
-
-    story.append(Table(
-        step_table_data,
-        colWidths=[14*mm, None],
+def info_box(text, bg="#eff6ff", border="#bfdbfe"):
+    return Table([[Paragraph(text, STYLES["note"])]], colWidths=[W - 40*mm],
         style=TableStyle([
-            ("VALIGN", (0,0), (-1,-1), "TOP"),
-            ("TOPPADDING", (0,0), (-1,-1), 3),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-            ("LEFTPADDING", (1,0), (1,-1), 5),
-        ])
-    ))
-
-    story.append(Spacer(1, 4*mm))
-
-    note_data = [[
-        Paragraph(
-            "💡  <b>Compatível com telemóvel.</b> Podes gerir todas as tuas marcações directamente "
-            "do iPhone ou Android, sem instalar nenhuma app.",
-            S["note"]
-        )
-    ]]
-    story.append(Table(note_data, colWidths=[W - 30*mm],
-        style=TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#eff6ff")),
-            ("ROUNDEDCORNERS", (0,0), (-1,-1), [4,4,4,4]),
-            ("BOX", (0,0), (-1,-1), 0.5, colors.HexColor("#bfdbfe")),
-            ("LEFTPADDING", (0,0), (-1,-1), 6),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("TOPPADDING", (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-        ])
-    ))
-    story.append(PageBreak())
-
-    # ══════════════════════════════════════════════════════════════
-    # PÁGINA 3 — CRIAR MARCAÇÃO
-    # ══════════════════════════════════════════════════════════════
-    story.append(Paragraph("MARCAR UM SERVIÇO", S["eyebrow"]))
-    story.append(Paragraph("Como criar uma marcação", S["h1"]))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
-
-    story.append(Paragraph(
-        "O processo de marcação é um assistente em 5 passos. Podes criar uma marcação em menos de 2 minutos.",
-        S["body"]
-    ))
-
-    passos = [
-        ("1", "Videógrafo", "Escolhe o videógrafo disponível. Só aparecem os que estão a aceitar trabalho."),
-        ("2", "Serviços", "Selecciona os serviços que precisas: vídeo, drone, IA, fotografia."),
-        ("3", "Data e Hora", "Escolhe o dia (mínimo amanhã) e o horário disponível — slots de 30 min, das 08h às 17h."),
-        ("4", "Imóvel", "Introduz a morada completa e a tipologia do imóvel (T1, T2, T3…)."),
-        ("5", "Confirmação", "Revê o resumo, escolhe o tipo de pagamento e submete."),
-    ]
-
-    passo_rows = [[
-        Paragraph(f"<b>Passo {p[0]}</b>", S["step_label"]),
-        Paragraph(f"<b>{p[1]}</b>", S["step_label"]),
-        Paragraph(p[2], S["step_text"]),
-    ] for p in passos]
-
-    story.append(Table(
-        passo_rows,
-        colWidths=[20*mm, 30*mm, None],
-        style=TableStyle([
-            ("BACKGROUND", (0,0), (0,-1), colors.HexColor("#f8fafc")),
-            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#f0f9ff")),
-            ("TEXTCOLOR", (0,0), (0,-1), BLUE),
-            ("FONTNAME", (0,0), (0,-1), "Helvetica-Bold"),
-            ("FONTSIZE", (0,0), (0,-1), 9),
-            ("ALIGN", (0,0), (0,-1), "CENTER"),
-            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-            ("ROWBACKGROUNDS", (0,0), (-1,-1), [colors.HexColor("#f8fafc"), colors.white]),
-            ("LINEBELOW", (0,0), (-1,-2), 0.4, BORDER),
-            ("TOPPADDING", (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-            ("LEFTPADDING", (0,0), (-1,-1), 5),
-        ])
-    ))
-
-    story.append(Spacer(1, 4*mm))
-
-    # Deslocação note
-    desl_data = [[
-        Paragraph(
-            "🚗  <b>Taxa de deslocação.</b> Calculada automaticamente com base na distância ao imóvel. "
-            "Se a deslocação for superior a 1 hora, é adicionada uma taxa ao valor do serviço.",
-            S["note"]
-        )
-    ]]
-    story.append(Table(desl_data, colWidths=[W - 30*mm],
-        style=TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#fffbeb")),
-            ("BOX", (0,0), (-1,-1), 0.5, colors.HexColor("#fde68a")),
+            ("BACKGROUND", (0,0), (-1,-1), colors.HexColor(bg)),
+            ("BOX", (0,0), (-1,-1), 0.5, colors.HexColor(border)),
             ("ROUNDEDCORNERS", (0,0), (-1,-1), [4,4,4,4]),
             ("LEFTPADDING", (0,0), (-1,-1), 6),
             ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("TOPPADDING", (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-        ])
-    ))
-
-    story.append(Spacer(1, 3*mm))
-    confirm_data = [[
-        Paragraph(
-            "✉️  <b>Email automático.</b> Após submeteres, o videógrafo recebe um email com todos os detalhes "
-            "e tem de aceitar a marcação. Recebes um email de confirmação assim que aceitar.",
-            S["note"]
-        )
-    ]]
-    story.append(Table(confirm_data, colWidths=[W - 30*mm],
-        style=TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#f0fdf4")),
-            ("BOX", (0,0), (-1,-1), 0.5, colors.HexColor("#bbf7d0")),
-            ("ROUNDEDCORNERS", (0,0), (-1,-1), [4,4,4,4]),
-            ("LEFTPADDING", (0,0), (-1,-1), 6),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("TOPPADDING", (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-        ])
-    ))
-    story.append(PageBreak())
-
-    # ══════════════════════════════════════════════════════════════
-    # PÁGINA 4 — SERVIÇOS E PREÇOS
-    # ══════════════════════════════════════════════════════════════
-    story.append(Paragraph("CATÁLOGO", S["eyebrow"]))
-    story.append(Paragraph("Serviços e preços", S["h1"]))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
-
-    header = [
-        Paragraph("Serviço", S["th"]),
-        Paragraph("Descrição", S["th"]),
-        Paragraph("Preço (s/ IVA)", S["th"]),
-    ]
-
-    servicos = [
-        ("🎬  Vídeo Standard", "Vídeo profissional do imóvel com edição completa incluída", "100 €"),
-        ("🚁  Vídeo Drone", "Filmagem aérea exterior com drone profissional", "120 €"),
-        ("✦  Taxa IA no Vídeo", "Melhorias e efeitos com inteligência artificial aplicados ao vídeo", "25 €"),
-        ("📷  Foto Drone", "Fotografia aérea exterior com drone", "35 €"),
-        ("📷  Foto T1 / T2", "Fotografia profissional de interior — tipologia T1 ou T2", "25 €"),
-        ("📷  Foto T3 / T4", "Fotografia profissional de interior — tipologia T3 ou T4", "35 €"),
-        ("📷  Foto T5+", "Fotografia profissional de interior — tipologia T5 ou superior", "45 €"),
-        ("🎙️  Intro adicional", "Versão personalizada do vídeo com a tua introdução (por consultor)", "25 €"),
-        ("🚗  Taxa deslocação", "Aplicada automaticamente quando a distância supera 1 hora", "50 €"),
-    ]
-
-    table_data = [header]
-    for s in servicos:
-        table_data.append([
-            Paragraph(s[0], S["td_accent"]),
-            Paragraph(s[1], S["td"]),
-            Paragraph(f"<b>{s[2]}</b>", S["td_accent"]),
-        ])
-
-    story.append(Table(
-        table_data,
-        colWidths=[45*mm, None, 30*mm],
-        style=TableStyle([
-            ("BACKGROUND", (0,0), (-1,0), NAVY),
-            ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.HexColor("#f8fafc"), colors.white]),
-            ("LINEBELOW", (0,0), (-1,0), 1, NAVY),
-            ("LINEBELOW", (0,1), (-1,-1), 0.4, BORDER),
-            ("ALIGN", (2,0), (2,-1), "RIGHT"),
-            ("TOPPADDING", (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-            ("LEFTPADDING", (0,0), (-1,-1), 6),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("BOX", (0,0), (-1,-1), 0.5, BORDER),
-        ])
-    ))
-
-    story.append(Spacer(1, 3*mm))
-    story.append(Paragraph(
-        "Os preços apresentados são sem IVA. A fatura incluirá IVA à taxa legal em vigor (23%).",
-        S["caption"]
-    ))
-    story.append(PageBreak())
-
-    # ══════════════════════════════════════════════════════════════
-    # PÁGINA 5 — PAGAMENTOS
-    # ══════════════════════════════════════════════════════════════
-    story.append(Paragraph("FATURAÇÃO", S["eyebrow"]))
-    story.append(Paragraph("Dois modelos de pagamento", S["h1"]))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
-
-    # Two columns side by side
-    col1 = [
-        [Paragraph("TAXA FIXA", ParagraphStyle("th2", fontName="Helvetica-Bold", fontSize=8,
-                   textColor=colors.white, charSpace=1))],
-        [Paragraph("Pago no final do mês", ParagraphStyle("h2w", fontName="Helvetica-Bold",
-                   fontSize=12, textColor=colors.white, spaceAfter=2*mm, leading=15))],
-        [Paragraph(
-            "Os serviços são acumulados ao longo do mês e faturados no último dia. "
-            "Recebes o PDF da fatura por email e pagas online por cartão.",
-            ParagraphStyle("bw", fontName="Helvetica", fontSize=8.5, textColor=colors.HexColor("#94a3b8"), leading=13)
-        )],
-        [Spacer(1, 3*mm)],
-        [Paragraph("✓  Fatura gerada automaticamente", ParagraphStyle("cw", fontName="Helvetica", fontSize=8.5, textColor=colors.HexColor("#cbd5e1"), leading=13))],
-        [Paragraph("✓  Pagamento por cartão (Stripe)", ParagraphStyle("cw", fontName="Helvetica", fontSize=8.5, textColor=colors.HexColor("#cbd5e1"), leading=13))],
-        [Paragraph("✓  Histórico dos últimos 6 meses", ParagraphStyle("cw", fontName="Helvetica", fontSize=8.5, textColor=colors.HexColor("#cbd5e1"), leading=13))],
-    ]
-
-    col2_items = [
-        ("✦  Comissão de Venda", colors.HexColor("#f5f3ff"), colors.HexColor("#ddd6fe"),
-         "Não pagas nada agora. Quando o imóvel for vendido, introduzes o valor de venda na "
-         "plataforma e pagas <b>0,15%</b> desse valor."),
-        ("🔒  Faturas em atraso", colors.HexColor("#fffbeb"), colors.HexColor("#fde68a"),
-         "Se tiveres faturas por pagar, as marcações em taxa fixa ficam bloqueadas. "
-         "Podes continuar a marcar em <b>modo comissão</b> enquanto regularizas."),
-        ("💳  Pagamento seguro", colors.HexColor("#f0fdf4"), colors.HexColor("#bbf7d0"),
-         "Os pagamentos são processados pelo <b>Stripe</b>. Aceita Visa, Mastercard e outros cartões."),
-    ]
-
-    def make_info_card(title, bg, border, text):
-        return Table([[
-            Paragraph(f"<b>{title}</b><br/><font size='8' color='#64748b'>{text}</font>", S["body_small"])
-        ]], colWidths=[(W - 30*mm) / 2 - 4*mm],
-        style=TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), bg),
-            ("BOX", (0,0), (-1,-1), 0.5, border),
-            ("ROUNDEDCORNERS", (0,0), (-1,-1), [4,4,4,4]),
-            ("LEFTPADDING", (0,0), (-1,-1), 5),
-            ("RIGHTPADDING", (0,0), (-1,-1), 5),
             ("TOPPADDING", (0,0), (-1,-1), 5),
             ("BOTTOMPADDING", (0,0), (-1,-1), 5),
         ]))
 
-    col_w = (W - 30*mm) / 2 - 3*mm
+def card(title, body_text, bg="#f8fafc", border="#e2e8f0", col_w=None):
+    w = col_w or ((W - 40*mm) / 2 - 3*mm)
+    return Table([[
+        Paragraph(
+            f"<b>{title}</b><br/>"
+            f"<font size='8' color='#64748b'>{body_text}</font>",
+            STYLES["body_sm"]
+        )
+    ]], colWidths=[w],
+    style=TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), colors.HexColor(bg)),
+        ("BOX", (0,0), (-1,-1), 0.5, colors.HexColor(border)),
+        ("ROUNDEDCORNERS", (0,0), (-1,-1), [4,4,4,4]),
+        ("LEFTPADDING", (0,0), (-1,-1), 6),
+        ("RIGHTPADDING", (0,0), (-1,-1), 6),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+    ]))
 
-    left_table = Table(col1, colWidths=[col_w],
+# ── Page chrome ───────────────────────────────────────────────────────────────
+
+HEADER_H = 14*mm
+FOOTER_H =  9*mm
+
+def get_logo_drawing(width=28*mm):
+    try:
+        drawing = svg2rlg(LOGO_PATH)
+        if drawing:
+            sx = width / drawing.width
+            drawing.width  = width
+            drawing.height = drawing.height * sx
+            drawing.transform = (sx, 0, 0, sx, 0, 0)
+            return drawing
+    except Exception:
+        pass
+    return None
+
+def draw_cover(canvas, doc):
+    canvas.saveState()
+    # Full dark background
+    canvas.setFillColor(NAVY)
+    canvas.rect(0, 0, W, H, fill=1, stroke=0)
+    # Blue gradient left strip
+    canvas.setFillColor(BLUE)
+    canvas.rect(0, 0, 8*mm, H, fill=1, stroke=0)
+    # Dot pattern right side
+    canvas.setFillColor(WHITE)
+    canvas.setFillAlpha(0.05)
+    for r in range(10):
+        for c in range(14):
+            cx = W/2 + 10*mm + c*10*mm
+            cy = 10*mm + r*10*mm
+            if cx < W and cy < H:
+                canvas.circle(cx, cy, 1.5, fill=1, stroke=0)
+    canvas.setFillAlpha(1)
+    # Logo (white) top-left
+    logo = get_logo_drawing(32*mm)
+    if logo:
+        logo_y = H - HEADER_H/2 - logo.height/2
+        renderPDF.draw(logo, canvas, 15*mm, logo_y)
+    else:
+        canvas.setFillColor(WHITE)
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawString(15*mm, H - 10*mm, "VS.MEDIA")
+    canvas.restoreState()
+
+def draw_content(canvas, doc):
+    canvas.saveState()
+    # White page
+    canvas.setFillColor(WHITE)
+    canvas.rect(0, 0, W, H, fill=1, stroke=0)
+    # Navy header bar
+    canvas.setFillColor(NAVY)
+    canvas.rect(0, H - HEADER_H, W, HEADER_H, fill=1, stroke=0)
+    # Logo in header
+    logo = get_logo_drawing(22*mm)
+    if logo:
+        logo_y = H - HEADER_H/2 - logo.height/2
+        renderPDF.draw(logo, canvas, 15*mm, logo_y)
+    else:
+        canvas.setFillColor(WHITE)
+        canvas.setFont("Helvetica-Bold", 9)
+        canvas.drawString(15*mm, H - 9*mm, "VS.MEDIA")
+    # Page number (right in header)
+    canvas.setFillColor(colors.HexColor("#94a3b8"))
+    canvas.setFont("Helvetica", 8)
+    pg = getattr(doc, "_page_count_display", "")
+    canvas.drawRightString(W - 15*mm, H - 8.5*mm, pg)
+    # Footer
+    canvas.setFillColor(LIGHT)
+    canvas.rect(0, 0, W, FOOTER_H, fill=1, stroke=0)
+    canvas.setFillColor(SLATE)
+    canvas.setFont("Helvetica", 7)
+    canvas.drawCentredString(W/2, 3*mm, "calendar.vsmedia.pt  ·  Uso interno — Maio 2026")
+    # Thin blue top accent
+    canvas.setFillColor(BLUE)
+    canvas.rect(0, H - HEADER_H - 1, W, 1, fill=1, stroke=0)
+    canvas.restoreState()
+
+def draw_end(canvas, doc):
+    canvas.saveState()
+    canvas.setFillColor(NAVY)
+    canvas.rect(0, 0, W, H, fill=1, stroke=0)
+    canvas.setFillColor(BLUE)
+    canvas.rect(0, 0, W, 3, fill=1, stroke=0)
+    canvas.setFillAlpha(0.05)
+    canvas.setFillColor(WHITE)
+    for r in range(8):
+        for c in range(20):
+            cx = c * 14*mm
+            cy = 10*mm + r * 11*mm
+            if cx < W and cy < H:
+                canvas.circle(cx, cy, 1.2, fill=1, stroke=0)
+    canvas.setFillAlpha(1)
+    canvas.restoreState()
+
+# ── Content builders ──────────────────────────────────────────────────────────
+
+def page_cover():
+    items = []
+    items.append(Spacer(1, 28*mm))
+    items.append(Paragraph("GUIA PARA CONSULTORES · MAIO 2026", STYLES["cover_tag"]))
+    items.append(Paragraph("Como usar a<br/>VS Media Calendar", STYLES["cover_title"]))
+    items.append(Paragraph(
+        "Tudo o que precisas saber — desde criar a tua primeira marcação "
+        "até receber os conteúdos e gerir os teus pagamentos.",
+        STYLES["cover_sub"]
+    ))
+    items.append(Paragraph("calendar.vsmedia.pt", STYLES["cover_url"]))
+    items.append(PageBreak())
+    return items
+
+def page_acesso():
+    items = []
+    items.append(Paragraph("PRIMEIROS PASSOS", STYLES["eyebrow"]))
+    items.append(Paragraph("Como entrar na plataforma", STYLES["h1"]))
+    items.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
+
+    items.append(Paragraph(
+        "A plataforma funciona em qualquer browser — no computador ou no telemóvel. "
+        "O acesso é feito com a tua conta Google (Gmail).",
+        STYLES["body"]
+    ))
+
+    passos = [
+        ("1", "Abre o browser",     "Vai a calendar.vsmedia.pt — Chrome, Safari ou Edge."),
+        ("2", "Entra com Google",   'Clica "Entrar com Google" e selecciona a tua conta Gmail.'),
+        ("3", "Perfil automático",  "O teu nome e foto são importados automaticamente."),
+        ("4", "Acesso imediato",    "Só contas aprovadas pela VS Media têm acesso."),
+    ]
+
+    def num_cell(n):
+        return Table([[Paragraph(f"<b>{n}</b>",
+            ParagraphStyle("n", fontName="Helvetica-Bold", fontSize=10,
+                           textColor=WHITE, alignment=TA_CENTER))]],
+            colWidths=[7*mm], rowHeights=[7*mm],
+            style=TableStyle([
+                ("BACKGROUND", (0,0), (-1,-1), BLUE),
+                ("ROUNDEDCORNERS", (0,0), (-1,-1), [14,14,14,14]),
+                ("ALIGN", (0,0), (-1,-1), "CENTER"),
+                ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                ("TOPPADDING", (0,0), (-1,-1), 0),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+            ]))
+
+    rows = [[num_cell(p[0]),
+             Paragraph(f"<b>{p[1]}</b><br/><font size='8' color='#64748b'>{p[2]}</font>",
+                       STYLES["body_sm"])]
+            for p in passos]
+
+    items.append(Table(rows, colWidths=[12*mm, None],
+        style=TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("TOPPADDING", (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+            ("LEFTPADDING", (1,0), (1,-1), 5),
+        ])))
+
+    items.append(Spacer(1, 3*mm))
+    items.append(info_box(
+        "📱  <b>Mobile.</b> Podes gerir tudo directamente do telemóvel, sem instalar nenhuma app.",
+        bg="#eff6ff", border="#bfdbfe"
+    ))
+    items.append(PageBreak())
+    return items
+
+def page_marcacao():
+    items = []
+    items.append(Paragraph("MARCAR UM SERVIÇO", STYLES["eyebrow"]))
+    items.append(Paragraph("Como criar uma marcação", STYLES["h1"]))
+    items.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
+    items.append(Paragraph(
+        "Processo em 5 passos. Podes criar uma marcação em menos de 2 minutos.",
+        STYLES["body"]
+    ))
+
+    passos = [
+        ("1", "Videógrafo",   "Escolhe o videógrafo. Só aparecem\nos que estão disponíveis."),
+        ("2", "Serviços",     "Selecciona os serviços:\nvídeo, drone, IA, fotografia."),
+        ("3", "Data e Hora",  "Escolhe o dia e horário\ndisponível (slots de 30 min)."),
+        ("4", "Imóvel",       "Morada completa\ne tipologia (T1, T2…)."),
+        ("5", "Confirmação",  "Revê o resumo, escolhe\no pagamento e submete."),
+    ]
+
+    col_w = (W - 40*mm) / 5
+
+    def step_col(num, label, text):
+        return Table([
+            [Table([[Paragraph(num, ParagraphStyle("sn", fontName="Helvetica-Bold",
+                fontSize=11, textColor=WHITE, alignment=TA_CENTER))]],
+                colWidths=[9*mm], rowHeights=[9*mm],
+                style=TableStyle([
+                    ("BACKGROUND", (0,0), (-1,-1), BLUE),
+                    ("ROUNDEDCORNERS", (0,0), (-1,-1), [18,18,18,18]),
+                    ("ALIGN", (0,0), (-1,-1), "CENTER"),
+                    ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                    ("TOPPADDING", (0,0), (-1,-1), 0),
+                    ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+                ]))],
+            [Paragraph(f"<b>{label}</b>", ParagraphStyle("sl", fontName="Helvetica-Bold",
+                fontSize=8.5, textColor=NAVY, leading=11, spaceAfter=1*mm))],
+            [Paragraph(text, ParagraphStyle("st", fontSize=7.5, textColor=SLATE,
+                leading=11))],
+        ], colWidths=[col_w - 4*mm],
+        style=TableStyle([
+            ("ALIGN", (0,0), (-1,-1), "CENTER"),
+            ("TOPPADDING", (0,0), (-1,-1), 2),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+            ("BACKGROUND", (0,0), (-1,-1), LIGHT),
+            ("ROUNDEDCORNERS", (0,0), (-1,-1), [4,4,4,4]),
+            ("BOX", (0,0), (-1,-1), 0.5, BORDER),
+            ("LEFTPADDING", (0,0), (-1,-1), 3),
+            ("RIGHTPADDING", (0,0), (-1,-1), 3),
+        ]))
+
+    row = [[step_col(p[0], p[1], p[2]) for p in passos]]
+    items.append(Table(row,
+        colWidths=[col_w] * 5,
+        style=TableStyle([
+            ("ALIGN", (0,0), (-1,-1), "CENTER"),
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 2),
+            ("RIGHTPADDING", (0,0), (-1,-1), 2),
+        ])))
+
+    items.append(Spacer(1, 4*mm))
+    items.append(info_box(
+        "🚗  <b>Deslocação.</b> Calculada automaticamente. Se superior a 1 hora, é adicionada uma taxa de 50 € ao serviço.",
+        bg="#f0f9ff", border="#bae6fd"
+    ))
+    items.append(Spacer(1, 2*mm))
+    items.append(info_box(
+        "✉️  <b>Confirmação por email.</b> Após submeteres, o videógrafo recebe um email e tem de aceitar. "
+        "Recebes confirmação assim que aceitar.",
+        bg="#f0fdf4", border="#bbf7d0"
+    ))
+    items.append(PageBreak())
+    return items
+
+def page_servicos():
+    items = []
+    items.append(Paragraph("CATÁLOGO", STYLES["eyebrow"]))
+    items.append(Paragraph("Serviços e preços", STYLES["h1"]))
+    items.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
+
+    header = [
+        Paragraph("Serviço", STYLES["th"]),
+        Paragraph("Descrição", STYLES["th"]),
+        Paragraph("Preço s/ IVA", STYLES["th"]),
+    ]
+    rows = [
+        ("🎬  Vídeo Standard",      "Vídeo profissional com edição completa incluída",                "100 €"),
+        ("🚁  Vídeo com Drone",     "Filmagem aérea exterior com drone profissional",                 "120 €"),
+        ("✦   Taxa IA no Vídeo",    "Melhorias e efeitos de inteligência artificial aplicados ao vídeo","25 €"),
+        ("📷  Fotografia Drone",    "Fotografia aérea exterior",                                       "35 €"),
+        ("📷  Fotografia T1/T2",    "Fotografia profissional de interior — tipologia T1 ou T2",        "25 €"),
+        ("📷  Fotografia T3/T4",    "Fotografia profissional de interior — tipologia T3 ou T4",        "35 €"),
+        ("📷  Fotografia T5+",      "Fotografia profissional de interior — tipologia T5 ou superior",  "45 €"),
+        ("🎙️  Intro adicional",     "Versão do vídeo com a tua introdução personalizada (por consultor)","25 €"),
+        ("🚗  Taxa de deslocação",  "Aplicada automaticamente quando a distância supera 1 hora",       "50 €"),
+    ]
+
+    table_data = [header] + [
+        [Paragraph(r[0], STYLES["td_b"]),
+         Paragraph(r[1], STYLES["td"]),
+         Paragraph(f"<b>{r[2]}</b>", STYLES["td_b"])]
+        for r in rows
+    ]
+
+    items.append(Table(table_data, colWidths=[42*mm, None, 28*mm],
+        style=TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), NAVY),
+            ("ROWBACKGROUNDS", (0,1), (-1,-1), [LIGHT, WHITE]),
+            ("LINEBELOW", (0,0), (-1,-1), 0.4, BORDER),
+            ("ALIGN", (2,0), (2,-1), "RIGHT"),
+            ("TOPPADDING", (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+            ("LEFTPADDING", (0,0), (-1,-1), 6),
+            ("RIGHTPADDING", (0,0), (-1,-1), 6),
+            ("BOX", (0,0), (-1,-1), 0.5, BORDER),
+        ])))
+
+    items.append(Spacer(1, 2*mm))
+    items.append(Paragraph(
+        "Os preços apresentados são sem IVA. A fatura incluirá IVA à taxa legal em vigor (23%).",
+        STYLES["caption"]
+    ))
+    items.append(PageBreak())
+    return items
+
+def page_pagamentos():
+    items = []
+    items.append(Paragraph("FATURAÇÃO", STYLES["eyebrow"]))
+    items.append(Paragraph("Dois modelos de pagamento", STYLES["h1"]))
+    items.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
+
+    col_w = (W - 40*mm) / 2 - 3*mm
+
+    # Left — dark card
+    left_rows = [
+        [Paragraph("TAXA FIXA", ParagraphStyle("lh", fontName="Helvetica-Bold", fontSize=7,
+                   textColor=colors.HexColor("#60a5fa"), charSpace=1.5))],
+        [Paragraph("Pago no final do mês", ParagraphStyle("lt", fontName="Helvetica-Bold",
+                   fontSize=12, textColor=WHITE, leading=15, spaceAfter=2*mm))],
+        [Paragraph("Os serviços acumulam ao longo do mês. No último dia é gerada uma fatura "
+                   "automática. Pagas online com cartão.", ParagraphStyle("lb", fontSize=8.5,
+                   textColor=colors.HexColor("#94a3b8"), leading=13))],
+        [Spacer(1, 2*mm)],
+        [Paragraph("✓  Fatura gerada automaticamente no último dia do mês",
+                   ParagraphStyle("lc", fontSize=8, textColor=colors.HexColor("#cbd5e1"), leading=13))],
+        [Paragraph("✓  Pagamento seguro por cartão (Stripe)",
+                   ParagraphStyle("lc", fontSize=8, textColor=colors.HexColor("#cbd5e1"), leading=13))],
+        [Paragraph("✓  Histórico dos últimos 6 meses disponível na plataforma",
+                   ParagraphStyle("lc", fontSize=8, textColor=colors.HexColor("#cbd5e1"), leading=13))],
+    ]
+    left = Table(left_rows, colWidths=[col_w],
         style=TableStyle([
             ("BACKGROUND", (0,0), (-1,-1), NAVY),
             ("ROUNDEDCORNERS", (0,0), (-1,-1), [5,5,5,5]),
             ("LEFTPADDING", (0,0), (-1,-1), 7),
             ("RIGHTPADDING", (0,0), (-1,-1), 7),
             ("TOPPADDING", (0,0), (-1,-1), 4),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
         ]))
 
-    right_content = [[make_info_card(t, bg, bd, tx)] for t, bg, bd, tx in col2_items]
-    right_table = Table(right_content, colWidths=[col_w],
+    # Right — info cards
+    right_cards = [
+        card("✦  Comissão de Venda",
+             "Alternativa sem pagamento imediato. Quando o imóvel for vendido, "
+             "introduzes o valor de venda e pagas 0,15% desse valor.",
+             bg="#f0f9ff", border="#bae6fd"),
+        card("🔒  Faturas em atraso",
+             "Se tiveres faturas por pagar, as marcações em taxa fixa ficam bloqueadas. "
+             "Podes continuar a marcar em modo comissão enquanto regularizas.",
+             bg="#fefce8", border="#fde68a"),
+        card("💳  Pagamento seguro",
+             "Os pagamentos são processados pelo Stripe. "
+             "Aceita Visa, Mastercard e outros cartões.",
+             bg="#f0fdf4", border="#bbf7d0"),
+    ]
+    right_rows = [[c] for c in right_cards]
+    right = Table(right_rows, colWidths=[col_w],
         style=TableStyle([
             ("TOPPADDING", (0,0), (-1,-1), 2),
             ("BOTTOMPADDING", (0,0), (-1,-1), 2),
-        ]))
-
-    two_col = Table([[left_table, right_table]],
-        colWidths=[col_w + 3*mm, col_w + 3*mm],
-        style=TableStyle([
-            ("VALIGN", (0,0), (-1,-1), "TOP"),
             ("LEFTPADDING", (0,0), (-1,-1), 0),
             ("RIGHTPADDING", (0,0), (-1,-1), 0),
         ]))
 
-    story.append(two_col)
-    story.append(PageBreak())
+    items.append(Table([[left, right]], colWidths=[col_w + 3*mm, col_w + 3*mm],
+        style=TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ])))
+    items.append(PageBreak())
+    return items
 
-    # ══════════════════════════════════════════════════════════════
-    # PÁGINA 6 — ESTADOS + RECEBER CONTEÚDO
-    # ══════════════════════════════════════════════════════════════
-    story.append(Paragraph("ACOMPANHAMENTO", S["eyebrow"]))
-    story.append(Paragraph("Estados e entrega do conteúdo", S["h1"]))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
+def page_estados():
+    items = []
+    items.append(Paragraph("ACOMPANHAMENTO", STYLES["eyebrow"]))
+    items.append(Paragraph("Estados e entrega do conteúdo", STYLES["h1"]))
+    items.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=4*mm))
 
-    # Status table
+    header = [Paragraph(t, STYLES["th"]) for t in ["Estado", "Significado", "O que fazer"]]
     estados = [
-        [Paragraph("Estado", S["th"]), Paragraph("Significado", S["th"]), Paragraph("O que fazer", S["th"])],
-        [Paragraph("🟡  Pendente", S["td_accent"]),
-         Paragraph("O videógrafo ainda não respondeu", S["td"]),
-         Paragraph("Aguardar — recebes email quando aceitar", S["td"])],
-        [Paragraph("🔵  Aceite", S["td_accent"]),
-         Paragraph("Videógrafo confirmou a marcação", S["td"]),
-         Paragraph("Nada — aguardar o dia do serviço", S["td"])],
-        [Paragraph("⚙️  Em Progresso", S["td_accent"]),
-         Paragraph("Serviço em curso", S["td"]),
-         Paragraph("Nada — o videógrafo está no imóvel", S["td"])],
-        [Paragraph("📁  Ficheiro Entregue", S["td_accent"]),
-         Paragraph("Vídeo/fotos disponíveis para download", S["td"]),
-         Paragraph("Descarregar o conteúdo (disponível 15 dias)", S["td"])],
-        [Paragraph("✅  Concluído", S["td_accent"]),
-         Paragraph("Processo totalmente terminado", S["td"]),
-         Paragraph("—", S["td"])],
-        [Paragraph("❌  Recusado", S["td_accent"]),
-         Paragraph("Videógrafo não pôde aceitar", S["td"]),
-         Paragraph("Criar nova marcação com outro videógrafo", S["td"])],
+        ("🟡  Pendente",         "O videógrafo ainda não respondeu",             "Aguardar — recebes email quando aceitar"),
+        ("🔵  Aceite",           "Videógrafo confirmou a marcação",              "Nada — aguardar o dia do serviço"),
+        ("⚙️   Em Progresso",    "Serviço em curso no imóvel",                   "Nada — o videógrafo está a filmar"),
+        ("📁  Ficheiro Entregue","Vídeo/fotos disponíveis para download",        "Descarregar antes dos 15 dias"),
+        ("✅  Concluído",        "Processo totalmente terminado",                "—"),
+        ("❌  Recusado",         "Videógrafo não pôde aceitar",                  "Criar nova marcação com outro videógrafo"),
     ]
-
-    story.append(Table(
-        estados,
-        colWidths=[40*mm, 70*mm, None],
+    rows = [header] + [
+        [Paragraph(e[0], STYLES["td_b"]),
+         Paragraph(e[1], STYLES["td"]),
+         Paragraph(e[2], STYLES["td"])]
+        for e in estados
+    ]
+    items.append(Table(rows, colWidths=[38*mm, 75*mm, None],
         style=TableStyle([
             ("BACKGROUND", (0,0), (-1,0), NAVY),
-            ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.HexColor("#f8fafc"), colors.white]),
+            ("ROWBACKGROUNDS", (0,1), (-1,-1), [LIGHT, WHITE]),
             ("LINEBELOW", (0,0), (-1,-1), 0.4, BORDER),
-            ("TOPPADDING", (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("TOPPADDING", (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
             ("LEFTPADDING", (0,0), (-1,-1), 6),
             ("BOX", (0,0), (-1,-1), 0.5, BORDER),
-        ])
-    ))
+        ])))
 
-    story.append(Spacer(1, 4*mm))
-    story.append(Paragraph("Receber o conteúdo", S["h2"]))
-
-    conteudo_items = [
-        "Quando o videógrafo entrega o ficheiro, recebes um <b>email de notificação</b> imediato.",
+    items.append(Spacer(1, 4*mm))
+    items.append(Paragraph("Receber o conteúdo", STYLES["h2"]))
+    for txt in [
+        "Quando o videógrafo entrega, recebes um <b>email de notificação</b> imediato.",
         "O vídeo pode ser visualizado directamente no browser, sem precisares de descarregar.",
-        "Clica em <b>Download</b> para guardar o ficheiro no teu dispositivo.",
-        "Os ficheiros estão disponíveis durante <b>15 dias</b> após o upload — descarrega antes que expirem.",
-    ]
-    for item in conteudo_items:
-        story.append(Paragraph(f"<bullet>&bull;</bullet>  {item}", S["bullet"]))
+        "Os ficheiros estão disponíveis durante <b>15 dias</b> — descarrega antes que o prazo expire.",
+    ]:
+        items.append(Paragraph(f"▸  {txt}", STYLES["bullet"]))
+    items.append(PageBreak())
+    return items
 
-    story.append(PageBreak())
-
-    # ══════════════════════════════════════════════════════════════
-    # PÁGINA FINAL — CALL TO ACTION
-    # ══════════════════════════════════════════════════════════════
-    story.append(Spacer(1, 45*mm))
-    story.append(Paragraph("Pronto para começar?", S["end_sub"]))
-    story.append(Paragraph("Entra já na plataforma", S["end_title"]))
-    story.append(Paragraph(
-        "Faz login com a tua conta Google e cria a tua primeira marcação",
-        S["end_sub"]
+def page_end():
+    items = []
+    items.append(Spacer(1, 38*mm))
+    items.append(Paragraph("PRONTO PARA COMEÇAR?", STYLES["end_tag"]))
+    items.append(Paragraph("Entra já na plataforma", STYLES["end_title"]))
+    items.append(Paragraph(
+        "Faz login com a tua conta Google e cria a tua primeira marcação.",
+        STYLES["end_sub"]
     ))
-    story.append(Spacer(1, 4*mm))
-    story.append(Paragraph("calendar.vsmedia.pt", S["url"]))
-    story.append(Spacer(1, 6*mm))
-    story.append(Paragraph("Dúvidas? Contacta a equipa VS Media.", S["end_sub"]))
+    items.append(Spacer(1, 3*mm))
+    items.append(Paragraph("calendar.vsmedia.pt", STYLES["end_url"]))
+    items.append(Spacer(1, 5*mm))
+    items.append(Paragraph("Dúvidas? Contacta a equipa VS Media.", STYLES["end_sub"]))
+    return items
 
-    doc.build(story, canvasmaker=NumberedCanvas)
-    print("PDF gerado:", path)
+# ── Build ─────────────────────────────────────────────────────────────────────
 
+def build():
+    out = "/home/user/VS-Media-Calendar-/Apresentacao_Consultores_VS_Media.pdf"
 
-build_pdf("/home/user/VS-Media-Calendar-/Apresentacao_Consultores_VS_Media.pdf")
+    M = 15*mm
+    content_frame = Frame(
+        M, FOOTER_H + 2*mm,
+        W - 2*M, H - HEADER_H - FOOTER_H - 4*mm,
+        leftPadding=0, bottomPadding=0, rightPadding=0, topPadding=4*mm,
+        showBoundary=0
+    )
+    cover_frame = Frame(
+        M + 8*mm, FOOTER_H + 2*mm,
+        W - 2*M - 8*mm, H - FOOTER_H - 4*mm,
+        leftPadding=0, bottomPadding=0, rightPadding=0, topPadding=0,
+        showBoundary=0
+    )
+
+    doc = BaseDocTemplate(
+        out, pagesize=landscape(A4),
+        leftMargin=M, rightMargin=M,
+        topMargin=HEADER_H + 4*mm, bottomMargin=FOOTER_H + 2*mm,
+    )
+
+    PAGE_LABELS = {1: "", 2: "1 / 5", 3: "2 / 5", 4: "3 / 5",
+                   5: "4 / 5", 6: "5 / 5", 7: ""}
+
+    def make_onpage(label):
+        def onpage(canvas, doc):
+            doc._page_count_display = label
+            if doc.page == 1:
+                draw_cover(canvas, doc)
+            elif doc.page == 7:
+                draw_end(canvas, doc)
+            else:
+                draw_content(canvas, doc)
+        return onpage
+
+    templates = []
+    page_draws = {1: draw_cover, 7: draw_end}
+
+    for pg in range(1, 8):
+        label = PAGE_LABELS.get(pg, "")
+        frame = cover_frame if pg in (1, 7) else content_frame
+
+        def make_cb(pg=pg, label=label):
+            def cb(canvas, doc):
+                doc._page_count_display = label
+                if pg == 1:
+                    draw_cover(canvas, doc)
+                elif pg == 7:
+                    draw_end(canvas, doc)
+                else:
+                    draw_content(canvas, doc)
+            return cb
+
+        templates.append(PageTemplate(id=f"p{pg}", frames=[frame], onPage=make_cb()))
+
+    doc.addPageTemplates(templates)
+
+    story = []
+    story += page_cover()
+    story += page_acesso()
+    story += page_marcacao()
+    story += page_servicos()
+    story += page_pagamentos()
+    story += page_estados()
+    story += page_end()
+
+    doc.build(story)
+    print(f"PDF gerado: {out}")
+    import subprocess
+    result = subprocess.run(["pdfinfo", out], capture_output=True, text=True)
+    print(result.stdout)
+
+build()
