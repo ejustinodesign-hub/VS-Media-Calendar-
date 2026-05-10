@@ -64,12 +64,15 @@ export default async function ConsultantPaymentsPage({
 
   // Current month billing estimate (only shown if no invoice generated yet for this month)
   const hasCurrentMonthInvoice = invoices.some((i) => i.month === currentMonth)
+  const currentMonthIntros = sharedIntros.filter((d) => {
+    const bookingDate = new Date(d.booking.scheduledAt)
+    return bookingDate >= monthStart && bookingDate <= monthEnd
+  })
   const summaryNet = currentMonthBookings.reduce((sum, b) => {
     const servicesNet = b.services.reduce((s, svc) => s + (DEFAULT_PRICES[svc.serviceType as keyof typeof DEFAULT_PRICES] ?? 0), 0)
-    const introsNet = (b.additionalIntros ?? 0) * ADDITIONAL_INTRO_PRICE
     const travel = b.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0
-    return sum + servicesNet + introsNet + travel
-  }, 0)
+    return sum + servicesNet + travel
+  }, 0) + currentMonthIntros.length * ADDITIONAL_INTRO_PRICE
   const summaryIva = Math.round(summaryNet * IVA_RATE * 100) / 100
   const summaryTotal = Math.round(summaryNet * (1 + IVA_RATE) * 100) / 100
 

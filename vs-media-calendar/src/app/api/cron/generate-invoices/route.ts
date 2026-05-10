@@ -30,11 +30,27 @@ export async function GET(req: NextRequest) {
     include: { services: true },
   })
 
+  // Intros delivered to other consultants this month (charged to the target consultant)
+  const introDeliverables = await prisma.deliverable.findMany({
+    where: {
+      targetConsultantId: { not: null },
+      booking: { scheduledAt: { gte: monthStart, lte: monthEnd } },
+    },
+    select: { targetConsultantId: true, booking: { select: { propertyAddress: true } } },
+  })
+
   const byConsultant = new Map<string, typeof bookings>()
   for (const booking of bookings) {
     const existing = byConsultant.get(booking.consultantId) ?? []
     existing.push(booking)
     byConsultant.set(booking.consultantId, existing)
+  }
+
+  // Ensure consultants with only intros (no own bookings) are also included
+  for (const d of introDeliverables) {
+    if (d.targetConsultantId && !byConsultant.has(d.targetConsultantId)) {
+      byConsultant.set(d.targetConsultantId, [])
+    }
   }
 
   let created = 0
@@ -57,12 +73,13 @@ export async function GET(req: NextRequest) {
       },
     })
 
+    const consultantIntros = introDeliverables.filter((d) => d.targetConsultantId === consultantId)
+
     const subtotal = consultantBookings.reduce((sum, b) => {
       const servicesTotal = b.services.reduce((s, svc) => s + svc.price, 0)
-      const introsTotal = b.additionalIntros * ADDITIONAL_INTRO_PRICE
       const travelTotal = b.hasTravelFee ? b.travelFeeAmount : 0
-      return sum + servicesTotal + introsTotal + travelTotal
-    }, 0)
+      return sum + servicesTotal + travelTotal
+    }, 0) + consultantIntros.length * ADDITIONAL_INTRO_PRICE
 
     const total = Math.round(subtotal * (1 + IVA_RATE) * 100) / 100
 
@@ -85,28 +102,28 @@ export async function GET(req: NextRequest) {
     // Create invoice in Moloni — non-blocking, failure doesn't abort the cron
     if (process.env.MOLONI_CLIENT_ID && consultant) {
       try {
-        const lines = consultantBookings.flatMap((b) => {
-          const items = b.services.map((svc) => ({
-            description: `${SERVICE_LABELS[svc.serviceType as ServiceType]} — ${b.propertyAddress}`,
-            qty: 1,
-            unitPrice: svc.price,
-          }))
-          if (b.additionalIntros > 0) {
-            items.push({
-              description: `Introduções adicionais (${b.additionalIntros}×) — ${b.propertyAddress}`,
-              qty: b.additionalIntros,
-              unitPrice: ADDITIONAL_INTRO_PRICE,
-            })
-          }
-          if (b.hasTravelFee && b.travelFeeAmount > 0) {
-            items.push({
-              description: `Taxa de deslocação — ${b.propertyAddress}`,
+        const lines = [
+          ...consultantBookings.flatMap((b) => {
+            const items = b.services.map((svc) => ({
+              description: `${SERVICE_LABELS[svc.serviceType as ServiceType]} — ${b.propertyAddress}`,
               qty: 1,
-              unitPrice: b.travelFeeAmount,
-            })
-          }
-          return items
-        })
+              unitPrice: svc.price,
+            }))
+            if (b.hasTravelFee && b.travelFeeAmount > 0) {
+              items.push({
+                description: `Taxa de deslocação — ${b.propertyAddress}`,
+                qty: 1,
+                unitPrice: b.travelFeeAmount,
+              })
+            }
+            return items
+          }),
+          ...consultantIntros.map((d) => ({
+            description: `Introdução adicional — ${d.booking.propertyAddress}`,
+            qty: 1,
+            unitPrice: ADDITIONAL_INTRO_PRICE,
+          })),
+        ]
 
         const moloniDocumentId = await createMoloniInvoice({
           consultant,
