@@ -16,18 +16,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User ID not found" }, { status: 401 })
   }
 
-  // Block if any invoice is unpaid (PENDING or OVERDUE)
-  const unpaidInvoice = await prisma.monthlyInvoice.findFirst({
-    where: { consultantId, status: { in: ["PENDING", "OVERDUE"] } },
-    select: { id: true },
-  })
-  if (unpaidInvoice) {
-    return NextResponse.json(
-      { error: "Tem faturas por pagar. Regularize os pagamentos antes de criar novas marcações.", overdueInvoices: true },
-      { status: 402 }
-    )
-  }
-
   const body = await req.json()
   const {
     videographerId,
@@ -41,6 +29,20 @@ export async function POST(req: NextRequest) {
     notes,
     paymentType = "FLAT_FEE",
   } = body
+
+  // Block unpaid invoices only for flat-fee bookings; commission bookings are always allowed
+  if (paymentType !== "COMMISSION") {
+    const unpaidInvoice = await prisma.monthlyInvoice.findFirst({
+      where: { consultantId, status: { in: ["PENDING", "OVERDUE"] } },
+      select: { id: true },
+    })
+    if (unpaidInvoice) {
+      return NextResponse.json(
+        { error: "Tem faturas por pagar. Regularize os pagamentos antes de criar novas marcações.", overdueInvoices: true },
+        { status: 402 }
+      )
+    }
+  }
 
   if (!videographerId || !scheduledAt || !services?.length || !propertyAddress) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })

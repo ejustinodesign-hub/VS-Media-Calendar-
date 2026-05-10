@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, IVA_RATE, DEFAULT_PRICES, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE, TRAVEL_FEE_AMOUNT } from "@/lib/pricing"
-import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator } from "lucide-react"
+import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator, Plus } from "lucide-react"
+import Link from "next/link"
 import { PayInvoiceButton } from "./pay-invoice-button"
 import { SalePriceForm } from "./sale-price-form"
 
@@ -88,11 +89,25 @@ export default async function ConsultantPaymentsPage({
         )}
 
         {overdueCount > 0 && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <p className="text-sm font-semibold">
-              Tem {overdueCount} fatura{overdueCount > 1 ? "s" : ""} em atraso. Regularize o pagamento para poder criar novas marcações.
-            </p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-start gap-3 text-red-700">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <p className="text-sm font-semibold">
+                Tem {overdueCount} fatura{overdueCount > 1 ? "s" : ""} em atraso. Marcações em taxa fixa estão bloqueadas.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 pl-8">
+              <p className="text-xs text-red-600 self-center flex-1">
+                Pode continuar a marcar vídeos em modo comissão — sem pagamento até à venda do imóvel (0,15% do valor de venda).
+              </p>
+              <Link
+                href="/consultant/bookings/new?mode=commission"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-violet-600 text-white text-xs font-semibold rounded-lg hover:bg-violet-700 transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Nova marcação em comissão
+              </Link>
+            </div>
           </div>
         )}
 

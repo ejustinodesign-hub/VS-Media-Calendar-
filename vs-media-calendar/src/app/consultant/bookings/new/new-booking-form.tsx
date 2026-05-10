@@ -59,6 +59,7 @@ interface Props {
   consultantId: string
   consultantTeamType: TeamType
   activePrices: Record<string, number>
+  forceCommission?: boolean
 }
 
 const STEPS = [
@@ -69,7 +70,7 @@ const STEPS = [
   { id: 5, label: "Resumo" },
 ]
 
-export function NewBookingForm({ videographers, consultantId, consultantTeamType, activePrices }: Props) {
+export function NewBookingForm({ videographers, consultantId, consultantTeamType, activePrices, forceCommission }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(1)
 
@@ -80,7 +81,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   const [propertyAddress, setPropertyAddress] = useState("")
   const [propertyType, setPropertyType] = useState("")
   const [notes, setNotes] = useState("")
-  const [paymentType, setPaymentType] = useState<"FLAT_FEE" | "COMMISSION">("FLAT_FEE")
+  const [paymentType, setPaymentType] = useState<"FLAT_FEE" | "COMMISSION">(forceCommission ? "COMMISSION" : "FLAT_FEE")
 
   const [travelEstimate, setTravelEstimate] = useState<{
     durationText: string
@@ -593,24 +594,27 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setPaymentType("FLAT_FEE")}
+                  onClick={() => !forceCommission && setPaymentType("FLAT_FEE")}
+                  disabled={forceCommission}
                   className={cn(
                     "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
-                    paymentType === "FLAT_FEE"
+                    forceCommission
+                      ? "border-slate-100 bg-slate-50 opacity-40 cursor-not-allowed"
+                      : paymentType === "FLAT_FEE"
                       ? "border-[#0f3460] bg-[#0f3460]/5"
                       : "border-slate-200 hover:border-slate-300"
                   )}
                 >
-                  <CreditCard className={cn("w-6 h-6", paymentType === "FLAT_FEE" ? "text-[#0f3460]" : "text-slate-400")} />
+                  <CreditCard className={cn("w-6 h-6", paymentType === "FLAT_FEE" && !forceCommission ? "text-[#0f3460]" : "text-slate-400")} />
                   <div>
-                    <p className={cn("text-sm font-semibold", paymentType === "FLAT_FEE" ? "text-[#0f3460]" : "text-slate-700")}>
+                    <p className={cn("text-sm font-semibold", paymentType === "FLAT_FEE" && !forceCommission ? "text-[#0f3460]" : "text-slate-700")}>
                       Taxa Fixa
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {pricing ? formatPrice(pricing.total) : "—"} + IVA faturado no final do mês
+                      {forceCommission ? "Indisponível com fatura em atraso" : pricing ? formatPrice(pricing.total) + " + IVA faturado no final do mês" : "—"}
                     </p>
                   </div>
-                  {paymentType === "FLAT_FEE" && (
+                  {paymentType === "FLAT_FEE" && !forceCommission && (
                     <CheckCircle2 className="w-4 h-4 text-[#0f3460] self-end" />
                   )}
                 </button>
