@@ -48,6 +48,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
 
+  const BOOKINGS_OPEN_DATE = new Date("2026-06-01T00:00:00.000Z")
+  if (new Date(scheduledAt) < BOOKINGS_OPEN_DATE) {
+    return NextResponse.json(
+      { error: "As marcações só estão disponíveis a partir de 1 de Junho de 2026." },
+      { status: 403 }
+    )
+  }
+
   const videographer = await prisma.user.findFirst({
     where: { id: videographerId, role: "VIDEOGRAPHER", active: true },
     select: { id: true, name: true, email: true },

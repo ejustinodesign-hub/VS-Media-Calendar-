@@ -180,9 +180,12 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
     }
   }
 
+  const BOOKINGS_OPEN = "2026-06-01"
   const minDate = new Date()
   minDate.setDate(minDate.getDate() + 1)
-  const minDateStr = minDate.toISOString().split("T")[0]
+  const minDateStr = minDate.toISOString().split("T")[0] < BOOKINGS_OPEN
+    ? BOOKINGS_OPEN
+    : minDate.toISOString().split("T")[0]
 
   return (
     <div className="max-w-3xl mx-auto">
