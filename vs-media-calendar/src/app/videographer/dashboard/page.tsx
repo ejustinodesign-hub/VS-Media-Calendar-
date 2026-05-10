@@ -8,7 +8,7 @@ import { formatPrice } from "@/lib/pricing"
 import Link from "next/link"
 import {
   Calendar, Clock, CheckCircle2, XCircle, FileVideo,
-  TrendingUp, Wallet, Camera, Car, Video, Star,
+  TrendingUp, Wallet, Camera, Car, Video, Star, Sparkles,
 } from "lucide-react"
 
 // Videographer earnings model
@@ -33,7 +33,10 @@ function calcBookingEarnings(booking: {
   const videoEarnings = booking.services.filter((s) =>
     s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE"
   ).length * VIDEO_RATE
-    + booking.services.filter((s) => s.serviceType === "VIDEO_AI").length * AI_RATE
+
+  const aiEarnings = booking.services.filter((s) =>
+    s.serviceType === "VIDEO_AI"
+  ).length * AI_RATE
 
   const introEarnings = booking.additionalIntros * INTRO_RATE
 
@@ -43,7 +46,7 @@ function calcBookingEarnings(booking: {
 
   const travelEarnings = booking.hasTravelFee ? booking.travelFeeAmount : 0
 
-  return { videoEarnings, introEarnings, photoEarnings, travelEarnings }
+  return { videoEarnings, aiEarnings, introEarnings, photoEarnings, travelEarnings }
 }
 
 export default async function VideographerDashboard() {
@@ -125,24 +128,25 @@ export default async function VideographerDashboard() {
 
   // Aggregate earnings for a list of bookings
   function aggregateEarnings(bookings: typeof monthBookings) {
-    let videoTotal = 0, introTotal = 0, photoTotal = 0, travelTotal = 0
+    let videoTotal = 0, aiTotal = 0, introTotal = 0, photoTotal = 0, travelTotal = 0
     for (const b of bookings) {
       const e = calcBookingEarnings(b)
       videoTotal += e.videoEarnings
+      aiTotal += e.aiEarnings
       introTotal += e.introEarnings
       photoTotal += e.photoEarnings
       travelTotal += e.travelEarnings
     }
-    return { videoTotal, introTotal, photoTotal, travelTotal }
+    return { videoTotal, aiTotal, introTotal, photoTotal, travelTotal }
   }
 
   const curr = aggregateEarnings(monthBookings)
   const sharedIntrosTotal = sharedIntrosThisMonth.reduce((sum, d) => sum + (d.videographerFee ?? 0), 0)
-  const currVariable = curr.videoTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal
+  const currVariable = curr.videoTotal + curr.aiTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal
   const currTotal = BASE_SALARY + currVariable
 
   const prev = aggregateEarnings(prevMonthBookings)
-  const prevVariable = prev.videoTotal + prev.introTotal + prev.photoTotal + prev.travelTotal
+  const prevVariable = prev.videoTotal + prev.aiTotal + prev.introTotal + prev.photoTotal + prev.travelTotal
   const prevTotal = BASE_SALARY + prevVariable
 
   const diffPct = prevTotal > 0
@@ -192,10 +196,11 @@ export default async function VideographerDashboard() {
             </div>
 
             {/* Breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               {[
                 { icon: Star, label: "Salário base", value: BASE_SALARY, color: "bg-blue-500/20 text-blue-300" },
                 { icon: Video, label: `Vídeos (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE").length})`, value: curr.videoTotal, color: "bg-purple-500/20 text-purple-300" },
+                { icon: Sparkles, label: `IA (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_AI").length})`, value: curr.aiTotal, color: "bg-violet-500/20 text-violet-300" },
                 { icon: Camera, label: "Fotografia", value: curr.photoTotal, color: "bg-pink-500/20 text-pink-300" },
                 { icon: Car, label: "Deslocação", value: curr.travelTotal, color: "bg-amber-500/20 text-amber-300" },
                 { icon: TrendingUp, label: `Intros extras (×${sharedIntrosThisMonth.length})`, value: sharedIntrosTotal, color: "bg-emerald-500/20 text-emerald-300" },
