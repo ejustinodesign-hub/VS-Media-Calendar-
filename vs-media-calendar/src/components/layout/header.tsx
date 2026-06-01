@@ -4,13 +4,15 @@ import { useSession } from "next-auth/react"
 import { Bell, Menu } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { useSidebar } from "./sidebar-context"
+import type { ReactNode } from "react"
 
 interface HeaderProps {
   title: string
   subtitle?: string
+  action?: ReactNode
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, action }: HeaderProps) {
   const { data: session } = useSession()
   const { toggle } = useSidebar()
   const [open, setOpen] = useState(false)
@@ -45,6 +47,7 @@ export function Header({ title, subtitle }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+        {action && <div className="mr-1">{action}</div>}
         {/* Notifications */}
         <div className="relative" ref={ref}>
           <button

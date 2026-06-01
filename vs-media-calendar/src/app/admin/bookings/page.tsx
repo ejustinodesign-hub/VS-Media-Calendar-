@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/pricing"
 import Link from "next/link"
-import { Calendar, Clock, Filter } from "lucide-react"
+import { Calendar, Clock, Filter, Plus } from "lucide-react"
 import type { BookingStatus } from "@prisma/client"
 
 interface Props {
@@ -37,7 +37,19 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
 
   return (
     <>
-      <Header title="Gestão de Marcações" subtitle={`${bookings.length} marcações`} />
+      <Header
+        title="Gestão de Marcações"
+        subtitle={`${bookings.length} marcações`}
+        action={
+          <Link
+            href="/admin/bookings/new"
+            className="flex items-center gap-2 px-4 py-2 bg-[#0f3460] text-white text-sm font-semibold rounded-xl hover:bg-[#1a4a7a] transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Marcação
+          </Link>
+        }
+      />
       <div className="flex-1 p-6 space-y-4">
         {/* Filters */}
         <Card>
