@@ -225,6 +225,39 @@ export async function sendInviteEmail({
   })
 }
 
+export async function sendAdminBookingNotificationEmail(data: BookingEmailData) {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+  if (!adminEmail) return
+
+  const content = `
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Nova Marcação Criada</h2>
+    <p style="color:#666;margin:0 0 24px;">Uma nova marcação foi registada na plataforma.</p>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:24px;">
+      <h3 style="color:#1a1a2e;margin:0 0 16px;font-size:14px;text-transform:uppercase;letter-spacing:1px;">Detalhes</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Data e Hora</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${formatDate(data.scheduledAt)}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Consultor</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.consultantName} <span style="color:#999;font-weight:400;">(${data.consultantEmail})</span></td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Videógrafo</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.videographerName}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}${data.propertyType ? ` (${formatPropertyType(data.propertyType)})` : ""}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Serviços</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.services.join(", ")}</td></tr>
+        ${data.totalAmount ? `<tr><td style="color:#666;padding:6px 0;font-size:14px;">Total</td><td style="color:#0f3460;padding:6px 0;font-size:14px;font-weight:700;">${formatAmount(data.totalAmount)}</td></tr>` : ""}
+      </table>
+    </div>
+
+    <a href="${APP_URL}/admin/bookings/${data.bookingId}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver no Admin</a>
+  `
+
+  const result = await getResend().emails.send({
+    from: FROM,
+    to: adminEmail,
+    subject: `Nova marcação — ${data.consultantName} · ${formatDate(data.scheduledAt)}`,
+    html: emailBase(content),
+  })
+  console.log(`[email] sendAdminBookingNotificationEmail → ${adminEmail}`, result)
+  return result
+}
+
 export async function sendStatusUpdateEmail(
   data: BookingEmailData,
   to: "consultant" | "videographer",

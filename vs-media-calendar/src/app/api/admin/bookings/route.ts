@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { calculateTotal, DEFAULT_PRICES } from "@/lib/pricing"
-import { sendVideographerRequestEmail, sendBookingConfirmationEmail } from "@/lib/email"
+import { sendVideographerRequestEmail, sendBookingConfirmationEmail, sendAdminBookingNotificationEmail } from "@/lib/email"
 import type { ServiceType, PropertyType } from "@prisma/client"
 
 export async function POST(req: NextRequest) {
@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
   await Promise.allSettled([
     sendVideographerRequestEmail(emailData),
     sendBookingConfirmationEmail(emailData),
+    sendAdminBookingNotificationEmail(emailData),
   ])
 
   return NextResponse.json({ bookingId: booking.id })
