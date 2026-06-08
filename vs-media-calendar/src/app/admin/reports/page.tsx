@@ -6,28 +6,31 @@ import { DollarSign, TrendingUp, Calendar, Users, Video, Camera } from "lucide-r
 
 export default async function AdminReportsPage() {
   const now = new Date()
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-  const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+  const monthStart     = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthEnd       = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+
+  const DELIVERED = ["FILE_DELIVERED", "COMPLETED"] as const
 
   const [
-    monthRevenue,
-    lastMonthRevenue,
+    deliveredThisMonth,
+    deliveredLastMonth,
     monthBookings,
     totalByVideographer,
     serviceTypeStats,
     topConsultants,
   ] = await Promise.all([
-    prisma.payment.aggregate({
-      where: { status: "paid", paidAt: { gte: firstDayOfMonth } },
-      _sum: { amount: true },
+    prisma.booking.findMany({
+      where: { status: { in: DELIVERED }, scheduledAt: { gte: monthStart, lte: monthEnd }, paymentType: "FLAT_FEE" },
+      select: { hasTravelFee: true, travelFeeAmount: true, services: { select: { price: true } } },
     }),
-    prisma.payment.aggregate({
-      where: { status: "paid", paidAt: { gte: firstDayLastMonth, lte: lastDayLastMonth } },
-      _sum: { amount: true },
+    prisma.booking.findMany({
+      where: { status: { in: DELIVERED }, scheduledAt: { gte: lastMonthStart, lte: lastMonthEnd }, paymentType: "FLAT_FEE" },
+      select: { hasTravelFee: true, travelFeeAmount: true, services: { select: { price: true } } },
     }),
     prisma.booking.count({
-      where: { createdAt: { gte: firstDayOfMonth }, status: { notIn: ["CANCELLED", "REJECTED"] } },
+      where: { scheduledAt: { gte: monthStart, lte: monthEnd }, status: { notIn: ["CANCELLED", "REJECTED"] } },
     }),
     prisma.booking.groupBy({
       by: ["videographerId"],
@@ -50,17 +53,21 @@ export default async function AdminReportsPage() {
     }),
   ])
 
+  const calcRevenue = (bookings: typeof deliveredThisMonth) =>
+    bookings.reduce((sum, b) => sum + b.services.reduce((s, svc) => s + svc.price, 0) + (b.hasTravelFee ? b.travelFeeAmount : 0), 0)
+
   const videographerIds = totalByVideographer.map((v) => v.videographerId)
-  const consultantIds = topConsultants.map((c) => c.consultantId)
+  const consultantIds   = topConsultants.map((c) => c.consultantId)
 
   const [videographerNames, consultantNames] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: videographerIds } }, select: { id: true, name: true } }),
     prisma.user.findMany({ where: { id: { in: consultantIds } }, select: { id: true, name: true } }),
   ])
 
-  const currentRevenue = monthRevenue._sum.amount || 0
-  const prevRevenue = lastMonthRevenue._sum.amount || 0
-  const revGrowth = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 100
+  const currentRevenue = calcRevenue(deliveredThisMonth)
+  const prevRevenue    = calcRevenue(deliveredLastMonth)
+  const deliveredCount = deliveredThisMonth.length
+  const revGrowth      = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : null
 
   return (
     <>
@@ -74,9 +81,13 @@ export default async function AdminReportsPage() {
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Receita Este Mês</p>
                   <p className="text-2xl font-bold text-slate-900">{formatPrice(currentRevenue)}</p>
-                  <p className={`text-xs mt-1 font-medium ${revGrowth >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {revGrowth >= 0 ? "+" : ""}{revGrowth.toFixed(1)}% vs mês anterior
-                  </p>
+                  {revGrowth !== null ? (
+                    <p className={`text-xs mt-1 font-medium ${revGrowth >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      {revGrowth >= 0 ? "+" : ""}{revGrowth.toFixed(1)}% vs mês anterior
+                    </p>
+                  ) : (
+                    <p className="text-xs mt-1 text-slate-400">Primeiro mês com dados</p>
+                  )}
                 </div>
                 <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-emerald-600" />
@@ -90,6 +101,7 @@ export default async function AdminReportsPage() {
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Marcações Este Mês</p>
                   <p className="text-2xl font-bold text-slate-900">{monthBookings}</p>
+                  <p className="text-xs mt-1 text-slate-400">{deliveredCount} entregues</p>
                 </div>
                 <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-blue-600" />
@@ -116,7 +128,7 @@ export default async function AdminReportsPage() {
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Ticket Médio</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {monthBookings > 0 ? formatPrice(currentRevenue / monthBookings) : "—"}
+                    {deliveredCount > 0 ? formatPrice(currentRevenue / deliveredCount) : "—"}
                   </p>
                 </div>
                 <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
