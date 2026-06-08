@@ -14,11 +14,11 @@ export default async function AdminDashboard() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-  const [totalUsers, totalBookings, monthlyDelivered, recentBookings, statusStats] =
+  const [totalUsers, totalBookings, monthlyDelivered, monthlyIntros, recentBookings, statusStats] =
     await Promise.all([
       prisma.user.count({ where: { active: true } }),
       prisma.booking.count(),
-      // Revenue = sum of service prices + travel fee for FILE_DELIVERED/COMPLETED bookings this month
+      // Main services: FILE_DELIVERED/COMPLETED bookings scheduled this month
       prisma.booking.findMany({
         where: {
           status: { in: ["FILE_DELIVERED", "COMPLETED"] },
@@ -28,8 +28,14 @@ export default async function AdminDashboard() {
         select: {
           travelFeeAmount: true,
           hasTravelFee: true,
-          additionalIntros: true,
           services: { select: { price: true } },
+        },
+      }),
+      // Intros: deliverables with targetConsultantId created this month (25€ each)
+      prisma.deliverable.count({
+        where: {
+          targetConsultantId: { not: null },
+          createdAt: { gte: monthStart, lte: monthEnd },
         },
       }),
       prisma.booking.findMany({
@@ -50,12 +56,13 @@ export default async function AdminDashboard() {
   const pendingCount   = statusCount("PENDING_ACCEPTANCE")
   const completedCount = statusCount("COMPLETED") + statusCount("FILE_DELIVERED")
 
-  const monthRevenue = monthlyDelivered.reduce((sum, b) => {
-    const services = b.services.reduce((s, svc) => s + svc.price, 0)
-    const intros   = b.additionalIntros * 25
-    const travel   = b.hasTravelFee ? b.travelFeeAmount : 0
-    return sum + services + intros + travel
-  }, 0)
+  const monthRevenue =
+    monthlyDelivered.reduce((sum, b) => {
+      const services = b.services.reduce((s, svc) => s + svc.price, 0)
+      const travel   = b.hasTravelFee ? b.travelFeeAmount : 0
+      return sum + services + travel
+    }, 0)
+    + monthlyIntros * 25
 
   const monthLabel = now.toLocaleDateString("pt-PT", { month: "long" })
   const deliveredCount = monthlyDelivered.length

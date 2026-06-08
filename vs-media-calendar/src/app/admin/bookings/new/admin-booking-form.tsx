@@ -32,7 +32,6 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
   const [selectedServices, setSelectedServices] = useState<ServiceType[]>([])
   const [scheduledAt, setScheduledAt]     = useState("")
   const [propertyAddress, setPropertyAddress] = useState("")
-  const [additionalIntros, setAdditionalIntros] = useState(0)
   const [notes, setNotes]                 = useState("")
   const [hasTravelFee, setHasTravelFee]   = useState(false)
 
@@ -54,7 +53,6 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
   }
 
   const total = selectedServices.reduce((sum, s) => sum + (activePrices[s] ?? DEFAULT_PRICES[s] ?? 0), 0)
-    + additionalIntros * 25
     + (hasTravelFee ? 50 : 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,7 +73,6 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
           scheduledAt: new Date(scheduledAt).toISOString(),
           services: selectedServices,
           propertyAddress,
-          additionalIntros,
           notes,
           hasTravelFee,
           travelFeeAmount: hasTravelFee ? 50 : 0,
@@ -176,18 +173,6 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
               </button>
             )
           })}
-        </div>
-      </div>
-
-      {/* Additional intros */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-semibold text-slate-700">Introduções adicionais <span className="text-slate-400 font-normal">(+25€ cada)</span></label>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setAdditionalIntros(Math.max(0, additionalIntros - 1))}
-            className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold transition-colors">−</button>
-          <span className="w-8 text-center text-sm font-semibold text-slate-900">{additionalIntros}</span>
-          <button type="button" onClick={() => setAdditionalIntros(additionalIntros + 1)}
-            className="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold transition-colors">+</button>
         </div>
       </div>
 

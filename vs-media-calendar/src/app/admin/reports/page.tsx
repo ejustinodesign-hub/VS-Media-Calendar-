@@ -16,6 +16,8 @@ export default async function AdminReportsPage() {
   const [
     deliveredThisMonth,
     deliveredLastMonth,
+    introsThisMonth,
+    introsLastMonth,
     monthBookings,
     totalByVideographer,
     serviceTypeStats,
@@ -23,11 +25,17 @@ export default async function AdminReportsPage() {
   ] = await Promise.all([
     prisma.booking.findMany({
       where: { status: { in: DELIVERED }, scheduledAt: { gte: monthStart, lte: monthEnd }, paymentType: "FLAT_FEE" },
-      select: { hasTravelFee: true, travelFeeAmount: true, additionalIntros: true, services: { select: { price: true } } },
+      select: { hasTravelFee: true, travelFeeAmount: true, services: { select: { price: true } } },
     }),
     prisma.booking.findMany({
       where: { status: { in: DELIVERED }, scheduledAt: { gte: lastMonthStart, lte: lastMonthEnd }, paymentType: "FLAT_FEE" },
-      select: { hasTravelFee: true, travelFeeAmount: true, additionalIntros: true, services: { select: { price: true } } },
+      select: { hasTravelFee: true, travelFeeAmount: true, services: { select: { price: true } } },
+    }),
+    prisma.deliverable.count({
+      where: { targetConsultantId: { not: null }, createdAt: { gte: monthStart, lte: monthEnd } },
+    }),
+    prisma.deliverable.count({
+      where: { targetConsultantId: { not: null }, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
     }),
     prisma.booking.count({
       where: { scheduledAt: { gte: monthStart, lte: monthEnd }, status: { notIn: ["CANCELLED", "REJECTED"] } },
@@ -53,13 +61,12 @@ export default async function AdminReportsPage() {
     }),
   ])
 
-  const calcRevenue = (bookings: typeof deliveredThisMonth) =>
+  const calcRevenue = (bookings: typeof deliveredThisMonth, intros: number) =>
     bookings.reduce((sum, b) =>
       sum
       + b.services.reduce((s, svc) => s + svc.price, 0)
-      + b.additionalIntros * 25
       + (b.hasTravelFee ? b.travelFeeAmount : 0)
-    , 0)
+    , 0) + intros * 25
 
   const videographerIds = totalByVideographer.map((v) => v.videographerId)
   const consultantIds   = topConsultants.map((c) => c.consultantId)
@@ -69,8 +76,8 @@ export default async function AdminReportsPage() {
     prisma.user.findMany({ where: { id: { in: consultantIds } }, select: { id: true, name: true } }),
   ])
 
-  const currentRevenue = calcRevenue(deliveredThisMonth)
-  const prevRevenue    = calcRevenue(deliveredLastMonth)
+  const currentRevenue = calcRevenue(deliveredThisMonth, introsThisMonth)
+  const prevRevenue    = calcRevenue(deliveredLastMonth, introsLastMonth)
   const deliveredCount = deliveredThisMonth.length
   const revGrowth      = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : null
 
