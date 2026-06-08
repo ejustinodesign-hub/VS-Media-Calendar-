@@ -11,7 +11,7 @@ export default async function AdminReportsPage() {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
 
-  const DELIVERED = ["FILE_DELIVERED", "COMPLETED"] as const
+  const DELIVERED = ["FILE_DELIVERED", "COMPLETED"] as ("FILE_DELIVERED" | "COMPLETED")[]
 
   const [
     deliveredThisMonth,
