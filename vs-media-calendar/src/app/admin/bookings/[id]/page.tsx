@@ -126,6 +126,12 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                   <span className="font-medium text-slate-900">{formatPrice(s.price)}</span>
                 </div>
               ))}
+              {booking.additionalIntros > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Introduções adicionais ({booking.additionalIntros}×)</span>
+                  <span className="font-medium text-slate-900">{formatPrice(booking.additionalIntros * 25)}</span>
+                </div>
+              )}
               {booking.hasTravelFee && (
                 <div className="flex justify-between text-sm">
                   <span className="text-amber-600">Taxa de deslocação</span>
