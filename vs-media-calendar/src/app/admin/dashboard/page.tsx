@@ -28,6 +28,7 @@ export default async function AdminDashboard() {
         select: {
           travelFeeAmount: true,
           hasTravelFee: true,
+          additionalIntros: true,
           services: { select: { price: true } },
         },
       }),
@@ -51,8 +52,9 @@ export default async function AdminDashboard() {
 
   const monthRevenue = monthlyDelivered.reduce((sum, b) => {
     const services = b.services.reduce((s, svc) => s + svc.price, 0)
+    const intros   = b.additionalIntros * 25
     const travel   = b.hasTravelFee ? b.travelFeeAmount : 0
-    return sum + services + travel
+    return sum + services + intros + travel
   }, 0)
 
   const monthLabel = now.toLocaleDateString("pt-PT", { month: "long" })
