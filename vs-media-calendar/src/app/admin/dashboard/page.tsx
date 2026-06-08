@@ -10,16 +10,32 @@ import {
 } from "lucide-react"
 
 export default async function AdminDashboard() {
-  const [totalUsers, totalBookings, totalRevenue, recentBookings, statusStats] =
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+
+  const [totalUsers, totalBookings, monthlyDelivered, recentBookings, statusStats] =
     await Promise.all([
       prisma.user.count({ where: { active: true } }),
       prisma.booking.count(),
-      prisma.payment.aggregate({ where: { status: "paid" }, _sum: { amount: true } }),
+      // Revenue = sum of service prices + travel fee for FILE_DELIVERED/COMPLETED bookings this month
+      prisma.booking.findMany({
+        where: {
+          status: { in: ["FILE_DELIVERED", "COMPLETED"] },
+          scheduledAt: { gte: monthStart, lte: monthEnd },
+          paymentType: "FLAT_FEE",
+        },
+        select: {
+          travelFeeAmount: true,
+          hasTravelFee: true,
+          services: { select: { price: true } },
+        },
+      }),
       prisma.booking.findMany({
         include: {
-          consultant: { select: { name: true } },
+          consultant:   { select: { name: true } },
           videographer: { select: { name: true, email: true } },
-          payment: { select: { amount: true } },
+          payment:      { select: { amount: true } },
         },
         orderBy: { createdAt: "desc" },
         take: 8,
@@ -30,15 +46,23 @@ export default async function AdminDashboard() {
   const statusCount = (status: string) =>
     statusStats.find((s) => s.status === status)?._count.id || 0
 
-  const pendingCount = statusCount("PENDING_ACCEPTANCE")
-  const completedCount = statusCount("COMPLETED")
-  const revenue = totalRevenue._sum.amount || 0
+  const pendingCount   = statusCount("PENDING_ACCEPTANCE")
+  const completedCount = statusCount("COMPLETED") + statusCount("FILE_DELIVERED")
+
+  const monthRevenue = monthlyDelivered.reduce((sum, b) => {
+    const services = b.services.reduce((s, svc) => s + svc.price, 0)
+    const travel   = b.hasTravelFee ? b.travelFeeAmount : 0
+    return sum + services + travel
+  }, 0)
+
+  const monthLabel = now.toLocaleDateString("pt-PT", { month: "long" })
+  const deliveredCount = monthlyDelivered.length
 
   const topStats = [
-    { label: "Utilizadores Ativos", value: totalUsers, icon: Users, color: "text-blue-600 bg-blue-50", href: "/admin/users" },
-    { label: "Total de Marcações", value: totalBookings, icon: Calendar, color: "text-purple-600 bg-purple-50", href: "/admin/bookings" },
-    { label: "Receita Total", value: formatPrice(revenue), icon: DollarSign, color: "text-emerald-600 bg-emerald-50", isText: true, href: "/admin/reports" },
-    { label: "Concluídos", value: completedCount, icon: CheckCircle2, color: "text-orange-600 bg-orange-50", href: "/admin/bookings" },
+    { label: "Utilizadores Ativos",  value: totalUsers,                  icon: Users,        color: "text-blue-600 bg-blue-50",    href: "/admin/users" },
+    { label: "Total de Marcações",   value: totalBookings,               icon: Calendar,     color: "text-purple-600 bg-purple-50", href: "/admin/bookings" },
+    { label: `Receita — ${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}`, value: formatPrice(monthRevenue), icon: DollarSign, color: "text-emerald-600 bg-emerald-50", isText: true, href: "/admin/reports" },
+    { label: "Entregues este mês",   value: deliveredCount,              icon: CheckCircle2, color: "text-orange-600 bg-orange-50", href: "/admin/bookings?status=FILE_DELIVERED" },
   ]
 
   return (
