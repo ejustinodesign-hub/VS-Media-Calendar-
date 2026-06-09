@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice } from "@/lib/pricing"
 import { Video, Camera, Sparkles, Car, Gift, Star, Pencil, Check, X } from "lucide-react"
@@ -30,10 +31,12 @@ interface Rates {
 }
 
 export function RemunerationCard({ videographer: v, rates }: { videographer: Videographer; rates: Rates }) {
+  const router = useRouter()
   const [baseSalary, setBaseSalary] = useState(v.baseSalary)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(v.baseSalary))
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
 
   const variable = v.variable
   const total = baseSalary + variable
@@ -42,14 +45,21 @@ export function RemunerationCard({ videographer: v, rates }: { videographer: Vid
     const val = parseInt(draft, 10)
     if (isNaN(val) || val < 0) return
     setSaving(true)
+    setSaveError("")
     try {
-      await fetch(`/api/admin/videographers/${v.id}/salary`, {
+      const res = await fetch(`/api/admin/videographers/${v.id}/salary`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ baseSalary: val }),
       })
+      if (!res.ok) {
+        const data = await res.json()
+        setSaveError(data.error || "Erro ao guardar")
+        return
+      }
       setBaseSalary(val)
       setEditing(false)
+      router.refresh()
     } finally {
       setSaving(false)
     }
@@ -124,6 +134,9 @@ export function RemunerationCard({ videographer: v, rates }: { videographer: Vid
             </div>
           )}
         </div>
+        {saveError && (
+          <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">{saveError}</p>
+        )}
 
         {v.videoTotal > 0 && (
           <EarningsRow
