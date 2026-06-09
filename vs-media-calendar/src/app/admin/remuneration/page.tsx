@@ -7,7 +7,7 @@ import { Wallet, Video, Camera, Sparkles, Car, Star, Gift } from "lucide-react"
 const BASE_SALARY  = 1200
 const VIDEO_RATE   = 10
 const PHOTO_RATE   = 10
-const AI_RATE      = 15
+const AI_RATE      = 10
 const INTRO_RATE   = 10
 
 function calcBookingEarnings(booking: {
