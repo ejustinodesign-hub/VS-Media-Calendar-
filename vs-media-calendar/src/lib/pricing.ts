@@ -57,11 +57,15 @@ export function calculateTotal(
 ): PriceCalculation {
   const prices = { ...DEFAULT_PRICES, ...customPrices }
 
-  const services = selectedServices.map((type) => ({
-    type,
-    label: SERVICE_LABELS[type],
-    price: prices[type],
-  }))
+  const hasDroneVideo = selectedServices.includes("VIDEO_DRONE")
+
+  const services = selectedServices.map((type) => {
+    let price = prices[type]
+    if (type === "PHOTO_DRONE" && hasDroneVideo) {
+      price = 0
+    }
+    return { type, label: SERVICE_LABELS[type], price }
+  })
 
   const servicesTotal = services.reduce((sum, s) => sum + s.price, 0)
   const additionalIntrosTotal = additionalIntros * ADDITIONAL_INTRO_PRICE

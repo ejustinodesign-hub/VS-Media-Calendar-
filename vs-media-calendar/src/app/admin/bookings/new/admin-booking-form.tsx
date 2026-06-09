@@ -52,8 +52,11 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
     )
   }
 
-  const total = selectedServices.reduce((sum, s) => sum + (activePrices[s] ?? DEFAULT_PRICES[s] ?? 0), 0)
-    + (hasTravelFee ? 50 : 0)
+  const hasDroneVideoSelected = selectedServices.includes("VIDEO_DRONE")
+  const total = selectedServices.reduce((sum, s) => {
+    if (s === "PHOTO_DRONE" && hasDroneVideoSelected) return sum
+    return sum + (activePrices[s] ?? DEFAULT_PRICES[s] ?? 0)
+  }, 0) + (hasTravelFee ? 50 : 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -154,7 +157,8 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
         <div className="grid grid-cols-2 gap-2">
           {ALL_SERVICES.map((svc) => {
             const active = selectedServices.includes(svc)
-            const price = activePrices[svc] ?? DEFAULT_PRICES[svc] ?? 0
+            const basePrice = activePrices[svc] ?? DEFAULT_PRICES[svc] ?? 0
+            const isFree = svc === "PHOTO_DRONE" && hasDroneVideoSelected
             return (
               <button
                 key={svc}
@@ -167,8 +171,12 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
                 }`}
               >
                 <span>{SERVICE_LABELS[svc]}</span>
-                <span className={`text-xs ${active ? "text-[#0f3460]" : "text-slate-400"}`}>
-                  {price}€
+                <span className={`text-xs ${isFree ? "text-emerald-600 font-semibold" : active ? "text-[#0f3460]" : "text-slate-400"}`}>
+                  {isFree ? (
+                    <><s className="text-slate-400 font-normal">{basePrice}€</s> Grátis</>
+                  ) : (
+                    `${basePrice}€`
+                  )}
                 </span>
               </button>
             )

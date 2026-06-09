@@ -317,15 +317,21 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             </CardHeader>
             <CardContent>
               <div className="grid gap-2">
-                {PHOTO_SERVICES.map((service) => (
-                  <ServiceOption
-                    key={service}
-                    service={service}
-                    selected={selectedServices.includes(service)}
-                    onToggle={toggleService}
-                    price={activePrices[service] ?? 0}
-                  />
-                ))}
+                {PHOTO_SERVICES.map((service) => {
+                  const hasDroneVideo = selectedServices.includes("VIDEO_DRONE")
+                  const basePrice = activePrices[service] ?? 0
+                  const effectivePrice = service === "PHOTO_DRONE" && hasDroneVideo ? 0 : basePrice
+                  return (
+                    <ServiceOption
+                      key={service}
+                      service={service}
+                      selected={selectedServices.includes(service)}
+                      onToggle={toggleService}
+                      price={effectivePrice}
+                      originalPrice={service === "PHOTO_DRONE" && hasDroneVideo ? basePrice : undefined}
+                    />
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
@@ -761,12 +767,16 @@ function ServiceOption({
   selected,
   onToggle,
   price,
+  originalPrice,
 }: {
   service: ServiceType
   selected: boolean
   onToggle: (s: ServiceType) => void
   price: number
+  originalPrice?: number
 }) {
+  const hasDiscount = originalPrice !== undefined && originalPrice !== price
+
   return (
     <button
       onClick={() => onToggle(service)}
@@ -792,13 +802,25 @@ function ServiceOption({
             </svg>
           )}
         </div>
-        <span className={cn("text-sm font-medium", selected ? "text-[#0f3460]" : "text-slate-700")}>
-          {SERVICE_LABELS[service]}
+        <div>
+          <span className={cn("text-sm font-medium", selected ? "text-[#0f3460]" : "text-slate-700")}>
+            {SERVICE_LABELS[service]}
+          </span>
+          {hasDiscount && (
+            <span className="ml-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+              Grátis c/ drone
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="text-right">
+        {hasDiscount && (
+          <span className="block text-xs text-slate-400 line-through">{formatPrice(originalPrice)}</span>
+        )}
+        <span className={cn("text-sm font-bold", hasDiscount ? "text-emerald-600" : selected ? "text-[#0f3460]" : "text-slate-600")}>
+          {hasDiscount ? "Grátis" : <>{formatPrice(price)} <span className="text-xs font-normal opacity-70">+ IVA</span></>}
         </span>
       </div>
-      <span className={cn("text-sm font-bold", selected ? "text-[#0f3460]" : "text-slate-600")}>
-        {formatPrice(price)} <span className="text-xs font-normal opacity-70">+ IVA</span>
-      </span>
     </button>
   )
 }
