@@ -2,13 +2,13 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice } from "@/lib/pricing"
-import { Wallet, Video, Camera, Sparkles, Car, Star, Gift } from "lucide-react"
+import { Wallet } from "lucide-react"
+import { RemunerationCard } from "./remuneration-card"
 
-const BASE_SALARY  = 1200
-const VIDEO_RATE   = 10
-const PHOTO_RATE   = 10
-const AI_RATE      = 10
-const INTRO_RATE   = 10
+const VIDEO_RATE = 10
+const PHOTO_RATE = 10
+const AI_RATE    = 10
+const INTRO_RATE = 10
 
 function calcBookingEarnings(booking: {
   services: { serviceType: string }[]
@@ -49,7 +49,10 @@ export default async function AdminRemunerationPage() {
 
   const videographers = await prisma.user.findMany({
     where: { role: "VIDEOGRAPHER", active: true },
-    select: { id: true, name: true, email: true, image: true },
+    select: {
+      id: true, name: true, email: true, image: true,
+      videographerProfile: { select: { baseSalary: true } },
+    },
     orderBy: { name: "asc" },
   })
 
@@ -81,6 +84,7 @@ export default async function AdminRemunerationPage() {
   const monthLabel = now.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
 
   const data = videographers.map((v) => {
+    const baseSalary = v.videographerProfile?.baseSalary ?? 1200
     const bookings = allBookings.filter((b) => b.videographerId === v.id)
     const intros   = allIntros.filter((d) => d.uploadedBy === v.id)
 
@@ -95,10 +99,14 @@ export default async function AdminRemunerationPage() {
     }
     const sharedIntrosTotal = intros.reduce((sum, d) => sum + (d.videographerFee ?? INTRO_RATE), 0)
     const variable = videoTotal + aiTotal + introTotal + photoTotal + travelTotal + sharedIntrosTotal
-    const total    = BASE_SALARY + variable
+    const total    = baseSalary + variable
 
     return {
-      ...v,
+      id: v.id,
+      name: v.name,
+      email: v.email,
+      image: v.image,
+      baseSalary,
       bookingCount: bookings.length,
       videoTotal,
       aiTotal,
@@ -115,13 +123,9 @@ export default async function AdminRemunerationPage() {
 
   return (
     <>
-      <Header
-        title="Remuneração"
-        subtitle={`Videógrafos · ${monthLabel}`}
-      />
+      <Header title="Remuneração" subtitle={`Videógrafos · ${monthLabel}`} />
       <div className="flex-1 p-6 space-y-6">
 
-        {/* Summary bar */}
         <div className="bg-[#0f3460] rounded-2xl px-6 py-4 flex items-center justify-between">
           <div>
             <p className="text-slate-300 text-sm">Total a pagar este mês</p>
@@ -129,103 +133,16 @@ export default async function AdminRemunerationPage() {
           </div>
           <div className="text-right text-slate-400 text-sm">
             <p>{data.length} videógrafo(s)</p>
-            <p>{formatPrice(BASE_SALARY)} salário base cada</p>
           </div>
         </div>
 
-        {/* Per-videographer cards */}
         <div className="grid gap-4 lg:grid-cols-2">
           {data.map((v) => (
-            <Card key={v.id}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  {v.image ? (
-                    <img src={v.image} alt={v.name || ""} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-[#0f3460] flex items-center justify-center text-white font-bold text-base">
-                      {v.name?.[0] || "?"}
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <CardTitle className="text-base">{v.name || v.email}</CardTitle>
-                    <p className="text-xs text-slate-500 mt-0.5">{v.bookingCount} marcação(ões) este mês</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-400">Total</p>
-                    <p className="text-xl font-bold text-[#0f3460]">{formatPrice(v.total)}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2 pt-0">
-                <div className="h-px bg-slate-100" />
-
-                <EarningsRow
-                  icon={<Star className="w-3.5 h-3.5 text-slate-500" />}
-                  label="Salário base"
-                  amount={BASE_SALARY}
-                  muted
-                />
-                {v.videoTotal > 0 && (
-                  <EarningsRow
-                    icon={<Video className="w-3.5 h-3.5 text-blue-500" />}
-                    label="Serviços de vídeo"
-                    amount={v.videoTotal}
-                    detail={`${v.videoTotal / VIDEO_RATE} × ${VIDEO_RATE}€`}
-                  />
-                )}
-                {v.photoTotal > 0 && (
-                  <EarningsRow
-                    icon={<Camera className="w-3.5 h-3.5 text-violet-500" />}
-                    label="Serviços de fotografia"
-                    amount={v.photoTotal}
-                    detail={`${v.photoTotal / PHOTO_RATE} × ${PHOTO_RATE}€`}
-                  />
-                )}
-                {v.aiTotal > 0 && (
-                  <EarningsRow
-                    icon={<Sparkles className="w-3.5 h-3.5 text-amber-500" />}
-                    label="Taxa IA"
-                    amount={v.aiTotal}
-                    detail={`${v.aiTotal / AI_RATE} × ${AI_RATE}€`}
-                  />
-                )}
-                {v.travelTotal > 0 && (
-                  <EarningsRow
-                    icon={<Car className="w-3.5 h-3.5 text-orange-500" />}
-                    label="Deslocações"
-                    amount={v.travelTotal}
-                  />
-                )}
-                {v.introTotal > 0 && (
-                  <EarningsRow
-                    icon={<Gift className="w-3.5 h-3.5 text-pink-500" />}
-                    label="Intros (marcação)"
-                    amount={v.introTotal}
-                  />
-                )}
-                {v.sharedIntrosTotal > 0 && (
-                  <EarningsRow
-                    icon={<Gift className="w-3.5 h-3.5 text-pink-400" />}
-                    label="Intros partilhadas"
-                    amount={v.sharedIntrosTotal}
-                  />
-                )}
-
-                {v.variable > 0 && (
-                  <>
-                    <div className="h-px bg-slate-100" />
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Variável</span>
-                      <span className="text-sm font-bold text-slate-700">+ {formatPrice(v.variable)}</span>
-                    </div>
-                  </>
-                )}
-
-                {v.variable === 0 && (
-                  <p className="text-xs text-slate-400 text-center pt-1">Sem serviços entregues este mês</p>
-                )}
-              </CardContent>
-            </Card>
+            <RemunerationCard
+              key={v.id}
+              videographer={v}
+              rates={{ VIDEO_RATE, PHOTO_RATE, AI_RATE, INTRO_RATE }}
+            />
           ))}
         </div>
 
@@ -237,32 +154,5 @@ export default async function AdminRemunerationPage() {
         )}
       </div>
     </>
-  )
-}
-
-function EarningsRow({
-  icon,
-  label,
-  amount,
-  detail,
-  muted,
-}: {
-  icon: React.ReactNode
-  label: string
-  amount: number
-  detail?: string
-  muted?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className={`text-sm ${muted ? "text-slate-400" : "text-slate-600"}`}>{label}</span>
-        {detail && <span className="text-xs text-slate-400">({detail})</span>}
-      </div>
-      <span className={`text-sm font-semibold ${muted ? "text-slate-400" : "text-slate-800"}`}>
-        {formatPrice(amount)}
-      </span>
-    </div>
   )
 }

@@ -66,9 +66,16 @@ export default async function VideographerDashboard() {
   let monthBookings: any[] = []
   let prevMonthBookings: any[] = []
   let sharedIntrosThisMonth: { videographerFee: number | null }[] = []
+  let baseSalary = BASE_SALARY
   let dbError: string | null = null
 
   try {
+    const profile = await prisma.videographerProfile.findUnique({
+      where: { userId },
+      select: { baseSalary: true },
+    })
+    if (profile?.baseSalary != null) baseSalary = profile.baseSalary
+
     ;[pendingBookings, upcomingBookings, stats, monthBookings, prevMonthBookings, sharedIntrosThisMonth] =
       await Promise.all([
         prisma.booking.findMany({
@@ -141,11 +148,11 @@ export default async function VideographerDashboard() {
   const curr = aggregateEarnings(monthBookings)
   const sharedIntrosTotal = sharedIntrosThisMonth.reduce((sum, d) => sum + (d.videographerFee ?? 0), 0)
   const currVariable = curr.videoTotal + curr.aiTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal
-  const currTotal = BASE_SALARY + currVariable
+  const currTotal = baseSalary + currVariable
 
   const prev = aggregateEarnings(prevMonthBookings)
   const prevVariable = prev.videoTotal + prev.aiTotal + prev.introTotal + prev.photoTotal + prev.travelTotal
-  const prevTotal = BASE_SALARY + prevVariable
+  const prevTotal = baseSalary + prevVariable
 
   const diffPct = prevTotal > 0
     ? Math.round(((currTotal - prevTotal) / prevTotal) * 100)

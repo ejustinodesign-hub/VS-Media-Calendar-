@@ -159,6 +159,7 @@ model VideographerProfile {
   bio            String?
   weeklyCapacity Int      @default(5)
   acceptingWork  Boolean  @default(true)
+  baseSalary     Int      @default(1200)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
