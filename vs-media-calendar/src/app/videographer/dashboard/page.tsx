@@ -70,11 +70,14 @@ export default async function VideographerDashboard() {
   let dbError: string | null = null
 
   try {
-    const profile = await prisma.videographerProfile.findUnique({
-      where: { userId },
-      select: { baseSalary: true },
-    })
-    if (profile?.baseSalary != null) baseSalary = profile.baseSalary
+    await prisma.$executeRaw`
+      ALTER TABLE "VideographerProfile"
+      ADD COLUMN IF NOT EXISTS "baseSalary" INTEGER NOT NULL DEFAULT 1200
+    `
+    const rows = await prisma.$queryRaw<{ baseSalary: number }[]>`
+      SELECT "baseSalary" FROM "VideographerProfile" WHERE "userId" = ${userId}
+    `
+    if (rows[0]?.baseSalary != null) baseSalary = rows[0].baseSalary
 
     ;[pendingBookings, upcomingBookings, stats, monthBookings, prevMonthBookings, sharedIntrosThisMonth] =
       await Promise.all([

@@ -55,16 +55,19 @@ export default async function AdminRemunerationPage() {
     orderBy: { name: "asc" },
   })
 
-  // baseSalary column may not exist yet if db push hasn't run
   let salaryMap: Record<string, number> = {}
   try {
-    const profiles = await prisma.videographerProfile.findMany({
-      where: { userId: { in: videographers.map((v) => v.id) } },
-      select: { userId: true, baseSalary: true },
-    })
+    await prisma.$executeRaw`
+      ALTER TABLE "VideographerProfile"
+      ADD COLUMN IF NOT EXISTS "baseSalary" INTEGER NOT NULL DEFAULT 1200
+    `
+    const profiles = await prisma.$queryRaw<{ userId: string; baseSalary: number }[]>`
+      SELECT "userId", "baseSalary" FROM "VideographerProfile"
+      WHERE "userId" = ANY(${videographers.map((v) => v.id)})
+    `
     for (const p of profiles) salaryMap[p.userId] = p.baseSalary
   } catch {
-    // column not yet migrated — fall back to default
+    // fall back to default 1200 for all
   }
 
   const [allBookings, allIntros] = await Promise.all([
