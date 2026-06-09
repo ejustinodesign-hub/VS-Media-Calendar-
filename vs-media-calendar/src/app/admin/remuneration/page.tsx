@@ -49,12 +49,21 @@ export default async function AdminRemunerationPage() {
 
   const videographers = await prisma.user.findMany({
     where: { role: "VIDEOGRAPHER", active: true },
-    select: {
-      id: true, name: true, email: true, image: true,
-      videographerProfile: { select: { baseSalary: true } },
-    },
+    select: { id: true, name: true, email: true, image: true },
     orderBy: { name: "asc" },
   })
+
+  // baseSalary column may not exist yet if db push hasn't run
+  let salaryMap: Record<string, number> = {}
+  try {
+    const profiles = await prisma.videographerProfile.findMany({
+      where: { userId: { in: videographers.map((v) => v.id) } },
+      select: { userId: true, baseSalary: true },
+    })
+    for (const p of profiles) salaryMap[p.userId] = p.baseSalary
+  } catch {
+    // column not yet migrated — fall back to default
+  }
 
   const [allBookings, allIntros] = await Promise.all([
     prisma.booking.findMany({
@@ -84,7 +93,7 @@ export default async function AdminRemunerationPage() {
   const monthLabel = now.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
 
   const data = videographers.map((v) => {
-    const baseSalary = v.videographerProfile?.baseSalary ?? 1200
+    const baseSalary = salaryMap[v.id] ?? 1200
     const bookings = allBookings.filter((b) => b.videographerId === v.id)
     const intros   = allIntros.filter((d) => d.uploadedBy === v.id)
 
