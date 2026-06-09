@@ -40,9 +40,13 @@ function calcBookingEarnings(booking: {
 
   const introEarnings = booking.additionalIntros * INTRO_RATE
 
+  const hasDroneVideo = booking.services.some((s) => s.serviceType === "VIDEO_DRONE")
   const photoEarnings = booking.services
     .filter((s) => s.serviceType.startsWith("PHOTO_"))
-    .reduce((sum, s) => sum + (PHOTO_RATES[s.serviceType] ?? 0), 0)
+    .reduce((sum, s) => {
+      if (s.serviceType === "PHOTO_DRONE" && hasDroneVideo) return sum
+      return sum + (PHOTO_RATES[s.serviceType] ?? 0)
+    }, 0)
 
   const travelEarnings = booking.hasTravelFee ? booking.travelFeeAmount : 0
 
