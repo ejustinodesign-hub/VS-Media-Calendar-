@@ -15,13 +15,7 @@ import {
 const BASE_SALARY = 1200
 const VIDEO_RATE = 10      // per video service delivered
 const INTRO_RATE = 10      // per additional intro (within same booking)
-// Photography: full service price goes to videographer
-const PHOTO_RATES: Record<string, number> = {
-  PHOTO_DRONE: 35,
-  PHOTO_T1_T2: 25,
-  PHOTO_T3_T4: 35,
-  PHOTO_T5_PLUS: 45,
-}
+const PHOTO_RATE = 10      // per photo service delivered (any typology)
 
 function calcBookingEarnings(booking: {
   services: { serviceType: string }[]
@@ -45,7 +39,7 @@ function calcBookingEarnings(booking: {
     .filter((s) => s.serviceType.startsWith("PHOTO_"))
     .reduce((sum, s) => {
       if (s.serviceType === "PHOTO_DRONE" && hasDroneVideo) return sum
-      return sum + (PHOTO_RATES[s.serviceType] ?? 0)
+      return sum + PHOTO_RATE
     }, 0)
 
   const travelEarnings = booking.hasTravelFee ? booking.travelFeeAmount : 0
