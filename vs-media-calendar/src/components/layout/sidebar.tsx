@@ -19,6 +19,7 @@ import {
   X,
   UserCircle,
   CreditCard,
+  Wallet,
 } from "lucide-react"
 import { useSidebar } from "./sidebar-context"
 
@@ -49,6 +50,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/bookings", label: "Marcações", icon: Calendar },
   { href: "/admin/users", label: "Utilizadores", icon: Users },
   { href: "/admin/pricing", label: "Preços", icon: DollarSign },
+  { href: "/admin/remuneration", label: "Remuneração", icon: Wallet },
   { href: "/admin/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/admin/settings", label: "Configurações", icon: Settings },
 ]
