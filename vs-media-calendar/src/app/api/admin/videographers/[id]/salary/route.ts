@@ -17,9 +17,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   try {
     await prisma.$executeRawUnsafe(
-      `UPDATE "VideographerProfile" SET "baseSalary" = $1 WHERE "userId" = $2`,
-      baseSalary,
-      id
+      `INSERT INTO "VideographerProfile" ("id", "userId", "displayName", "baseSalary", "acceptingWork", "weeklyCapacity", "createdAt", "updatedAt")
+       SELECT md5(random()::text), $1, COALESCE(u.name, u.email, 'Videógrafo'), $2, true, 5, NOW(), NOW()
+       FROM "User" u WHERE u.id = $1
+       ON CONFLICT ("userId") DO UPDATE SET "baseSalary" = $2, "updatedAt" = NOW()`,
+      id,
+      baseSalary
     )
   } catch (err) {
     console.error("Salary update error:", err)
