@@ -57,17 +57,12 @@ export default async function AdminRemunerationPage() {
 
   let salaryMap: Record<string, number> = {}
   try {
-    await prisma.$executeRaw`
-      ALTER TABLE "VideographerProfile"
-      ADD COLUMN IF NOT EXISTS "baseSalary" INTEGER NOT NULL DEFAULT 1200
-    `
-    const profiles = await prisma.$queryRaw<{ userId: string; baseSalary: number }[]>`
-      SELECT "userId", "baseSalary" FROM "VideographerProfile"
-      WHERE "userId" = ANY(${videographers.map((v) => v.id)})
-    `
+    const profiles = await prisma.$queryRawUnsafe<{ userId: string; baseSalary: number }[]>(
+      'SELECT "userId", "baseSalary" FROM "VideographerProfile"'
+    )
     for (const p of profiles) salaryMap[p.userId] = p.baseSalary
   } catch {
-    // fall back to default 1200 for all
+    // baseSalary column not yet in DB — fall back to default 1200
   }
 
   const [allBookings, allIntros] = await Promise.all([

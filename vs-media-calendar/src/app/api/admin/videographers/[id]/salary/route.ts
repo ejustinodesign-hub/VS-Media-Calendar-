@@ -16,14 +16,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
-    // Ensure column exists before writing (safe if already exists)
-    await prisma.$executeRaw`
-      ALTER TABLE "VideographerProfile"
-      ADD COLUMN IF NOT EXISTS "baseSalary" INTEGER NOT NULL DEFAULT 1200
-    `
-    await prisma.$executeRaw`
-      UPDATE "VideographerProfile" SET "baseSalary" = ${baseSalary} WHERE "userId" = ${id}
-    `
+    await prisma.$executeRawUnsafe(
+      `UPDATE "VideographerProfile" SET "baseSalary" = $1 WHERE "userId" = $2`,
+      baseSalary,
+      id
+    )
   } catch (err) {
     console.error("Salary update error:", err)
     return NextResponse.json({ error: "Erro ao atualizar salário" }, { status: 500 })
