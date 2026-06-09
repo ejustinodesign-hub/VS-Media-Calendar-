@@ -146,7 +146,7 @@ export default async function VideographerDashboard() {
   }
 
   const curr = aggregateEarnings(monthBookings)
-  const sharedIntrosTotal = sharedIntrosThisMonth.reduce((sum, d) => sum + (d.videographerFee ?? 0), 0)
+  const sharedIntrosTotal = sharedIntrosThisMonth.length * INTRO_RATE
   const currVariable = curr.videoTotal + curr.aiTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal
   const currTotal = baseSalary + currVariable
 

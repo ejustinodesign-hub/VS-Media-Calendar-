@@ -97,7 +97,7 @@ export default async function AdminRemunerationPage() {
       photoTotal  += e.photoEarnings
       travelTotal += e.travelEarnings
     }
-    const sharedIntrosTotal = intros.reduce((sum, d) => sum + (d.videographerFee ?? INTRO_RATE), 0)
+    const sharedIntrosTotal = intros.length * INTRO_RATE
     const variable = videoTotal + aiTotal + introTotal + photoTotal + travelTotal + sharedIntrosTotal
     const total    = baseSalary + variable
 

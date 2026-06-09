@@ -6,7 +6,7 @@ import { SERVICE_LABELS, IVA_RATE } from "@/lib/pricing"
 
 const INTRO_PRICE_NET = 25
 const INTRO_PRICE_WITH_IVA = Math.round(INTRO_PRICE_NET * (1 + IVA_RATE) * 100) / 100
-const VIDEOGRAPHER_FEE = 20
+const VIDEOGRAPHER_FEE = 10
 
 export async function POST(req: NextRequest) {
   const session = await auth()
