@@ -53,8 +53,10 @@ export function RemunerationCard({ videographer: v, rates }: { videographer: Vid
         body: JSON.stringify({ baseSalary: val }),
       })
       if (!res.ok) {
-        const data = await res.json()
-        setSaveError(data.error || "Erro ao guardar")
+        const text = await res.text()
+        let msg = "Erro ao guardar"
+        try { msg = JSON.parse(text).error || msg } catch {}
+        setSaveError(msg)
         return
       }
       setBaseSalary(val)

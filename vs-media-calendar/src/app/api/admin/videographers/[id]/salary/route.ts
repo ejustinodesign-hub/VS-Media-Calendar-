@@ -15,10 +15,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Valor inválido" }, { status: 400 })
   }
 
-  await prisma.videographerProfile.update({
-    where: { userId: id },
-    data: { baseSalary },
-  })
+  try {
+    await prisma.videographerProfile.update({
+      where: { userId: id },
+      data: { baseSalary },
+    })
+  } catch (err) {
+    console.error("Salary update error:", err)
+    return NextResponse.json({ error: "Erro ao atualizar salário" }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }
