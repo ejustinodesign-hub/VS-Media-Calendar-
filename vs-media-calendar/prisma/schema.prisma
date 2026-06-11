@@ -144,6 +144,7 @@ model User {
   bookingsAsVideographer Booking[] @relation("VideographerBookings")
   invoices               MonthlyInvoice[]
   sharedDeliverables     Deliverable[] @relation("TargetConsultantDeliverables")
+  sharedDeliverables2    Deliverable[] @relation("SecondConsultantDeliverables")
 
   weeklyCapacity      Int?    @default(10)
   googleCalendarId    String?
@@ -303,12 +304,14 @@ model Deliverable {
   mimeType           String?
   uploadedBy         String
   description        String?
-  targetConsultantId String?
-  videographerFee    Float?
-  createdAt          DateTime @default(now())
+  targetConsultantId  String?
+  secondConsultantId  String?
+  videographerFee     Float?
+  createdAt           DateTime @default(now())
 
-  booking          Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  targetConsultant User?   @relation("TargetConsultantDeliverables", fields: [targetConsultantId], references: [id], onDelete: SetNull)
+  booking           Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  targetConsultant  User?   @relation("TargetConsultantDeliverables", fields: [targetConsultantId], references: [id], onDelete: SetNull)
+  secondConsultant  User?   @relation("SecondConsultantDeliverables", fields: [secondConsultantId], references: [id], onDelete: SetNull)
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────

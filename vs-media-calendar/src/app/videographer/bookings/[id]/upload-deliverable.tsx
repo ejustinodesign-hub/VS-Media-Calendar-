@@ -14,6 +14,7 @@ interface DeliverableFile {
   mimeType?: string | null
   createdAt?: Date | string
   targetConsultantId?: string | null
+  secondConsultantId?: string | null
 }
 
 interface Consultant {
@@ -25,6 +26,8 @@ interface Consultant {
 interface IntroEntry {
   key: string
   consultantId: string
+  secondConsultantId: string
+  shared: boolean
   file: File | null
   description: string
 }
@@ -89,7 +92,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     await loadConsultants()
     setIntroEntries(prev => [
       ...prev,
-      { key: `intro-${Date.now()}`, consultantId: "", file: null, description: "" },
+      { key: `intro-${Date.now()}`, consultantId: "", secondConsultantId: "", shared: false, file: null, description: "" },
     ])
   }
 
@@ -103,7 +106,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
 
   const doUpload = async (
     f: File,
-    opts: { bookingId: string; targetConsultantId?: string; description?: string; onProgress: (p: number) => void }
+    opts: { bookingId: string; targetConsultantId?: string; secondConsultantId?: string; description?: string; onProgress: (p: number) => void }
   ) => {
     const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_")
     const pathname = `deliverables/${opts.bookingId}/${Date.now()}-${safeName}`
@@ -126,6 +129,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         mimeType: f.type,
         description: opts.description || null,
         targetConsultantId: opts.targetConsultantId || null,
+        secondConsultantId: opts.secondConsultantId || null,
       }),
     })
 
@@ -174,6 +178,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
       const blobUrl = await doUpload(entry.file, {
         bookingId,
         targetConsultantId: entry.consultantId,
+        secondConsultantId: entry.shared && entry.secondConsultantId ? entry.secondConsultantId : undefined,
         description: entry.description,
         onProgress: (p) => setIntroProgress(prev => ({ ...prev, [entry.key]: p })),
       })
@@ -187,6 +192,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
           mimeType: entry.file!.type,
           createdAt: new Date(),
           targetConsultantId: entry.consultantId,
+          secondConsultantId: entry.shared && entry.secondConsultantId ? entry.secondConsultantId : null,
         },
       ])
       removeIntroEntry(entry.key)
@@ -270,13 +276,13 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
             <Users className="w-4 h-4 text-[#e94560]" />
             Versões para outros consultores
             <span className="ml-auto text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-              10€ / consultor
+              10€ / entrega
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-slate-500">
-            Filmou uma versão com intro personalizada para outro consultor? Entregue aqui.
+            Filmou uma versão com intro personalizada para outro(s) consultor(es)? Entregue aqui.
             Receberá 10€ por cada entrega.
           </p>
 
@@ -303,20 +309,59 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
                 </button>
               </div>
 
-              <select
-                value={entry.consultantId}
-                onChange={e => updateIntroEntry(entry.key, { consultantId: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 focus:border-[#0f3460] bg-white"
-              >
-                <option value="">
-                  {consultantsLoading ? "A carregar consultores..." : "Selecionar consultor..."}
-                </option>
-                {consultants.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name || c.email}
+              {/* Shared toggle */}
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <div
+                  onClick={() => updateIntroEntry(entry.key, { shared: !entry.shared, secondConsultantId: "" })}
+                  className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${entry.shared ? "bg-[#e94560]" : "bg-slate-200"}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${entry.shared ? "translate-x-4" : "translate-x-0.5"}`} />
+                </div>
+                <span className="text-xs text-slate-600">
+                  Partilhada com 2 consultores
+                  <span className="ml-1 text-slate-400">(25€ ÷ 2 = 12,50€ cada)</span>
+                </span>
+              </label>
+
+              {/* First consultant */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-slate-500">
+                  {entry.shared ? "1.º Consultor" : "Consultor"}
+                </p>
+                <select
+                  value={entry.consultantId}
+                  onChange={e => updateIntroEntry(entry.key, { consultantId: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 focus:border-[#0f3460] bg-white"
+                >
+                  <option value="">
+                    {consultantsLoading ? "A carregar consultores..." : "Selecionar consultor..."}
                   </option>
-                ))}
-              </select>
+                  {consultants.map(c => (
+                    <option key={c.id} value={c.id} disabled={entry.shared && c.id === entry.secondConsultantId}>
+                      {c.name || c.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Second consultant (only when shared) */}
+              {entry.shared && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-slate-500">2.º Consultor</p>
+                  <select
+                    value={entry.secondConsultantId}
+                    onChange={e => updateIntroEntry(entry.key, { secondConsultantId: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 focus:border-[#0f3460] bg-white"
+                  >
+                    <option value="">Selecionar consultor...</option>
+                    {consultants.map(c => (
+                      <option key={c.id} value={c.id} disabled={c.id === entry.consultantId}>
+                        {c.name || c.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <DropZone
                 file={entry.file}
@@ -340,7 +385,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
                 <ProgressBar progress={introProgress[entry.key] ?? 0} />
               )}
 
-              {entry.file && entry.consultantId && (
+              {entry.file && entry.consultantId && (!entry.shared || entry.secondConsultantId) && (
                 <Button
                   onClick={() => handleIntroUpload(entry)}
                   disabled={uploadingIntroKey === entry.key}
@@ -351,7 +396,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
                   <Upload className="w-4 h-4" />
                   {uploadingIntroKey === entry.key
                     ? `A carregar... ${introProgress[entry.key] ?? 0}%`
-                    : "Entregar intro"}
+                    : entry.shared ? "Entregar intro partilhada" : "Entregar intro"}
                 </Button>
               )}
             </div>
@@ -383,8 +428,11 @@ function FileRow({
   showConsultantBadge?: boolean
   consultants?: Consultant[]
 }) {
-  const consultantName = showConsultantBadge && f.targetConsultantId
+  const name1 = showConsultantBadge && f.targetConsultantId
     ? consultants.find(c => c.id === f.targetConsultantId)?.name || "Consultor"
+    : null
+  const name2 = showConsultantBadge && f.secondConsultantId
+    ? consultants.find(c => c.id === f.secondConsultantId)?.name || "Consultor"
     : null
 
   return (
@@ -404,8 +452,13 @@ function FileRow({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{f.fileName}</p>
-          {consultantName && (
-            <p className="text-xs text-[#e94560] font-medium mt-0.5">Intro para: {consultantName}</p>
+          {name1 && !name2 && (
+            <p className="text-xs text-[#e94560] font-medium mt-0.5">Intro para: {name1}</p>
+          )}
+          {name1 && name2 && (
+            <p className="text-xs text-[#e94560] font-medium mt-0.5">
+              Intro partilhada: {name1} &amp; {name2} (12,50€ cada)
+            </p>
           )}
           {f.createdAt && (() => {
             const exp = new Date(f.createdAt); exp.setDate(exp.getDate() + 15)
