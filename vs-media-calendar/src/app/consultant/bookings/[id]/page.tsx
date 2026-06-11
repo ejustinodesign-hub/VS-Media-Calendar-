@@ -224,7 +224,7 @@ export default async function BookingDetailPage({ params }: Props) {
                       {isVideo && (
                         <video
                           controls
-                          preload="metadata"
+                          preload="none"
                           className="w-full bg-black"
                           style={{ maxHeight: "360px" }}
                         >

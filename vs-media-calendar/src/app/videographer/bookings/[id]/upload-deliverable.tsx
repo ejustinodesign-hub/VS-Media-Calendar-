@@ -390,7 +390,7 @@ function FileRow({
   return (
     <div className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50">
       {f.mimeType?.startsWith("video/") && (
-        <video controls preload="metadata" className="w-full bg-black" style={{ maxHeight: "280px" }}>
+        <video controls preload="none" className="w-full bg-black" style={{ maxHeight: "280px" }}>
           <source src={f.fileUrl} type={f.mimeType} />
         </video>
       )}

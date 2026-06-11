@@ -164,7 +164,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
               {booking.deliverables.map((d) => (
                 <div key={d.id} className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50">
                   {d.mimeType?.startsWith("video/") && (
-                    <video controls preload="metadata" className="w-full bg-black" style={{ maxHeight: 360 }}>
+                    <video controls preload="none" className="w-full bg-black" style={{ maxHeight: 360 }}>
                       <source src={d.fileUrl} type={d.mimeType} />
                     </video>
                   )}
