@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   // Block unpaid invoices only for flat-fee bookings; commission bookings are always allowed
   if (paymentType !== "COMMISSION") {
     const unpaidInvoice = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId, status: { in: ["PENDING", "OVERDUE"] } },
+      where: { consultantId, status: "OVERDUE" },
       select: { id: true },
     })
     if (unpaidInvoice) {

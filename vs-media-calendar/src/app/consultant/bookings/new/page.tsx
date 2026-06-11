@@ -21,7 +21,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
 
   const unpaidInvoice = consultantId
     ? await prisma.monthlyInvoice.findFirst({
-        where: { consultantId, status: { in: ["PENDING", "OVERDUE"] } },
+        where: { consultantId, status: "OVERDUE" },
         select: { id: true },
       })
     : null
@@ -38,9 +38,9 @@ export default async function NewBookingPage({ searchParams }: Props) {
                 <AlertCircle className="w-6 h-6 text-amber-600" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-800">Tem faturas por pagar</h2>
+                <h2 className="text-base font-bold text-slate-800">Tem faturas em atraso</h2>
                 <p className="text-sm text-slate-600 mt-1">
-                  Para criar novas marcações em taxa fixa, regularize primeiro os pagamentos pendentes.
+                  Para criar novas marcações em taxa fixa, regularize primeiro as faturas vencidas.
                 </p>
               </div>
               <Link
