@@ -203,7 +203,7 @@ export default async function VideographerDashboard() {
             {/* Breakdown */}
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               {[
-                { icon: Star, label: "Salário base", value: BASE_SALARY, color: "bg-blue-500/20 text-blue-300" },
+                { icon: Star, label: "Salário base", value: baseSalary, color: "bg-blue-500/20 text-blue-300" },
                 { icon: Video, label: `Vídeos (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE").length})`, value: curr.videoTotal, color: "bg-purple-500/20 text-purple-300" },
                 { icon: Sparkles, label: `IA (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_AI").length})`, value: curr.aiTotal, color: "bg-violet-500/20 text-violet-300" },
                 { icon: Camera, label: "Fotografia", value: curr.photoTotal, color: "bg-pink-500/20 text-pink-300" },
