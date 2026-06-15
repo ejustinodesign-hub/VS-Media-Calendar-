@@ -10,6 +10,7 @@ import {
   User, Calendar, MapPin, Clock,
   Download, FileVideo, ArrowLeft,
 } from "lucide-react"
+import { TravelFeeToggle } from "./travel-fee-toggle"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -117,7 +118,10 @@ export default async function AdminBookingDetailPage({ params }: Props) {
 
         {/* Services & pricing */}
         <Card>
-          <CardHeader><CardTitle>Serviços e Valor</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <CardTitle>Serviços e Valor</CardTitle>
+            <TravelFeeToggle bookingId={booking.id} hasTravelFee={booking.hasTravelFee} />
+          </CardHeader>
           <CardContent>
             <div className="space-y-2 mb-4">
               {booking.services.map((s) => (

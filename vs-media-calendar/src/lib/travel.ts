@@ -6,8 +6,8 @@ const ORIGIN_LNG = -9.1731
 // (Albufeira ~280km, Porto ~310km, far Alentejo ~150km+)
 const DISTANCE_THRESHOLD_KM = 80
 
-// 1 hour threshold when using Google Maps duration
-const THRESHOLD_SECONDS = 3600
+// 45 min threshold when using Google Maps duration
+const THRESHOLD_SECONDS = 2700
 
 export interface TravelEstimate {
   durationSeconds: number
