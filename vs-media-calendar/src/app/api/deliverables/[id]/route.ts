@@ -10,16 +10,18 @@ interface RouteContext {
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { id } = await params
   const session = await auth()
-  if (!session?.user || (session.user as any).role !== "VIDEOGRAPHER") {
+  const role = (session?.user as any)?.role
+  if (!session?.user || (role !== "VIDEOGRAPHER" && role !== "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Find deliverable and verify it belongs to this videographer's booking
+  // Admins can delete any deliverable; videographers only their own bookings
+  const where = role === "ADMIN"
+    ? { id }
+    : { id, booking: { videographerId: session.user.id } }
+
   const deliverable = await prisma.deliverable.findFirst({
-    where: {
-      id,
-      booking: { videographerId: session.user.id },
-    },
+    where,
     include: { booking: { select: { id: true } } },
   })
 

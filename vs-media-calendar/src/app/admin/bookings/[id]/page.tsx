@@ -7,11 +7,11 @@ import { formatPrice, IVA_RATE, SERVICE_LABELS, DEFAULT_PRICES } from "@/lib/pri
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
 import {
-  User, Calendar, MapPin, Clock,
-  Download, FileVideo, ArrowLeft,
+  User, Calendar, MapPin, Clock, ArrowLeft,
 } from "lucide-react"
 import { TravelFeeToggle } from "./travel-fee-toggle"
 import { EditServices } from "./edit-services"
+import { DeliverablesList } from "./deliverables-list"
 import type { ServiceType } from "@prisma/client"
 
 interface Props {
@@ -173,33 +173,14 @@ export default async function AdminBookingDetailPage({ params }: Props) {
         {booking.deliverables.length > 0 && (
           <Card>
             <CardHeader><CardTitle>Conteúdo Entregue</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {booking.deliverables.map((d) => (
-                <div key={d.id} className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50">
-                  {d.mimeType?.startsWith("video/") && (
-                    <video controls preload="none" className="w-full bg-black" style={{ maxHeight: 360 }}>
-                      <source src={d.fileUrl} type={d.mimeType} />
-                    </video>
-                  )}
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FileVideo className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{d.fileName}</p>
-                      {d.description && <p className="text-xs text-slate-500">{d.description}</p>}
-                    </div>
-                    <a
-                      href={`/api/download?url=${encodeURIComponent(d.fileUrl)}&filename=${encodeURIComponent(d.fileName)}`}
-                      download={d.fileName}
-                      className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download
-                    </a>
-                  </div>
-                </div>
-              ))}
+            <CardContent>
+              <DeliverablesList deliverables={booking.deliverables.map(d => ({
+                id: d.id,
+                fileName: d.fileName,
+                fileUrl: d.fileUrl,
+                mimeType: d.mimeType,
+                description: d.description,
+              }))} />
             </CardContent>
           </Card>
         )}
