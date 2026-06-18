@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     consultantIds,
     targetConsultantId,
     secondConsultantId,
+    hasCta,
   } = await req.json()
 
   if (!bookingId || !fileName || !fileUrl) {
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
         thirdConsultantId: id3 || null,
         fourthConsultantId: id4 || null,
         videographerFee: VIDEOGRAPHER_FEE,
+        ctaBonus: hasCta ? 5 : null,
       },
     })
 

@@ -20,16 +20,25 @@ export default async function VideographerBookingDetailPage({ params, searchPara
   const { action } = await searchParams
   const session = await auth()
 
-  const booking = await prisma.booking.findFirst({
-    where: { id, videographerId: session!.user.id },
-    include: {
-      consultant: { select: { name: true, email: true, image: true } },
-      services: { select: { id: true, serviceType: true } },
-      deliverables: true,
-    },
-  })
+  const userId = session!.user.id
+
+  const [booking, profileRows] = await Promise.all([
+    prisma.booking.findFirst({
+      where: { id, videographerId: userId },
+      include: {
+        consultant: { select: { name: true, email: true, image: true } },
+        services: { select: { id: true, serviceType: true } },
+        deliverables: true,
+      },
+    }),
+    prisma.$queryRawUnsafe<{ hasCta: boolean }[]>(
+      `SELECT "hasCta" FROM "VideographerProfile" WHERE "userId" = $1`, userId
+    ),
+  ])
 
   if (!booking) notFound()
+
+  const videographerHasCta = profileRows[0]?.hasCta === true
 
   const scheduledDate = new Date(booking.scheduledAt)
   const canActOnRequest = booking.status === "PENDING_ACCEPTANCE"
@@ -148,6 +157,7 @@ export default async function VideographerBookingDetailPage({ params, searchPara
             bookingId={booking.id}
             existingFiles={booking.deliverables}
             primaryConsultantId={booking.consultantId}
+            videographerHasCta={videographerHasCta}
           />
         )}
 

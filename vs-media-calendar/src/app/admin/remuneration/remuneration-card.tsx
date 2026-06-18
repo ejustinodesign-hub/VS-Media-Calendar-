@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice } from "@/lib/pricing"
-import { Video, Camera, Sparkles, Car, Gift, Star, Pencil, Check, X } from "lucide-react"
+import { Video, Camera, Sparkles, Car, Gift, Star, Pencil, Check, X, Zap } from "lucide-react"
 
 interface Videographer {
   id: string
@@ -12,6 +12,7 @@ interface Videographer {
   email: string | null
   image: string | null
   baseSalary: number
+  hasCta: boolean
   bookingCount: number
   videoTotal: number
   aiTotal: number
@@ -19,6 +20,7 @@ interface Videographer {
   photoTotal: number
   travelTotal: number
   sharedIntrosTotal: number
+  ctaBonusTotal: number
   variable: number
   total: number
 }
@@ -33,10 +35,24 @@ interface Rates {
 export function RemunerationCard({ videographer: v, rates }: { videographer: Videographer; rates: Rates }) {
   const router = useRouter()
   const [baseSalary, setBaseSalary] = useState(v.baseSalary)
+  const [hasCta, setHasCta] = useState(v.hasCta)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(v.baseSalary))
   const [saving, setSaving] = useState(false)
+  const [ctaSaving, setCtaSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
+
+  const toggleCta = async () => {
+    setCtaSaving(true)
+    try {
+      const res = await fetch(`/api/admin/videographers/${v.id}/cta`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hasCta: !hasCta }),
+      })
+      if (res.ok) { setHasCta(!hasCta); router.refresh() }
+    } finally { setCtaSaving(false) }
+  }
 
   const variable = v.variable
   const total = baseSalary + variable
@@ -90,6 +106,21 @@ export function RemunerationCard({ videographer: v, rates }: { videographer: Vid
       </CardHeader>
       <CardContent className="space-y-2 pt-0">
         <div className="h-px bg-slate-100" />
+
+        {/* CTA toggle */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-sm text-slate-400">Intro com CTA</span>
+          </div>
+          <button
+            onClick={toggleCta}
+            disabled={ctaSaving}
+            className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 disabled:opacity-50 ${hasCta ? "bg-amber-400" : "bg-slate-200"}`}
+          >
+            <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${hasCta ? "translate-x-4" : "translate-x-0.5"}`} />
+          </button>
+        </div>
 
         {/* Base salary row with inline edit */}
         <div className="flex items-center justify-between">
@@ -183,6 +214,13 @@ export function RemunerationCard({ videographer: v, rates }: { videographer: Vid
             icon={<Gift className="w-3.5 h-3.5 text-pink-400" />}
             label="Intros partilhadas"
             amount={v.sharedIntrosTotal}
+          />
+        )}
+        {v.ctaBonusTotal > 0 && (
+          <EarningsRow
+            icon={<Zap className="w-3.5 h-3.5 text-amber-400" />}
+            label="Bónus CTA"
+            amount={v.ctaBonusTotal}
           />
         )}
 

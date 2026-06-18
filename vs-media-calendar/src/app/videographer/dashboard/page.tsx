@@ -120,7 +120,7 @@ export default async function VideographerDashboard() {
             targetConsultantId: { not: null },
             createdAt: { gte: monthStart, lte: monthEnd },
           },
-          select: { videographerFee: true },
+          select: { videographerFee: true, ctaBonus: true },
         }),
       ])
   } catch (err) {
@@ -147,7 +147,8 @@ export default async function VideographerDashboard() {
 
   const curr = aggregateEarnings(monthBookings)
   const sharedIntrosTotal = sharedIntrosThisMonth.length * INTRO_RATE
-  const currVariable = curr.videoTotal + curr.aiTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal
+  const ctaBonusTotal = sharedIntrosThisMonth.reduce((sum, d) => sum + ((d as any).ctaBonus ?? 0), 0)
+  const currVariable = curr.videoTotal + curr.aiTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal + ctaBonusTotal
   const currTotal = baseSalary + currVariable
 
   const prev = aggregateEarnings(prevMonthBookings)

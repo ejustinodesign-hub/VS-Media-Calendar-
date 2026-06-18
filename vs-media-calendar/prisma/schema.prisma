@@ -163,6 +163,7 @@ model VideographerProfile {
   weeklyCapacity Int      @default(5)
   acceptingWork  Boolean  @default(true)
   baseSalary     Int      @default(1200)
+  hasCta         Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -311,6 +312,7 @@ model Deliverable {
   thirdConsultantId   String?
   fourthConsultantId  String?
   videographerFee     Float?
+  ctaBonus            Float?
   createdAt           DateTime @default(now())
 
   booking           Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)

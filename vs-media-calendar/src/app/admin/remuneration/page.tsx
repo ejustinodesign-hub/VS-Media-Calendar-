@@ -56,13 +56,17 @@ export default async function AdminRemunerationPage() {
   })
 
   let salaryMap: Record<string, number> = {}
+  let ctaMap: Record<string, boolean> = {}
   try {
-    const profiles = await prisma.$queryRawUnsafe<{ userId: string; baseSalary: number }[]>(
-      'SELECT "userId", "baseSalary" FROM "VideographerProfile"'
+    const profiles = await prisma.$queryRawUnsafe<{ userId: string; baseSalary: number; hasCta: boolean }[]>(
+      'SELECT "userId", "baseSalary", "hasCta" FROM "VideographerProfile"'
     )
-    for (const p of profiles) salaryMap[p.userId] = p.baseSalary
+    for (const p of profiles) {
+      salaryMap[p.userId] = p.baseSalary
+      ctaMap[p.userId] = p.hasCta
+    }
   } catch {
-    // baseSalary column not yet in DB — fall back to default 1200
+    // columns not yet in DB — fall back to defaults
   }
 
   const [allBookings, allIntros] = await Promise.all([
@@ -86,7 +90,7 @@ export default async function AdminRemunerationPage() {
         targetConsultantId: { not: null },
         createdAt: { gte: monthStart, lte: monthEnd },
       },
-      select: { uploadedBy: true, videographerFee: true },
+      select: { uploadedBy: true, videographerFee: true, ctaBonus: true },
     }),
   ])
 
@@ -107,7 +111,8 @@ export default async function AdminRemunerationPage() {
       travelTotal += e.travelEarnings
     }
     const sharedIntrosTotal = intros.length * INTRO_RATE
-    const variable = videoTotal + aiTotal + introTotal + photoTotal + travelTotal + sharedIntrosTotal
+    const ctaBonusTotal = intros.reduce((sum, d) => sum + ((d as any).ctaBonus ?? 0), 0)
+    const variable = videoTotal + aiTotal + introTotal + photoTotal + travelTotal + sharedIntrosTotal + ctaBonusTotal
     const total    = baseSalary + variable
 
     return {
@@ -116,6 +121,7 @@ export default async function AdminRemunerationPage() {
       email: v.email,
       image: v.image,
       baseSalary,
+      hasCta: ctaMap[v.id] ?? false,
       bookingCount: bookings.length,
       videoTotal,
       aiTotal,
@@ -123,6 +129,7 @@ export default async function AdminRemunerationPage() {
       photoTotal,
       travelTotal,
       sharedIntrosTotal,
+      ctaBonusTotal,
       variable,
       total,
     }

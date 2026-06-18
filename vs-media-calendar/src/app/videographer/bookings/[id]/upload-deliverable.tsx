@@ -38,6 +38,7 @@ interface IntroEntry {
   key: string
   count: 1 | 2 | 3 | 4
   consultantIds: string[]
+  hasCta: boolean
   file: File | null
   description: string
 }
@@ -46,9 +47,10 @@ interface Props {
   bookingId: string
   existingFiles: DeliverableFile[]
   primaryConsultantId: string
+  videographerHasCta?: boolean
 }
 
-export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantId }: Props) {
+export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantId, videographerHasCta = false }: Props) {
   const [localFiles, setLocalFiles] = useState<DeliverableFile[]>(existingFiles)
   const [file, setFile] = useState<File | null>(null)
   const [description, setDescription] = useState("")
@@ -94,6 +96,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     key: `intro-${Date.now()}`,
     count: 1,
     consultantIds: [""],
+    hasCta: false,
     file: null,
     description: "",
   })
@@ -132,6 +135,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     opts: {
       bookingId: string
       consultantIds?: string[]
+      hasCta?: boolean
       description?: string
       onProgress: (p: number) => void
     }
@@ -157,6 +161,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         mimeType: f.type,
         description: opts.description || null,
         consultantIds: opts.consultantIds?.filter(Boolean) || [],
+        hasCta: opts.hasCta || false,
       }),
     })
 
@@ -196,6 +201,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
       const blobUrl = await doUpload(entry.file, {
         bookingId,
         consultantIds: validIds,
+        hasCta: entry.hasCta,
         description: entry.description,
         onProgress: (p) => setIntroProgress(prev => ({ ...prev, [entry.key]: p })),
       })
@@ -340,6 +346,22 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
                     </p>
                   )}
                 </div>
+
+                {/* CTA option — only for eligible videographers */}
+                {videographerHasCta && (
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={entry.hasCta}
+                      onChange={e => updateEntry(entry.key, { hasCta: e.target.checked })}
+                      className="w-4 h-4 accent-amber-500 rounded"
+                    />
+                    <span className="text-sm font-medium text-amber-800">
+                      Intro com CTA
+                      <span className="ml-1.5 text-xs font-normal text-amber-600">(+5€ para ti)</span>
+                    </span>
+                  </label>
+                )}
 
                 {/* Consultant selectors */}
                 {Array.from({ length: entry.count }).map((_, idx) => (
