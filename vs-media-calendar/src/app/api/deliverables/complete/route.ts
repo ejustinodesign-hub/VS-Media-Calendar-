@@ -5,10 +5,13 @@ import { sendStatusUpdateEmail } from "@/lib/email"
 import { SERVICE_LABELS, IVA_RATE } from "@/lib/pricing"
 
 const INTRO_PRICE_NET = 25
-const INTRO_PRICE_WITH_IVA = Math.round(INTRO_PRICE_NET * (1 + IVA_RATE) * 100) / 100
-const INTRO_SPLIT_NET = INTRO_PRICE_NET / 2
-const INTRO_SPLIT_WITH_IVA = Math.round(INTRO_SPLIT_NET * (1 + IVA_RATE) * 100) / 100
 const VIDEOGRAPHER_FEE = 10
+
+function splitPrice(count: number) {
+  const net = Math.round((INTRO_PRICE_NET / count) * 100) / 100
+  const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
+  return { net, withIva }
+}
 
 async function chargeConsultantInvoice(consultantId: string, net: number, withIva: number) {
   const now = new Date()
@@ -34,8 +37,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { bookingId, fileName, fileUrl, mimeType, description, targetConsultantId, secondConsultantId } =
-    await req.json()
+  const {
+    bookingId, fileName, fileUrl, mimeType, description,
+    // consultantIds is preferred; legacy single-id fields kept for compat
+    consultantIds,
+    targetConsultantId,
+    secondConsultantId,
+  } = await req.json()
 
   if (!bookingId || !fileName || !fileUrl) {
     return NextResponse.json({ error: "Campos em falta" }, { status: 400 })
@@ -54,31 +62,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Marcação não encontrada" }, { status: 404 })
   }
 
-  // Handle extra intro for other consultant(s)
-  if (targetConsultantId) {
-    const targetConsultant = await prisma.user.findFirst({
-      where: { id: targetConsultantId, role: { in: ["CONSULTANT", "ADMIN"] }, active: true },
-      select: { id: true, name: true, email: true },
-    })
-    if (!targetConsultant) {
-      return NextResponse.json({ error: "Consultor não encontrado" }, { status: 404 })
+  // Build the list of target consultant IDs (new array format or legacy fields)
+  const rawIds: string[] = consultantIds?.length
+    ? consultantIds
+    : [targetConsultantId, secondConsultantId].filter(Boolean)
+
+  // Extra intro(s) for other consultant(s)
+  if (rawIds.length > 0) {
+    if (rawIds.length > 4) {
+      return NextResponse.json({ error: "Máximo de 4 consultores" }, { status: 400 })
     }
 
-    // Optional second consultant (shared intro — 25€ split in two)
-    let secondConsultant: { id: string; name: string | null; email: string | null } | null = null
-    if (secondConsultantId) {
-      secondConsultant = await prisma.user.findFirst({
-        where: { id: secondConsultantId, role: { in: ["CONSULTANT", "ADMIN"] }, active: true },
-        select: { id: true, name: true, email: true },
-      })
-      if (!secondConsultant) {
-        return NextResponse.json({ error: "Segundo consultor não encontrado" }, { status: 404 })
-      }
+    // Validate all consultants
+    const consultants = await Promise.all(
+      rawIds.map((cid) =>
+        prisma.user.findFirst({
+          where: { id: cid, role: { in: ["CONSULTANT", "ADMIN"] }, active: true },
+          select: { id: true, name: true },
+        })
+      )
+    )
+    const missing = consultants.findIndex((c) => !c)
+    if (missing !== -1) {
+      return NextResponse.json({ error: `Consultor ${missing + 1} não encontrado` }, { status: 404 })
     }
 
-    const isShared = !!secondConsultant
-    const priceNet = isShared ? INTRO_SPLIT_NET : INTRO_PRICE_NET
-    const priceWithIva = isShared ? INTRO_SPLIT_WITH_IVA : INTRO_PRICE_WITH_IVA
+    const { net, withIva } = splitPrice(rawIds.length)
+
+    const [id1, id2, id3, id4] = rawIds
 
     await prisma.deliverable.create({
       data: {
@@ -88,41 +99,36 @@ export async function POST(req: NextRequest) {
         mimeType: mimeType || null,
         uploadedBy: session.user.id,
         description: description || null,
-        targetConsultantId,
-        secondConsultantId: secondConsultantId || null,
+        targetConsultantId: id1,
+        secondConsultantId: id2 || null,
+        thirdConsultantId: id3 || null,
+        fourthConsultantId: id4 || null,
         videographerFee: VIDEOGRAPHER_FEE,
       },
     })
 
-    // Charge first consultant
-    await chargeConsultantInvoice(targetConsultantId, priceNet, priceWithIva)
+    const isShared = rawIds.length > 1
+    const names = consultants.map((c) => c!.name || "Consultor")
+    const sharedLabel = isShared
+      ? `partilhada (${rawIds.length} consultores, ${withIva.toFixed(2).replace(".", ",")}€ c/ IVA cada)`
+      : `(${withIva.toFixed(2).replace(".", ",")}€ c/ IVA adicionados à sua fatura)`
 
-    await prisma.notification.create({
-      data: {
-        userId: targetConsultantId,
-        bookingId: booking.id,
-        type: "FILE_UPLOADED",
-        title: "Intro de vídeo disponível",
-        message: isShared
-          ? `Uma versão de vídeo partilhada com a sua introdução para o imóvel ${booking.propertyAddress} está disponível (${priceWithIva.toFixed(2).replace(".", ",")}€ c/ IVA adicionados à sua fatura).`
-          : `Uma versão de vídeo com a sua introdução para o imóvel ${booking.propertyAddress} está disponível (${priceWithIva.toFixed(2).replace(".", ",")}€ c/ IVA adicionados à sua fatura).`,
-      },
-    })
-
-    // Charge second consultant and notify
-    if (secondConsultant) {
-      await chargeConsultantInvoice(secondConsultantId, priceNet, priceWithIva)
-
-      await prisma.notification.create({
-        data: {
-          userId: secondConsultantId,
-          bookingId: booking.id,
-          type: "FILE_UPLOADED",
-          title: "Intro de vídeo disponível",
-          message: `Uma versão de vídeo partilhada com a sua introdução para o imóvel ${booking.propertyAddress} está disponível (${priceWithIva.toFixed(2).replace(".", ",")}€ c/ IVA adicionados à sua fatura).`,
-        },
-      })
-    }
+    // Charge & notify each consultant
+    await Promise.all(
+      rawIds.map((cid) =>
+        chargeConsultantInvoice(cid, net, withIva).then(() =>
+          prisma.notification.create({
+            data: {
+              userId: cid,
+              bookingId: booking.id,
+              type: "FILE_UPLOADED",
+              title: "Intro de vídeo disponível",
+              message: `Uma versão de vídeo ${sharedLabel} para o imóvel ${booking.propertyAddress} está disponível.`,
+            },
+          })
+        )
+      )
+    )
 
     return NextResponse.json({ success: true })
   }

@@ -7,6 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, FileVideo, Trash2, Download, UserPlus, X, Users } from "lucide-react"
 
+const INTRO_PRICE_NET = 25
+const IVA = 0.23
+
+function pricePerConsultant(count: number) {
+  const net = Math.round((INTRO_PRICE_NET / count) * 100) / 100
+  const gross = Math.round(net * (1 + IVA) * 100) / 100
+  return { net, gross }
+}
+
 interface DeliverableFile {
   id: string
   fileName: string
@@ -15,6 +24,8 @@ interface DeliverableFile {
   createdAt?: Date | string
   targetConsultantId?: string | null
   secondConsultantId?: string | null
+  thirdConsultantId?: string | null
+  fourthConsultantId?: string | null
 }
 
 interface Consultant {
@@ -25,9 +36,8 @@ interface Consultant {
 
 interface IntroEntry {
   key: string
-  consultantId: string
-  secondConsultantId: string
-  shared: boolean
+  count: 1 | 2 | 3 | 4
+  consultantIds: string[]
   file: File | null
   description: string
 }
@@ -47,7 +57,6 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
   const [error, setError] = useState("")
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // Extra intros for other consultants
   const [introEntries, setIntroEntries] = useState<IntroEntry[]>([])
   const [uploadingIntroKey, setUploadingIntroKey] = useState<string | null>(null)
   const [introProgress, setIntroProgress] = useState<Record<string, number>>({})
@@ -65,11 +74,8 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     })
   }, [existingFiles])
 
-  // Pre-load consultants if there are already intro files, so names display correctly
   useEffect(() => {
-    if (existingFiles.some(f => f.targetConsultantId)) {
-      loadConsultants()
-    }
+    if (existingFiles.some(f => f.targetConsultantId)) loadConsultants()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -79,34 +85,56 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     try {
       const res = await fetch("/api/consultants")
       const data = await res.json()
-      // Exclude the primary consultant from the list
       setConsultants((data as Consultant[]).filter(c => c.id !== primaryConsultantId))
-    } catch {
-      // ignore
-    } finally {
-      setConsultantsLoading(false)
-    }
+    } catch { /* ignore */ }
+    finally { setConsultantsLoading(false) }
   }
+
+  const makeEntry = (): IntroEntry => ({
+    key: `intro-${Date.now()}`,
+    count: 1,
+    consultantIds: [""],
+    file: null,
+    description: "",
+  })
 
   const addIntroEntry = async () => {
     await loadConsultants()
-    setIntroEntries(prev => [
-      ...prev,
-      { key: `intro-${Date.now()}`, consultantId: "", secondConsultantId: "", shared: false, file: null, description: "" },
-    ])
+    setIntroEntries(prev => [...prev, makeEntry()])
   }
 
-  const removeIntroEntry = (key: string) => {
+  const removeIntroEntry = (key: string) =>
     setIntroEntries(prev => prev.filter(e => e.key !== key))
+
+  const updateEntry = (key: string, patch: Partial<IntroEntry>) =>
+    setIntroEntries(prev => prev.map(e => e.key === key ? { ...e, ...patch } : e))
+
+  const setCount = (key: string, count: 1 | 2 | 3 | 4) => {
+    setIntroEntries(prev => prev.map(e => {
+      if (e.key !== key) return e
+      const ids = [...e.consultantIds]
+      while (ids.length < count) ids.push("")
+      return { ...e, count, consultantIds: ids.slice(0, count) }
+    }))
   }
 
-  const updateIntroEntry = (key: string, patch: Partial<IntroEntry>) => {
-    setIntroEntries(prev => prev.map(e => e.key === key ? { ...e, ...patch } : e))
+  const setConsultantId = (key: string, idx: number, id: string) => {
+    setIntroEntries(prev => prev.map(e => {
+      if (e.key !== key) return e
+      const ids = [...e.consultantIds]
+      ids[idx] = id
+      return { ...e, consultantIds: ids }
+    }))
   }
 
   const doUpload = async (
     f: File,
-    opts: { bookingId: string; targetConsultantId?: string; secondConsultantId?: string; description?: string; onProgress: (p: number) => void }
+    opts: {
+      bookingId: string
+      consultantIds?: string[]
+      description?: string
+      onProgress: (p: number) => void
+    }
   ) => {
     const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_")
     const pathname = `deliverables/${opts.bookingId}/${Date.now()}-${safeName}`
@@ -128,8 +156,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         fileUrl: blob.url,
         mimeType: f.type,
         description: opts.description || null,
-        targetConsultantId: opts.targetConsultantId || null,
-        secondConsultantId: opts.secondConsultantId || null,
+        consultantIds: opts.consultantIds?.filter(Boolean) || [],
       }),
     })
 
@@ -146,62 +173,48 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     setUploading(true)
     setError("")
     setProgress(0)
-
     try {
-      const blobUrl = await doUpload(file, {
-        bookingId,
-        description,
-        onProgress: setProgress,
-      })
-
-      setLocalFiles(prev => [
-        ...prev,
-        { id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blobUrl, mimeType: file.type, createdAt: new Date() },
-      ])
-      setFile(null)
-      setDescription("")
-      setProgress(0)
+      const blobUrl = await doUpload(file, { bookingId, description, onProgress: setProgress })
+      setLocalFiles(prev => [...prev, {
+        id: `pending-${Date.now()}`, fileName: file.name, fileUrl: blobUrl,
+        mimeType: file.type, createdAt: new Date(),
+      }])
+      setFile(null); setDescription(""); setProgress(0)
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro no upload")
-    } finally {
-      setUploading(false)
-    }
+    } finally { setUploading(false) }
   }
 
   const handleIntroUpload = async (entry: IntroEntry) => {
-    if (!entry.file || !entry.consultantId) return
+    if (!entry.file) return
+    const validIds = entry.consultantIds.filter(Boolean)
+    if (validIds.length !== entry.count) return
     setUploadingIntroKey(entry.key)
     setIntroProgress(prev => ({ ...prev, [entry.key]: 0 }))
-
     try {
       const blobUrl = await doUpload(entry.file, {
         bookingId,
-        targetConsultantId: entry.consultantId,
-        secondConsultantId: entry.shared && entry.secondConsultantId ? entry.secondConsultantId : undefined,
+        consultantIds: validIds,
         description: entry.description,
         onProgress: (p) => setIntroProgress(prev => ({ ...prev, [entry.key]: p })),
       })
-
-      setLocalFiles(prev => [
-        ...prev,
-        {
-          id: `pending-${Date.now()}`,
-          fileName: entry.file!.name,
-          fileUrl: blobUrl,
-          mimeType: entry.file!.type,
-          createdAt: new Date(),
-          targetConsultantId: entry.consultantId,
-          secondConsultantId: entry.shared && entry.secondConsultantId ? entry.secondConsultantId : null,
-        },
-      ])
+      setLocalFiles(prev => [...prev, {
+        id: `pending-${Date.now()}`,
+        fileName: entry.file!.name,
+        fileUrl: blobUrl,
+        mimeType: entry.file!.type,
+        createdAt: new Date(),
+        targetConsultantId: validIds[0] || null,
+        secondConsultantId: validIds[1] || null,
+        thirdConsultantId: validIds[2] || null,
+        fourthConsultantId: validIds[3] || null,
+      }])
       removeIntroEntry(entry.key)
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro no upload da intro")
-    } finally {
-      setUploadingIntroKey(null)
-    }
+    } finally { setUploadingIntroKey(null) }
   }
 
   const handleDelete = async (deliverableId: string) => {
@@ -209,17 +222,12 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
     setDeletingId(deliverableId)
     try {
       const res = await fetch(`/api/deliverables/${deliverableId}`, { method: "DELETE" })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || "Erro ao apagar")
-      }
+      if (!res.ok) throw new Error((await res.json()).error || "Erro ao apagar")
       setLocalFiles(prev => prev.filter(f => f.id !== deliverableId))
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao apagar")
-    } finally {
-      setDeletingId(null)
-    }
+    } finally { setDeletingId(null) }
   }
 
   const mainFiles = localFiles.filter(f => !f.targetConsultantId)
@@ -227,7 +235,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
 
   return (
     <div className="space-y-4">
-      {/* Main delivery card */}
+      {/* Main delivery */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -244,22 +252,15 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
               {mainFiles.map(f => <FileRow key={f.id} f={f} deletingId={deletingId} onDelete={handleDelete} />)}
             </div>
           )}
-
           <DropZone file={file} inputId="deliverable-upload" onFileChange={setFile} onErrorClear={() => setError("")} />
-
           {file && (
-            <input
-              type="text"
-              placeholder="Descrição (opcional)"
-              value={description}
+            <input type="text" placeholder="Descrição (opcional)" value={description}
               onChange={e => setDescription(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-[#0f3460] focus:ring-2 focus:ring-[#0f3460]/10"
             />
           )}
-
           {uploading && <ProgressBar progress={progress} />}
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-
           {file && (
             <Button onClick={handleUpload} disabled={uploading} loading={uploading} className="w-full">
               <Upload className="w-4 h-4" />
@@ -269,7 +270,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         </CardContent>
       </Card>
 
-      {/* Extra intros for other consultants */}
+      {/* Extra intros */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -282,128 +283,122 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-slate-500">
-            Filmou uma versão com intro personalizada para outro(s) consultor(es)? Entregue aqui.
-            Receberá 10€ por cada entrega.
+            Filmou uma intro personalizada para outros consultores? Os 25€ são divididos pelo número de consultores.
           </p>
 
-          {/* Already uploaded intros */}
           {introFiles.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700">Intros entregues:</p>
               {introFiles.map(f => (
-                <FileRow key={f.id} f={f} deletingId={deletingId} onDelete={handleDelete} showConsultantBadge consultants={consultants} />
+                <FileRow key={f.id} f={f} deletingId={deletingId} onDelete={handleDelete}
+                  showConsultantBadge consultants={consultants} />
               ))}
             </div>
           )}
 
-          {/* Pending intro uploads */}
-          {introEntries.map(entry => (
-            <div key={entry.key} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-700">Nova intro</p>
-                <button
-                  onClick={() => removeIntroEntry(entry.key)}
-                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+          {introEntries.map(entry => {
+            const { gross } = pricePerConsultant(entry.count)
+            const validIds = entry.consultantIds.filter(Boolean)
+            const canUpload = entry.file && validIds.length === entry.count
+            const usedIds = new Set(validIds)
 
-              {/* Shared toggle */}
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <div
-                  onClick={() => updateIntroEntry(entry.key, { shared: !entry.shared, secondConsultantId: "" })}
-                  className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${entry.shared ? "bg-[#e94560]" : "bg-slate-200"}`}
-                >
-                  <div className={`w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${entry.shared ? "translate-x-4" : "translate-x-0.5"}`} />
+            return (
+              <div key={entry.key} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-700">Nova intro</p>
+                  <button onClick={() => removeIntroEntry(entry.key)}
+                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <span className="text-xs text-slate-600">
-                  Partilhada com 2 consultores
-                  <span className="ml-1 text-slate-400">(25€ ÷ 2 = 12,50€ cada)</span>
-                </span>
-              </label>
 
-              {/* First consultant */}
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-slate-500">
-                  {entry.shared ? "1.º Consultor" : "Consultor"}
-                </p>
-                <select
-                  value={entry.consultantId}
-                  onChange={e => updateIntroEntry(entry.key, { consultantId: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 focus:border-[#0f3460] bg-white"
-                >
-                  <option value="">
-                    {consultantsLoading ? "A carregar consultores..." : "Selecionar consultor..."}
-                  </option>
-                  {consultants.map(c => (
-                    <option key={c.id} value={c.id} disabled={entry.shared && c.id === entry.secondConsultantId}>
-                      {c.name || c.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Second consultant (only when shared) */}
-              {entry.shared && (
+                {/* Count selector */}
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-slate-500">2.º Consultor</p>
-                  <select
-                    value={entry.secondConsultantId}
-                    onChange={e => updateIntroEntry(entry.key, { secondConsultantId: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 focus:border-[#0f3460] bg-white"
-                  >
-                    <option value="">Selecionar consultor...</option>
-                    {consultants.map(c => (
-                      <option key={c.id} value={c.id} disabled={c.id === entry.consultantId}>
-                        {c.name || c.email}
-                      </option>
-                    ))}
-                  </select>
+                  <p className="text-xs font-medium text-slate-500">Número de consultores</p>
+                  <div className="flex gap-1.5">
+                    {([1, 2, 3, 4] as const).map(n => {
+                      const { gross: g } = pricePerConsultant(n)
+                      return (
+                        <button key={n} onClick={() => setCount(entry.key, n)}
+                          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
+                            entry.count === n
+                              ? "bg-[#e94560] text-white border-[#e94560]"
+                              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          {n}×
+                          <span className="block text-[10px] font-normal opacity-80 leading-none mt-0.5">
+                            {g.toFixed(2).replace(".", ",")}€
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {entry.count > 1 && (
+                    <p className="text-[10px] text-slate-400 text-center">
+                      25,00€ ÷ {entry.count} = {gross.toFixed(2).replace(".", ",")}€ c/ IVA por consultor
+                    </p>
+                  )}
                 </div>
-              )}
 
-              <DropZone
-                file={entry.file}
-                inputId={`intro-upload-${entry.key}`}
-                onFileChange={f => updateIntroEntry(entry.key, { file: f })}
-                onErrorClear={() => setError("")}
-                label="Clique para selecionar o vídeo desta intro"
-              />
+                {/* Consultant selectors */}
+                {Array.from({ length: entry.count }).map((_, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <p className="text-xs font-medium text-slate-500">
+                      {entry.count === 1 ? "Consultor" : `${idx + 1}.º Consultor`}
+                    </p>
+                    <select
+                      value={entry.consultantIds[idx] || ""}
+                      onChange={e => setConsultantId(entry.key, idx, e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3460]/30 focus:border-[#0f3460] bg-white"
+                    >
+                      <option value="">
+                        {consultantsLoading ? "A carregar..." : "Selecionar consultor..."}
+                      </option>
+                      {consultants.map(c => (
+                        <option key={c.id} value={c.id}
+                          disabled={usedIds.has(c.id) && entry.consultantIds[idx] !== c.id}>
+                          {c.name || c.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
 
-              {entry.file && (
-                <input
-                  type="text"
-                  placeholder="Descrição (opcional)"
-                  value={entry.description}
-                  onChange={e => updateIntroEntry(entry.key, { description: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-[#0f3460] focus:ring-2 focus:ring-[#0f3460]/10"
+                <DropZone file={entry.file} inputId={`intro-upload-${entry.key}`}
+                  onFileChange={f => updateEntry(entry.key, { file: f })}
+                  onErrorClear={() => setError("")}
+                  label="Clique para selecionar o vídeo desta intro"
                 />
-              )}
 
-              {uploadingIntroKey === entry.key && (
-                <ProgressBar progress={introProgress[entry.key] ?? 0} />
-              )}
+                {entry.file && (
+                  <input type="text" placeholder="Descrição (opcional)" value={entry.description}
+                    onChange={e => updateEntry(entry.key, { description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-[#0f3460] focus:ring-2 focus:ring-[#0f3460]/10"
+                  />
+                )}
 
-              {entry.file && entry.consultantId && (!entry.shared || entry.secondConsultantId) && (
-                <Button
-                  onClick={() => handleIntroUpload(entry)}
-                  disabled={uploadingIntroKey === entry.key}
-                  loading={uploadingIntroKey === entry.key}
-                  className="w-full"
-                  variant="secondary"
-                >
-                  <Upload className="w-4 h-4" />
-                  {uploadingIntroKey === entry.key
-                    ? `A carregar... ${introProgress[entry.key] ?? 0}%`
-                    : entry.shared ? "Entregar intro partilhada" : "Entregar intro"}
-                </Button>
-              )}
-            </div>
-          ))}
+                {uploadingIntroKey === entry.key && (
+                  <ProgressBar progress={introProgress[entry.key] ?? 0} />
+                )}
 
-          <button
-            onClick={addIntroEntry}
+                {canUpload && (
+                  <Button onClick={() => handleIntroUpload(entry)}
+                    disabled={uploadingIntroKey === entry.key}
+                    loading={uploadingIntroKey === entry.key}
+                    className="w-full" variant="secondary"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {uploadingIntroKey === entry.key
+                      ? `A carregar... ${introProgress[entry.key] ?? 0}%`
+                      : entry.count === 1 ? "Entregar intro" : `Entregar intro (${entry.count} consultores)`}
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+
+          <button onClick={addIntroEntry}
             className="flex items-center gap-2 w-full px-4 py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-500 hover:border-[#e94560] hover:text-[#e94560] transition-colors"
           >
             <UserPlus className="w-4 h-4" />
@@ -416,11 +411,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
 }
 
 function FileRow({
-  f,
-  deletingId,
-  onDelete,
-  showConsultantBadge = false,
-  consultants = [],
+  f, deletingId, onDelete, showConsultantBadge = false, consultants = [],
 }: {
   f: DeliverableFile
   deletingId: string | null
@@ -428,12 +419,12 @@ function FileRow({
   showConsultantBadge?: boolean
   consultants?: Consultant[]
 }) {
-  const name1 = showConsultantBadge && f.targetConsultantId
-    ? consultants.find(c => c.id === f.targetConsultantId)?.name || "Consultor"
-    : null
-  const name2 = showConsultantBadge && f.secondConsultantId
-    ? consultants.find(c => c.id === f.secondConsultantId)?.name || "Consultor"
-    : null
+  const ids = [f.targetConsultantId, f.secondConsultantId, f.thirdConsultantId, f.fourthConsultantId].filter(Boolean) as string[]
+  const names = showConsultantBadge
+    ? ids.map(id => consultants.find(c => c.id === id)?.name || "Consultor")
+    : []
+  const count = ids.length
+  const { gross } = count > 0 ? pricePerConsultant(count) : { gross: 0 }
 
   return (
     <div className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50">
@@ -452,12 +443,12 @@ function FileRow({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{f.fileName}</p>
-          {name1 && !name2 && (
-            <p className="text-xs text-[#e94560] font-medium mt-0.5">Intro para: {name1}</p>
+          {names.length === 1 && (
+            <p className="text-xs text-[#e94560] font-medium mt-0.5">Intro para: {names[0]}</p>
           )}
-          {name1 && name2 && (
+          {names.length > 1 && (
             <p className="text-xs text-[#e94560] font-medium mt-0.5">
-              Intro partilhada: {name1} &amp; {name2} (12,50€ cada)
+              Intro partilhada ({names.length}×): {names.join(", ")} — {gross.toFixed(2).replace(".", ",")}€ cada
             </p>
           )}
           {f.createdAt && (() => {
@@ -473,8 +464,7 @@ function FileRow({
         >
           <Download className="w-4 h-4" />
         </a>
-        <button
-          onClick={() => onDelete(f.id)}
+        <button onClick={() => onDelete(f.id)}
           disabled={deletingId === f.id || f.id.startsWith("pending-")}
           title={f.id.startsWith("pending-") ? "A guardar..." : "Apagar ficheiro"}
           className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
@@ -486,34 +476,16 @@ function FileRow({
   )
 }
 
-function DropZone({
-  file,
-  inputId,
-  onFileChange,
-  onErrorClear,
-  label,
-}: {
-  file: File | null
-  inputId: string
-  onFileChange: (f: File | null) => void
-  onErrorClear: () => void
-  label?: string
+function DropZone({ file, inputId, onFileChange, onErrorClear, label }: {
+  file: File | null; inputId: string
+  onFileChange: (f: File | null) => void; onErrorClear: () => void; label?: string
 }) {
   return (
-    <div
-      className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-        file ? "border-[#0f3460] bg-[#0f3460]/5" : "border-slate-200 hover:border-slate-300"
-      }`}
-    >
-      <input
-        type="file"
-        id={inputId}
-        className="hidden"
-        accept="video/*,image/*,.pdf,.zip"
-        onChange={e => {
-          onFileChange(e.target.files?.[0] || null)
-          onErrorClear()
-        }}
+    <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+      file ? "border-[#0f3460] bg-[#0f3460]/5" : "border-slate-200 hover:border-slate-300"
+    }`}>
+      <input type="file" id={inputId} className="hidden" accept="video/*,image/*,.pdf,.zip"
+        onChange={e => { onFileChange(e.target.files?.[0] || null); onErrorClear() }}
       />
       <label htmlFor={inputId} className="cursor-pointer">
         {file ? (
@@ -525,9 +497,7 @@ function DropZone({
         ) : (
           <div>
             <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-medium text-slate-600">
-              {label || "Clique para selecionar o ficheiro"}
-            </p>
+            <p className="text-sm font-medium text-slate-600">{label || "Clique para selecionar o ficheiro"}</p>
             <p className="text-xs text-slate-400 mt-1">Vídeo, imagem, PDF ou ZIP</p>
           </div>
         )}
@@ -540,14 +510,10 @@ function ProgressBar({ progress }: { progress: number }) {
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs text-slate-500">
-        <span>A carregar...</span>
-        <span>{progress}%</span>
+        <span>A carregar...</span><span>{progress}%</span>
       </div>
       <div className="w-full bg-slate-100 rounded-full h-2">
-        <div
-          className="bg-[#0f3460] h-2 rounded-full transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
+        <div className="bg-[#0f3460] h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
       </div>
     </div>
   )
