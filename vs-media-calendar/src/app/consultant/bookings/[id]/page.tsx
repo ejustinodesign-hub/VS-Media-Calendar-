@@ -254,9 +254,8 @@ export default async function BookingDetailPage({ params }: Props) {
                           </p>
                         </div>
                         <a
-                          href={d.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          href={`/api/download?url=${encodeURIComponent(d.fileUrl)}&filename=${encodeURIComponent(d.fileName)}`}
+                          download={d.fileName}
                           className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
                         >
                           <Download className="w-4 h-4" />

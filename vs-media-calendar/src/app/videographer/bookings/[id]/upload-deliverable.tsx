@@ -466,9 +466,8 @@ function FileRow({
           })()}
         </div>
         <a
-          href={f.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={`/api/download?url=${encodeURIComponent(f.fileUrl)}&filename=${encodeURIComponent(f.fileName)}`}
+          download={f.fileName}
           title="Descarregar"
           className="p-1.5 rounded text-emerald-700 hover:bg-emerald-100 transition-colors"
         >
