@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
-import { formatPrice, IVA_RATE, SERVICE_LABELS } from "@/lib/pricing"
+import { formatPrice, IVA_RATE, SERVICE_LABELS, DEFAULT_PRICES } from "@/lib/pricing"
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
 import {
@@ -11,6 +11,8 @@ import {
   Download, FileVideo, ArrowLeft,
 } from "lucide-react"
 import { TravelFeeToggle } from "./travel-fee-toggle"
+import { EditServices } from "./edit-services"
+import type { ServiceType } from "@prisma/client"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -19,18 +21,24 @@ interface Props {
 export default async function AdminBookingDetailPage({ params }: Props) {
   const { id } = await params
 
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    include: {
-      consultant:   { select: { name: true, email: true, image: true } },
-      videographer: { select: { name: true, email: true, image: true } },
-      services:     true,
-      payment:      true,
-      deliverables: true,
-    },
-  })
+  const [booking, pricingRules] = await Promise.all([
+    prisma.booking.findUnique({
+      where: { id },
+      include: {
+        consultant:   { select: { name: true, email: true, image: true } },
+        videographer: { select: { name: true, email: true, image: true } },
+        services:     true,
+        payment:      true,
+        deliverables: true,
+      },
+    }),
+    prisma.pricingRule.findMany({ where: { active: true, teamId: null }, select: { serviceType: true, basePrice: true } }),
+  ])
 
   if (!booking) notFound()
+
+  const activePrices: Record<string, number> = { ...DEFAULT_PRICES }
+  for (const r of pricingRules) activePrices[r.serviceType] = r.basePrice
 
   const scheduledDate = new Date(booking.scheduledAt)
   const net = booking.services.reduce((s, svc) => s + svc.price, 0)
@@ -124,14 +132,15 @@ export default async function AdminBookingDetailPage({ params }: Props) {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 mb-4">
-              {booking.services.map((s) => (
-                <div key={s.id} className="flex justify-between text-sm">
-                  <span className="text-slate-600">{SERVICE_LABELS[s.serviceType as keyof typeof SERVICE_LABELS]}</span>
-                  <span className="font-medium text-slate-900">{formatPrice(s.price)}</span>
-                </div>
-              ))}
+              <EditServices
+                bookingId={booking.id}
+                services={booking.services.map((s) => ({ id: s.id, serviceType: s.serviceType, price: s.price }))}
+                serviceLabels={SERVICE_LABELS as Record<string, string>}
+                servicePrices={activePrices}
+                allServiceTypes={Object.keys(SERVICE_LABELS)}
+              />
               {booking.additionalIntros > 0 && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm mt-2">
                   <span className="text-slate-600">Introduções adicionais ({booking.additionalIntros}×)</span>
                   <span className="font-medium text-slate-900">{formatPrice(booking.additionalIntros * 25)}</span>
                 </div>
