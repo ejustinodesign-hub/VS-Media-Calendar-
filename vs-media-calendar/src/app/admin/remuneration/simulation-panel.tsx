@@ -18,7 +18,7 @@ interface SimResult {
 
 interface SimData {
   month: string
-  rates: { standard: number; drone: number; photo: number; intro: number }
+  rates: { standard: number; drone: number; photoRates: Record<string, number>; intro: number }
   revenue: {
     services: number
     travel: number
@@ -205,7 +205,7 @@ export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: numb
               </div>
 
               <p className="text-xs text-slate-400 text-center">
-                Vídeo std {data.rates.standard}€ · Drone {data.rates.drone}€ · Foto {data.rates.photo}€ · Intro {data.rates.intro}€ · sem avença
+                Vídeo std {data.rates.standard}€ · Drone {data.rates.drone}€ · Foto T1/T2 {data.rates.photoRates.PHOTO_T1_T2}€ · T3/T4 {data.rates.photoRates.PHOTO_T3_T4}€ · T5+ {data.rates.photoRates.PHOTO_T5_PLUS}€ · Drone {data.rates.photoRates.PHOTO_DRONE}€ · Intro {data.rates.intro}€ · sem avença
               </p>
             </div>
           </div>
