@@ -44,7 +44,7 @@ export async function GET() {
   })
 
   const results = videographers.map((v) => {
-    const baseSalary = salaryMap[v.id] ?? 1200
+    const currentBaseSalary = salaryMap[v.id] ?? 1200
     const bookings = allBookings.filter((b) => b.videographerId === v.id)
 
     let standardCount = 0
@@ -56,18 +56,17 @@ export async function GET() {
       }
     }
 
-    const simulatedVariable = standardCount * NEW_STANDARD_RATE + droneCount * NEW_DRONE_RATE
-    const simulatedTotal = baseSalary + simulatedVariable
+    // New model: no base salary, purely per video
+    const newTotal = standardCount * NEW_STANDARD_RATE + droneCount * NEW_DRONE_RATE
 
     return {
       id: v.id,
       name: v.name,
       email: v.email,
-      baseSalary,
+      currentBaseSalary,
       standardCount,
       droneCount,
-      simulatedVariable,
-      simulatedTotal,
+      newTotal,
     }
   })
 
@@ -75,6 +74,6 @@ export async function GET() {
     month: now.toLocaleDateString("pt-PT", { month: "long", year: "numeric" }),
     rates: { standard: NEW_STANDARD_RATE, drone: NEW_DRONE_RATE },
     results,
-    grandTotal: results.reduce((sum, r) => sum + r.simulatedTotal, 0),
+    grandNewTotal: results.reduce((sum, r) => sum + r.newTotal, 0),
   })
 }
