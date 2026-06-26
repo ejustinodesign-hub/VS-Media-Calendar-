@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { formatPrice } from "@/lib/pricing"
-import { Calculator, Video, Loader2, X, TrendingDown, TrendingUp } from "lucide-react"
+import { Calculator, Video, Camera, Gift, Loader2, X, TrendingDown, TrendingUp } from "lucide-react"
 
 interface SimResult {
   id: string
@@ -11,12 +11,17 @@ interface SimResult {
   currentBaseSalary: number
   standardCount: number
   droneCount: number
+  photoCount: number
+  introCount: number
+  videoTotal: number
+  photoTotal: number
+  introTotal: number
   newTotal: number
 }
 
 interface SimData {
   month: string
-  rates: { standard: number; drone: number }
+  rates: { standard: number; drone: number; photo: number; intro: number }
   results: SimResult[]
   grandNewTotal: number
 }
@@ -60,13 +65,13 @@ export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: numb
 
       {open && data && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
 
             <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Simulação — sem avença, por vídeo</h2>
+                <h2 className="text-lg font-bold text-slate-900">Simulação — sem avença, por serviço entregue</h2>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  {data.rates.standard}€ vídeo standard · {data.rates.drone}€ vídeo drone · {data.month}
+                  Vídeo std {data.rates.standard}€ · Drone {data.rates.drone}€ · Foto {data.rates.photo}€ · Intro {data.rates.intro}€ · {data.month}
                 </p>
               </div>
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600 mt-0.5">
@@ -75,7 +80,7 @@ export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: numb
             </div>
 
             <div className="p-6 space-y-5">
-              {/* Summary comparison */}
+              {/* Summary */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-50 rounded-xl p-4 text-center">
                   <p className="text-xs text-slate-400 mb-1">Modelo atual (com avença)</p>
@@ -94,66 +99,68 @@ export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: numb
                   </p>
                 </div>
                 <div className="bg-[#0f3460]/5 rounded-xl p-4 text-center">
-                  <p className="text-xs text-slate-400 mb-1">Modelo novo (só vídeos)</p>
+                  <p className="text-xs text-slate-400 mb-1">Modelo novo (por serviço)</p>
                   <p className="text-2xl font-bold text-[#0f3460]">{formatPrice(data.grandNewTotal)}</p>
                 </div>
               </div>
 
               {/* Per-videographer table */}
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-slate-400 border-b border-slate-100">
-                    <th className="text-left pb-2 font-medium">Videógrafo</th>
-                    <th className="text-center pb-2 font-medium">
-                      <span title="Vídeo standard">Std</span>
-                    </th>
-                    <th className="text-center pb-2 font-medium">
-                      <span title="Vídeo drone">Drone</span>
-                    </th>
-                    <th className="text-right pb-2 font-medium">Atual</th>
-                    <th className="text-right pb-2 font-medium">Novo</th>
-                    <th className="text-right pb-2 font-medium">Diff</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.results.map((r) => {
-                    const rowDiff = r.currentBaseSalary - r.newTotal
-                    return (
-                      <tr key={r.id} className="border-b border-slate-50">
-                        <td className="py-3 font-medium text-slate-800">{r.name || r.email}</td>
-                        <td className="py-3 text-center text-slate-500">
-                          <span className="inline-flex items-center gap-1">
-                            <Video className="w-3 h-3" /> {r.standardCount}
-                          </span>
-                        </td>
-                        <td className="py-3 text-center text-slate-500">
-                          <span className="inline-flex items-center gap-1">
-                            <Video className="w-3 h-3 text-blue-400" /> {r.droneCount}
-                          </span>
-                        </td>
-                        <td className="py-3 text-right text-slate-500">{formatPrice(r.currentBaseSalary)}</td>
-                        <td className="py-3 text-right font-semibold text-slate-800">{formatPrice(r.newTotal)}</td>
-                        <td className={`py-3 text-right text-xs font-semibold ${rowDiff >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                          {rowDiff >= 0 ? "-" : "+"}{formatPrice(Math.abs(rowDiff))}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-slate-200">
-                    <td colSpan={3} className="pt-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</td>
-                    <td className="pt-3 text-right font-semibold text-slate-500">{formatPrice(currentGrandTotal)}</td>
-                    <td className="pt-3 text-right font-bold text-[#0f3460]">{formatPrice(data.grandNewTotal)}</td>
-                    <td className={`pt-3 text-right text-sm font-bold ${saving >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      {saving >= 0 ? "-" : "+"}{formatPrice(Math.abs(saving))}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-slate-400 border-b border-slate-100">
+                      <th className="text-left pb-2 font-medium">Videógrafo</th>
+                      <th className="text-center pb-2 font-medium">
+                        <span className="inline-flex items-center gap-1"><Video className="w-3 h-3" /> Std</span>
+                      </th>
+                      <th className="text-center pb-2 font-medium">
+                        <span className="inline-flex items-center gap-1"><Video className="w-3 h-3 text-blue-400" /> Drone</span>
+                      </th>
+                      <th className="text-center pb-2 font-medium">
+                        <span className="inline-flex items-center gap-1"><Camera className="w-3 h-3 text-violet-400" /> Fotos</span>
+                      </th>
+                      <th className="text-center pb-2 font-medium">
+                        <span className="inline-flex items-center gap-1"><Gift className="w-3 h-3 text-pink-400" /> Intros</span>
+                      </th>
+                      <th className="text-right pb-2 font-medium">Atual</th>
+                      <th className="text-right pb-2 font-medium">Novo</th>
+                      <th className="text-right pb-2 font-medium">Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.results.map((r) => {
+                      const rowDiff = r.currentBaseSalary - r.newTotal
+                      return (
+                        <tr key={r.id} className="border-b border-slate-50">
+                          <td className="py-3 font-medium text-slate-800">{r.name || r.email}</td>
+                          <td className="py-3 text-center text-slate-500">{r.standardCount}</td>
+                          <td className="py-3 text-center text-slate-500">{r.droneCount}</td>
+                          <td className="py-3 text-center text-slate-500">{r.photoCount}</td>
+                          <td className="py-3 text-center text-slate-500">{r.introCount}</td>
+                          <td className="py-3 text-right text-slate-500">{formatPrice(r.currentBaseSalary)}</td>
+                          <td className="py-3 text-right font-semibold text-slate-800">{formatPrice(r.newTotal)}</td>
+                          <td className={`py-3 text-right text-xs font-semibold ${rowDiff >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                            {rowDiff >= 0 ? "-" : "+"}{formatPrice(Math.abs(rowDiff))}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-200">
+                      <td colSpan={5} className="pt-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Total</td>
+                      <td className="pt-3 text-right font-semibold text-slate-500">{formatPrice(currentGrandTotal)}</td>
+                      <td className="pt-3 text-right font-bold text-[#0f3460]">{formatPrice(data.grandNewTotal)}</td>
+                      <td className={`pt-3 text-right text-sm font-bold ${saving >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {saving >= 0 ? "-" : "+"}{formatPrice(Math.abs(saving))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
 
               <p className="text-xs text-slate-400 text-center">
-                Modelo novo: sem avença · apenas vídeos (standard + drone) · fotos, IA, deslocações e intros não incluídos
+                Sem avença · vídeos standard + drone às novas taxas · fotos e intros às taxas atuais (10€)
               </p>
             </div>
           </div>
