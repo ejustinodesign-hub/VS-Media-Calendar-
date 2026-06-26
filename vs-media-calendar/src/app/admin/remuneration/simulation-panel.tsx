@@ -2,19 +2,18 @@
 
 import { useState } from "react"
 import { formatPrice } from "@/lib/pricing"
-import { Calculator, Video, Camera, Gift, Loader2, X, TrendingDown, TrendingUp, Euro } from "lucide-react"
+import { Calculator, Video, Camera, Gift, Loader2, X, Euro } from "lucide-react"
 
 interface SimResult {
   id: string
   name: string | null
   email: string | null
-  currentBaseSalary: number
+  currentTotal: number
+  newTotal: number
   standardCount: number
   droneCount: number
   photoCount: number
   introCount: number
-  currentTotal: number
-  newTotal: number
 }
 
 interface SimData {
@@ -32,15 +31,6 @@ interface SimData {
   grandNewTotal: number
   profitCurrent: number
   profitNew: number
-}
-
-function DiffBadge({ value, invert = false }: { value: number; invert?: boolean }) {
-  const positive = invert ? value <= 0 : value >= 0
-  return (
-    <span className={`text-xs font-semibold ${positive ? "text-emerald-600" : "text-red-600"}`}>
-      {value >= 0 ? "+" : ""}{formatPrice(value)}
-    </span>
-  )
 }
 
 export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: number }) {
@@ -79,140 +69,115 @@ export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: numb
 
       {open && data && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
 
             {/* Header */}
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
+            <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Simulação — sem avença, por serviço</h2>
-                <p className="text-sm text-slate-500 mt-0.5">
-                  Vídeo std {data.rates.standard}€ · Drone {data.rates.drone}€ · Foto {data.rates.photo}€ · Intro {data.rates.intro}€ · {data.month}
-                </p>
+                <h2 className="text-base font-bold text-slate-900">Simulação — sem avença, por serviço entregue</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{data.month}</p>
               </div>
-              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600 mt-0.5">
+              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
+
+              {/* HERO — profit comparison */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 rounded-2xl p-5 text-center">
+                  <p className="text-xs text-slate-400 font-medium mb-2">Lucro este mês<br/><span className="font-normal">modelo atual (com avença)</span></p>
+                  <p className={`text-3xl font-bold ${data.profitCurrent >= 0 ? "text-slate-800" : "text-red-600"}`}>
+                    {formatPrice(data.profitCurrent)}
+                  </p>
+                  {data.revenue.total > 0 && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      margem {Math.round((data.profitCurrent / data.revenue.total) * 100)}%
+                    </p>
+                  )}
+                </div>
+                <div className="bg-[#0f3460] rounded-2xl p-5 text-center">
+                  <p className="text-xs text-slate-300 font-medium mb-2">Lucro este mês<br/><span className="font-normal">modelo novo (sem avença)</span></p>
+                  <p className={`text-3xl font-bold ${data.profitNew >= 0 ? "text-white" : "text-red-300"}`}>
+                    {formatPrice(data.profitNew)}
+                  </p>
+                  {data.revenue.total > 0 && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      margem {Math.round((data.profitNew / data.revenue.total) * 100)}%
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Diff callout */}
+              {(() => {
+                const diff = data.profitNew - data.profitCurrent
+                return (
+                  <div className={`rounded-xl px-4 py-3 flex items-center justify-between ${diff >= 0 ? "bg-emerald-50 border border-emerald-100" : "bg-red-50 border border-red-100"}`}>
+                    <span className="text-sm text-slate-600">
+                      {diff >= 0 ? "O modelo novo traria mais lucro" : "O modelo novo reduziria o lucro"}
+                    </span>
+                    <span className={`text-base font-bold ${diff >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                      {diff >= 0 ? "+" : ""}{formatPrice(diff)}
+                    </span>
+                  </div>
+                )
+              })()}
 
               {/* Revenue breakdown */}
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <Euro className="w-3.5 h-3.5" /> Receita da empresa este mês (líquida s/ IVA)
+                  <Euro className="w-3.5 h-3.5" /> Receita líquida (s/ IVA)
                 </p>
-                <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Serviços (vídeo, foto, IA…)</span>
-                    <span className="font-medium text-slate-800">{formatPrice(data.revenue.services)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Deslocações</span>
-                    <span className="font-medium text-slate-800">{formatPrice(data.revenue.travel)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Intros (marcação)</span>
-                    <span className="font-medium text-slate-800">{formatPrice(data.revenue.bookingIntros)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Intros partilhadas (entregues)</span>
-                    <span className="font-medium text-slate-800">{formatPrice(data.revenue.sharedIntros)}</span>
-                  </div>
-                  <div className="h-px bg-slate-200" />
-                  <div className="flex justify-between text-sm font-bold">
+                <div className="bg-slate-50 rounded-xl divide-y divide-slate-100">
+                  {[
+                    { label: "Serviços (vídeo, foto, IA…)", value: data.revenue.services },
+                    { label: "Deslocações", value: data.revenue.travel },
+                    { label: "Intros de marcação", value: data.revenue.bookingIntros },
+                    { label: "Intros partilhadas entregues", value: data.revenue.sharedIntros },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between px-4 py-2.5 text-sm">
+                      <span className="text-slate-500">{label}</span>
+                      <span className="font-medium text-slate-700">{formatPrice(value)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between px-4 py-2.5 text-sm font-bold">
                     <span className="text-slate-700">Total receita</span>
                     <span className="text-slate-900">{formatPrice(data.revenue.total)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Profit comparison */}
+              {/* Cost breakdown */}
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Lucro da empresa</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="border border-slate-200 rounded-xl p-4 space-y-2">
-                    <p className="text-xs text-slate-400 font-medium">Modelo atual (com avença)</p>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Receita</span>
-                      <span>{formatPrice(data.revenue.total)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Custo videógrafos</span>
-                      <span className="text-red-600">− {formatPrice(data.grandCurrentTotal)}</span>
-                    </div>
-                    <div className="h-px bg-slate-100" />
-                    <div className="flex justify-between font-bold">
-                      <span className="text-slate-700">Lucro</span>
-                      <span className={data.profitCurrent >= 0 ? "text-emerald-600" : "text-red-600"}>
-                        {formatPrice(data.profitCurrent)}
-                      </span>
-                    </div>
-                    {data.revenue.total > 0 && (
-                      <p className="text-xs text-slate-400 text-right">
-                        margem {Math.round((data.profitCurrent / data.revenue.total) * 100)}%
-                      </p>
-                    )}
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Custo videógrafos</p>
+                <div className="bg-slate-50 rounded-xl divide-y divide-slate-100">
+                  <div className="flex justify-between px-4 py-2.5 text-sm">
+                    <span className="text-slate-500">Modelo atual (avença + variável)</span>
+                    <span className="font-medium text-slate-700">{formatPrice(data.grandCurrentTotal)}</span>
                   </div>
-
-                  <div className="border-2 border-[#0f3460] rounded-xl p-4 space-y-2">
-                    <p className="text-xs text-[#0f3460] font-semibold">Modelo novo (sem avença)</p>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Receita</span>
-                      <span>{formatPrice(data.revenue.total)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Custo videógrafos</span>
-                      <span className="text-red-600">− {formatPrice(data.grandNewTotal)}</span>
-                    </div>
-                    <div className="h-px bg-slate-100" />
-                    <div className="flex justify-between font-bold">
-                      <span className="text-slate-700">Lucro</span>
-                      <span className={data.profitNew >= 0 ? "text-emerald-600" : "text-red-600"}>
-                        {formatPrice(data.profitNew)}
-                      </span>
-                    </div>
-                    {data.revenue.total > 0 && (
-                      <p className="text-xs text-slate-400 text-right">
-                        margem {Math.round((data.profitNew / data.revenue.total) * 100)}%
-                      </p>
-                    )}
+                  <div className="flex justify-between px-4 py-2.5 text-sm font-bold">
+                    <span className="text-slate-700">Modelo novo (só por serviço)</span>
+                    <span className="text-[#0f3460]">{formatPrice(data.grandNewTotal)}</span>
                   </div>
-                </div>
-
-                {/* Diff callout */}
-                <div className={`mt-3 rounded-xl px-4 py-3 flex items-center justify-between ${data.profitNew >= data.profitCurrent ? "bg-emerald-50" : "bg-red-50"}`}>
-                  <span className="text-sm font-medium text-slate-600">
-                    {data.profitNew >= data.profitCurrent ? "Melhoria de lucro no modelo novo" : "Redução de lucro no modelo novo"}
-                  </span>
-                  <span className={`text-base font-bold ${data.profitNew >= data.profitCurrent ? "text-emerald-600" : "text-red-600"}`}>
-                    {data.profitNew >= data.profitCurrent ? "+" : ""}{formatPrice(data.profitNew - data.profitCurrent)}
-                  </span>
                 </div>
               </div>
 
               {/* Per-videographer table */}
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Custo por videógrafo</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Detalhe por videógrafo</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-xs text-slate-400 border-b border-slate-100">
-                        <th className="text-left pb-2 font-medium">Videógrafo</th>
-                        <th className="text-center pb-2 font-medium">
-                          <span className="inline-flex items-center gap-1"><Video className="w-3 h-3" />Std</span>
-                        </th>
-                        <th className="text-center pb-2 font-medium">
-                          <span className="inline-flex items-center gap-1"><Video className="w-3 h-3 text-blue-400" />Drone</span>
-                        </th>
-                        <th className="text-center pb-2 font-medium">
-                          <span className="inline-flex items-center gap-1"><Camera className="w-3 h-3 text-violet-400" />Foto</span>
-                        </th>
-                        <th className="text-center pb-2 font-medium">
-                          <span className="inline-flex items-center gap-1"><Gift className="w-3 h-3 text-pink-400" />Intro</span>
-                        </th>
+                        <th className="text-left pb-2 font-medium">Nome</th>
+                        <th className="text-center pb-2 font-medium"><Video className="w-3 h-3 inline" /> Std</th>
+                        <th className="text-center pb-2 font-medium"><Video className="w-3 h-3 inline text-blue-400" /> Drone</th>
+                        <th className="text-center pb-2 font-medium"><Camera className="w-3 h-3 inline text-violet-400" /> Foto</th>
+                        <th className="text-center pb-2 font-medium"><Gift className="w-3 h-3 inline text-pink-400" /> Intro</th>
                         <th className="text-right pb-2 font-medium">Atual</th>
                         <th className="text-right pb-2 font-medium">Novo</th>
-                        <th className="text-right pb-2 font-medium">Diff</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -225,20 +190,14 @@ export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: numb
                           <td className="py-2.5 text-center text-slate-500">{r.introCount}</td>
                           <td className="py-2.5 text-right text-slate-500">{formatPrice(r.currentTotal)}</td>
                           <td className="py-2.5 text-right font-semibold text-slate-800">{formatPrice(r.newTotal)}</td>
-                          <td className="py-2.5 text-right">
-                            <DiffBadge value={r.newTotal - r.currentTotal} invert />
-                          </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-slate-200">
-                        <td colSpan={5} className="pt-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">Total custo</td>
+                        <td colSpan={5} className="pt-2.5 text-xs font-semibold text-slate-400 uppercase">Total</td>
                         <td className="pt-2.5 text-right font-semibold text-slate-500">{formatPrice(data.grandCurrentTotal)}</td>
                         <td className="pt-2.5 text-right font-bold text-[#0f3460]">{formatPrice(data.grandNewTotal)}</td>
-                        <td className="pt-2.5 text-right">
-                          <DiffBadge value={data.grandNewTotal - data.grandCurrentTotal} invert />
-                        </td>
                       </tr>
                     </tfoot>
                   </table>
@@ -246,7 +205,7 @@ export function SimulationPanel({ currentGrandTotal }: { currentGrandTotal: numb
               </div>
 
               <p className="text-xs text-slate-400 text-center">
-                Receita líquida s/ IVA · custos videógrafos sem IVA · modelo novo sem avença
+                Vídeo std {data.rates.standard}€ · Drone {data.rates.drone}€ · Foto {data.rates.photo}€ · Intro {data.rates.intro}€ · sem avença
               </p>
             </div>
           </div>
