@@ -5,7 +5,8 @@ import { Header } from "@/components/layout/header"
 import { formatPrice } from "@/lib/pricing"
 import { MarkPaidButton } from "./mark-paid-button"
 import { RecalculateButton } from "./recalculate-button"
-import { CheckCircle2, Clock, AlertCircle, Receipt } from "lucide-react"
+import { CheckCircle2, Clock, AlertCircle, Receipt, ChevronRight } from "lucide-react"
+import Link from "next/link"
 
 function monthLabel(month: string) {
   const [year, m] = month.split("-")
@@ -123,50 +124,55 @@ export default async function AdminInvoicesPage({
               const cfg = STATUS_CONFIG[invoice.status]
               const Icon = cfg.icon
               return (
-                <div key={invoice.id} className="flex items-center gap-4 px-6 py-4">
-                  {/* Avatar */}
-                  {invoice.consultant.image ? (
-                    <img
-                      src={invoice.consultant.image}
-                      alt={invoice.consultant.name || ""}
-                      className="w-10 h-10 rounded-full border border-slate-100 flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-[#0f3460] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                      {invoice.consultant.name?.[0] || "?"}
+                <div key={invoice.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+                  {/* Clickable area */}
+                  <Link href={`/admin/invoices/${invoice.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                    {/* Avatar */}
+                    {invoice.consultant.image ? (
+                      <img
+                        src={invoice.consultant.image}
+                        alt={invoice.consultant.name || ""}
+                        className="w-10 h-10 rounded-full border border-slate-100 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#0f3460] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        {invoice.consultant.name?.[0] || "?"}
+                      </div>
+                    )}
+
+                    {/* Name + email */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-900 text-sm">
+                        {invoice.consultant.name || invoice.consultant.email}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        {invoice.consultant.email}
+                      </p>
                     </div>
-                  )}
 
-                  {/* Name + email */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-900 text-sm">
-                      {invoice.consultant.name || invoice.consultant.email}
-                    </p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {invoice.consultant.email}
-                    </p>
-                  </div>
+                    {/* Amounts */}
+                    <div className="text-right mr-4 hidden sm:block">
+                      <p className="text-sm font-bold text-slate-800">{formatPrice(invoice.total)}</p>
+                      <p className="text-xs text-slate-400">s/ IVA {formatPrice(invoice.subtotal)}</p>
+                    </div>
 
-                  {/* Amounts */}
-                  <div className="text-right mr-4 hidden sm:block">
-                    <p className="text-sm font-bold text-slate-800">{formatPrice(invoice.total)}</p>
-                    <p className="text-xs text-slate-400">s/ IVA {formatPrice(invoice.subtotal)}</p>
-                  </div>
+                    {/* Paid at */}
+                    {invoice.paidAt && (
+                      <p className="text-xs text-slate-400 hidden md:block mr-4 whitespace-nowrap">
+                        pago a {new Date(invoice.paidAt).toLocaleDateString("pt-PT")}
+                      </p>
+                    )}
 
-                  {/* Paid at */}
-                  {invoice.paidAt && (
-                    <p className="text-xs text-slate-400 hidden md:block mr-4 whitespace-nowrap">
-                      pago a {new Date(invoice.paidAt).toLocaleDateString("pt-PT")}
-                    </p>
-                  )}
+                    {/* Status badge */}
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${cfg.color}`}>
+                      <Icon className="w-3.5 h-3.5" />
+                      {cfg.label}
+                    </div>
 
-                  {/* Status badge */}
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${cfg.color}`}>
-                    <Icon className="w-3.5 h-3.5" />
-                    {cfg.label}
-                  </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                  </Link>
 
-                  {/* Action */}
+                  {/* Action (outside link to prevent nesting) */}
                   {invoice.status !== "PAID" && (
                     <MarkPaidButton invoiceId={invoice.id} />
                   )}
