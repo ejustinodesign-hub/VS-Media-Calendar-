@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice } from "@/lib/pricing"
 import { Wallet } from "lucide-react"
 import { RemunerationCard } from "./remuneration-card"
-import { SimulationPanel } from "./simulation-panel"
 
 const STANDARD_RATE = 80
 const DRONE_RATE    = 90
@@ -157,9 +156,8 @@ export default async function AdminRemunerationPage() {
             <p className="text-slate-300 text-sm">Total a pagar este mês</p>
             <p className="text-white text-3xl font-bold mt-0.5">{formatPrice(grandTotal)}</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <p className="text-slate-400 text-sm">{data.length} videógrafo(s)</p>
-            <SimulationPanel currentGrandTotal={grandTotal} />
+          <div className="text-right text-slate-400 text-sm">
+            <p>{data.length} videógrafo(s)</p>
           </div>
         </div>
 
