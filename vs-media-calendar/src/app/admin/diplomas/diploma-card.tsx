@@ -1,6 +1,5 @@
 "use client"
 
-import { formatPrice } from "@/lib/pricing"
 import { Trophy, Video, Sparkles, Download } from "lucide-react"
 
 type DiplomaType = "video" | "intros" | "spender"
@@ -43,23 +42,31 @@ const CONFIG: Record<DiplomaType, {
   },
 }
 
+interface Winner {
+  name: string
+  image: string | null
+}
+
 interface Props {
   type: DiplomaType
   month: string
-  name: string
-  image: string | null
+  winners: Winner[]
   metric: number
   metricLabel: string
 }
 
-export function DiplomaCard({ type, month, name, image, metric, metricLabel }: Props) {
+export function DiplomaCard({ type, month, winners, metric, metricLabel }: Props) {
   const cfg = CONFIG[type]
   const Icon = cfg.icon
 
   const metricDisplay = type === "spender" ? null : `${metric}`
+  const isTie = winners.length > 1
 
-  const params = new URLSearchParams({ type, month, name, metric: String(metric), metricLabel })
-  if (image) params.set("image", image)
+  const params = new URLSearchParams({ type, month, metric: String(metric), metricLabel })
+  for (const w of winners) {
+    params.append("name", w.name)
+    params.append("image", w.image ?? "")
+  }
   const printUrl = `/api/diploma-print?${params}`
 
   return (
@@ -101,21 +108,46 @@ export function DiplomaCard({ type, month, name, image, metric, metricLabel }: P
             <div className="flex-1 h-px opacity-20" style={{ background: cfg.accent }} />
           </div>
 
-          {/* Winner */}
+          {/* Winners */}
           <div className="text-center mb-8">
-            <p className="text-white/50 text-xs font-semibold tracking-widest uppercase mb-4">Atribuído a</p>
-            <div className="flex flex-col items-center gap-3">
-              {image ? (
-                <img src={image} alt={name} className="w-20 h-20 rounded-full border-4 shadow-xl"
-                  style={{ borderColor: cfg.accent + "60" }} />
-              ) : (
-                <div className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold border-4 shadow-xl"
-                  style={{ background: cfg.accent + "20", borderColor: cfg.accent + "60", color: cfg.accent }}>
-                  {name[0] || "?"}
+            <p className="text-white/50 text-xs font-semibold tracking-widest uppercase mb-4">
+              {isTie ? "Atribuído a (empate)" : "Atribuído a"}
+            </p>
+            {isTie ? (
+              /* Multiple winners — avatars side by side */
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center justify-center gap-4 flex-wrap">
+                  {winners.map((w, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      {w.image ? (
+                        <img src={w.image} alt={w.name} className="w-16 h-16 rounded-full border-4 shadow-xl"
+                          style={{ borderColor: cfg.accent + "60" }} />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-4 shadow-xl"
+                          style={{ background: cfg.accent + "20", borderColor: cfg.accent + "60", color: cfg.accent }}>
+                          {w.name[0] || "?"}
+                        </div>
+                      )}
+                      <p className="text-white text-lg font-bold">{w.name}</p>
+                    </div>
+                  ))}
                 </div>
-              )}
-              <p className="text-white text-3xl font-bold">{name}</p>
-            </div>
+              </div>
+            ) : (
+              /* Single winner */
+              <div className="flex flex-col items-center gap-3">
+                {winners[0]?.image ? (
+                  <img src={winners[0].image} alt={winners[0].name} className="w-20 h-20 rounded-full border-4 shadow-xl"
+                    style={{ borderColor: cfg.accent + "60" }} />
+                ) : (
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold border-4 shadow-xl"
+                    style={{ background: cfg.accent + "20", borderColor: cfg.accent + "60", color: cfg.accent }}>
+                    {winners[0]?.name[0] || "?"}
+                  </div>
+                )}
+                <p className="text-white text-3xl font-bold">{winners[0]?.name ?? "—"}</p>
+              </div>
+            )}
           </div>
 
           {/* Metric */}
@@ -128,7 +160,7 @@ export function DiplomaCard({ type, month, name, image, metric, metricLabel }: P
 
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
-            <p className="text-white/30 text-xs">vs.media</p>
+            <img src="/logo.svg" alt="VS Media" className="h-2.5 w-auto opacity-25" />
             <div className="flex gap-1">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="w-1 h-1 rounded-full" style={{ background: cfg.accent, opacity: 0.4 + i * 0.15 }} />

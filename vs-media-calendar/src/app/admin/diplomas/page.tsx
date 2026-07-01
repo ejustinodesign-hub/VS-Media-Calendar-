@@ -33,7 +33,9 @@ export default async function DiplomasPage() {
     if (!videoCountByConsultant[c.id]) videoCountByConsultant[c.id] = { count: 0, name: c.name, image: c.image }
     videoCountByConsultant[c.id].count++
   }
-  const videoChamp = Object.values(videoCountByConsultant).sort((a, b) => b.count - a.count)[0] ?? null
+  const videoRankedAll = Object.values(videoCountByConsultant).sort((a, b) => b.count - a.count)
+  const videoChamp = videoRankedAll[0] ?? null
+  const videoChamps = videoChamp ? videoRankedAll.filter(r => r.count === videoChamp.count) : []
 
   // ── Campeão das Intros — consultant who ordered the most additional intros
   // (additionalIntros on bookings + shared intros received as targetConsultant)
@@ -66,7 +68,9 @@ export default async function DiplomasPage() {
     if (!introCountByConsultant[c.id]) introCountByConsultant[c.id] = { count: 0, name: c.name, image: c.image }
     introCountByConsultant[c.id].count++
   }
-  const introChamp = Object.values(introCountByConsultant).sort((a, b) => b.count - a.count)[0] ?? null
+  const introRankedAll = Object.values(introCountByConsultant).sort((a, b) => b.count - a.count)
+  const introChamp = introRankedAll[0] ?? null
+  const introChamps = introChamp ? introRankedAll.filter(r => r.count === introChamp.count) : []
 
   // ── Big Spender — consultant with highest invoice total ────────────────
   const invoices = await prisma.monthlyInvoice.findMany({
@@ -75,9 +79,10 @@ export default async function DiplomasPage() {
     orderBy: { total: "desc" },
   })
   const bigSpender = invoices[0] ?? null
+  const bigSpenders = bigSpender ? invoices.filter(inv => inv.total === bigSpender.total) : []
 
-  const videoRanking = Object.values(videoCountByConsultant).sort((a, b) => b.count - a.count)
-  const introRanking = Object.values(introCountByConsultant).sort((a, b) => b.count - a.count)
+  const videoRanking = videoRankedAll
+  const introRanking = introRankedAll
   const spenderRanking = invoices.map(inv => ({ name: inv.consultant.name, total: inv.total }))
 
   return (
@@ -91,8 +96,7 @@ export default async function DiplomasPage() {
             <DiplomaCard
               type="video"
               month={monthLabel}
-              name={videoChamp?.name ?? "—"}
-              image={videoChamp?.image ?? null}
+              winners={videoChamps.map(r => ({ name: r.name ?? "—", image: r.image }))}
               metric={videoChamp?.count ?? 0}
               metricLabel="vídeos marcados"
             />
@@ -106,8 +110,7 @@ export default async function DiplomasPage() {
             <DiplomaCard
               type="intros"
               month={monthLabel}
-              name={introChamp?.name ?? "—"}
-              image={introChamp?.image ?? null}
+              winners={introChamps.map(r => ({ name: r.name ?? "—", image: r.image }))}
               metric={introChamp?.count ?? 0}
               metricLabel="intros no total"
             />
@@ -121,8 +124,7 @@ export default async function DiplomasPage() {
             <DiplomaCard
               type="spender"
               month={monthLabel}
-              name={bigSpender?.consultant.name ?? "—"}
-              image={bigSpender?.consultant.image ?? null}
+              winners={bigSpenders.map(inv => ({ name: inv.consultant.name ?? "—", image: inv.consultant.image }))}
               metric={bigSpender?.total ?? 0}
               metricLabel="investido"
             />

@@ -44,14 +44,15 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const type = (searchParams.get("type") ?? "video") as DiplomaType
   const month = searchParams.get("month") ?? ""
-  const name = searchParams.get("name") ?? "—"
+  const names = searchParams.getAll("name")
+  const images = searchParams.getAll("image")
   const metric = Number(searchParams.get("metric") ?? "0")
   const metricLabel = searchParams.get("metricLabel") ?? ""
-  const image = searchParams.get("image") ?? ""
 
   const cfg = CONFIG[type] ?? CONFIG.video
   const displayMetric = type === "spender" ? null : String(metric)
-  const initials = name[0] ?? "?"
+  const isTie = names.length > 1
+  const winners = names.map((n, i) => ({ name: n || "—", image: images[i] || "" }))
 
   const html = `<!DOCTYPE html>
 <html lang="pt">
@@ -118,18 +119,30 @@ body{
 .ddot{width:5px;height:5px;border-radius:50%;background:rgba(${cfg.accentRgb},.4)}
 .winner{text-align:center;margin-bottom:28px;position:relative;z-index:1}
 .wlabel{color:rgba(255,255,255,.38);font-size:9px;font-weight:700;letter-spacing:3.5px;text-transform:uppercase;margin-bottom:18px}
+.winners-row{display:flex;justify-content:center;gap:28px;flex-wrap:wrap}
+.winner-item{display:flex;flex-direction:column;align-items:center;gap:10px}
 .avatar,.avatar-ph{
   width:88px;height:88px;border-radius:50%;
   border:4px solid rgba(${cfg.accentRgb},.4);
   margin:0 auto 14px;
 }
-.avatar{display:block;object-fit:cover}
+.avatar-sm,.avatar-ph-sm{
+  width:68px;height:68px;border-radius:50%;
+  border:3px solid rgba(${cfg.accentRgb},.4);
+}
+.avatar,.avatar-sm{display:block;object-fit:cover}
 .avatar-ph{
   display:flex;align-items:center;justify-content:center;
   background:rgba(${cfg.accentRgb},.1);
   font-size:34px;font-weight:900;color:${cfg.accent};
 }
+.avatar-ph-sm{
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(${cfg.accentRgb},.1);
+  font-size:26px;font-weight:900;color:${cfg.accent};
+}
 .wname{color:#fff;font-size:30px;font-weight:900;letter-spacing:-1px}
+.wname-sm{color:#fff;font-size:20px;font-weight:800;letter-spacing:-.5px}
 .metric-box{
   text-align:center;
   border-radius:18px;
@@ -183,9 +196,21 @@ body{
       <div class="dline"></div><div class="ddot"></div><div class="dline"></div>
     </div>
     <div class="winner">
-      <div class="wlabel">Atribuído a</div>
-      ${image ? `<img src="${image}" class="avatar" alt="${name}" crossorigin="anonymous"/>` : `<div class="avatar-ph">${initials}</div>`}
-      <div class="wname">${name}</div>
+      <div class="wlabel">${isTie ? "Atribuído a (empate)" : "Atribuído a"}</div>
+      ${isTie
+        ? `<div class="winners-row">${winners.map(w =>
+            `<div class="winner-item">
+              ${w.image
+                ? `<img src="${w.image}" class="avatar-sm" alt="${w.name}" crossorigin="anonymous"/>`
+                : `<div class="avatar-ph-sm">${w.name[0] ?? "?"}</div>`}
+              <div class="wname-sm">${w.name}</div>
+            </div>`
+          ).join("")}</div>`
+        : `${winners[0]?.image
+            ? `<img src="${winners[0].image}" class="avatar" alt="${winners[0].name}" crossorigin="anonymous"/>`
+            : `<div class="avatar-ph">${winners[0]?.name[0] ?? "?"}</div>`}
+          <div class="wname">${winners[0]?.name ?? "—"}</div>`
+      }
     </div>
     ${displayMetric !== null ? `<div class="metric-box">
       <div class="mvalue">${displayMetric}</div>
