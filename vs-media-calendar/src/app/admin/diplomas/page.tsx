@@ -76,37 +76,88 @@ export default async function DiplomasPage() {
   })
   const bigSpender = invoices[0] ?? null
 
+  const videoRanking = Object.values(videoCountByConsultant).sort((a, b) => b.count - a.count)
+  const introRanking = Object.values(introCountByConsultant).sort((a, b) => b.count - a.count)
+  const spenderRanking = invoices.map(inv => ({ name: inv.consultant.name, total: inv.total }))
+
   return (
     <>
       <Header title="Diplomas" subtitle={`Mês de ${monthLabel}`} />
       <div className="flex-1 p-6">
-        <div className="grid gap-8 max-w-2xl mx-auto">
-          <DiplomaCard
-            type="video"
-            month={monthLabel}
-            name={videoChamp?.name ?? "—"}
-            image={videoChamp?.image ?? null}
-            metric={videoChamp?.count ?? 0}
-            metricLabel="vídeos marcados"
-          />
-          <DiplomaCard
-            type="intros"
-            month={monthLabel}
-            name={introChamp?.name ?? "—"}
-            image={introChamp?.image ?? null}
-            metric={introChamp?.count ?? 0}
-            metricLabel="intros no total"
-          />
-          <DiplomaCard
-            type="spender"
-            month={monthLabel}
-            name={bigSpender?.consultant.name ?? "—"}
-            image={bigSpender?.consultant.image ?? null}
-            metric={bigSpender?.total ?? 0}
-            metricLabel="investido"
-          />
+        <div className="grid gap-10 max-w-2xl mx-auto">
+
+          {/* Vídeos */}
+          <div className="space-y-3">
+            <DiplomaCard
+              type="video"
+              month={monthLabel}
+              name={videoChamp?.name ?? "—"}
+              image={videoChamp?.image ?? null}
+              metric={videoChamp?.count ?? 0}
+              metricLabel="vídeos marcados"
+            />
+            <RankingTable
+              rows={videoRanking.map(r => ({ name: r.name ?? "—", value: `${r.count} vídeos` }))}
+            />
+          </div>
+
+          {/* Intros */}
+          <div className="space-y-3">
+            <DiplomaCard
+              type="intros"
+              month={monthLabel}
+              name={introChamp?.name ?? "—"}
+              image={introChamp?.image ?? null}
+              metric={introChamp?.count ?? 0}
+              metricLabel="intros no total"
+            />
+            <RankingTable
+              rows={introRanking.map(r => ({ name: r.name ?? "—", value: `${r.count} intros` }))}
+            />
+          </div>
+
+          {/* Big Spender */}
+          <div className="space-y-3">
+            <DiplomaCard
+              type="spender"
+              month={monthLabel}
+              name={bigSpender?.consultant.name ?? "—"}
+              image={bigSpender?.consultant.image ?? null}
+              metric={bigSpender?.total ?? 0}
+              metricLabel="investido"
+            />
+            <RankingTable
+              rows={spenderRanking.map(r => ({ name: r.name ?? "—", value: `${r.total.toFixed(2).replace(".", ",")} €` }))}
+            />
+          </div>
+
         </div>
       </div>
     </>
+  )
+}
+
+function RankingTable({ rows }: { rows: { name: string; value: string }[] }) {
+  if (rows.length === 0) return null
+  return (
+    <div className="rounded-xl border border-slate-100 overflow-hidden text-sm">
+      <div className="bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        Ranking completo
+      </div>
+      {rows.map((row, i) => (
+        <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${i < rows.length - 1 ? "border-b border-slate-100" : ""}`}>
+          <div className="flex items-center gap-2.5">
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+              i === 0 ? "bg-amber-100 text-amber-700" :
+              i === 1 ? "bg-slate-100 text-slate-500" :
+              i === 2 ? "bg-orange-50 text-orange-500" :
+              "bg-slate-50 text-slate-400"
+            }`}>{i + 1}</span>
+            <span className="text-slate-700 font-medium">{row.name}</span>
+          </div>
+          <span className="text-slate-500 font-medium">{row.value}</span>
+        </div>
+      ))}
+    </div>
   )
 }
