@@ -21,11 +21,11 @@ const STATUS_CONFIG = {
 export default async function AdminInvoicesPage({
   searchParams,
 }: {
-  searchParams: { month?: string }
+  searchParams: Promise<{ month?: string }>
 }) {
+  const { month } = await searchParams
   const now = new Date()
-  // Default to current month; support ?month=YYYY-MM
-  const selectedMonth = searchParams.month
+  const selectedMonth = month
     ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
   const invoices = await prisma.monthlyInvoice.findMany({
