@@ -1,15 +1,15 @@
 export const dynamic = "force-dynamic"
 
+import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { MarkPaidButton } from "../mark-paid-button"
-import { MoloniBackfillButton } from "../moloni-backfill-button"
+import { PayInvoiceButton } from "../pay-invoice-button"
 import {
   CheckCircle2, Clock, AlertCircle, ArrowLeft,
-  Car, MapPin, Package, FileText,
+  Car, MapPin, Package, FileText, Download,
 } from "lucide-react"
 import Link from "next/link"
 import type { ServiceType } from "@prisma/client"
@@ -30,13 +30,14 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function InvoiceDetailPage({ params }: Props) {
+export default async function ConsultantInvoiceDetailPage({ params }: Props) {
   const { id } = await params
+  const session = await auth()
+  const consultantId = session!.user.id!
 
-  const invoice = await prisma.monthlyInvoice.findUnique({
-    where: { id },
+  const invoice = await prisma.monthlyInvoice.findFirst({
+    where: { id, consultantId },
     include: {
-      consultant: { select: { id: true, name: true, email: true, image: true, billingName: true, billingNif: true } },
       bookings: {
         where: { paymentType: "FLAT_FEE" },
         include: { services: true, videographer: { select: { name: true } } },
@@ -47,14 +48,13 @@ export default async function InvoiceDetailPage({ params }: Props) {
 
   if (!invoice) notFound()
 
-  // Shared intro deliverables charged to this consultant in this month
   const [year, m] = invoice.month.split("-").map(Number)
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
 
   const sharedIntros = await prisma.deliverable.findMany({
     where: {
-      targetConsultantId: invoice.consultantId,
+      targetConsultantId: consultantId,
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     select: {
@@ -72,7 +72,6 @@ export default async function InvoiceDetailPage({ params }: Props) {
   const cfg = STATUS_CONFIG[invoice.status]
   const Icon = cfg.icon
 
-  // Recompute for display (ground truth)
   const bookingsSubtotal = invoice.bookings.reduce((sum, b) => {
     const svcTotal = b.services.reduce((s, svc) => s + svc.price, 0)
     const travel = b.hasTravelFee ? b.travelFeeAmount : 0
@@ -88,14 +87,17 @@ export default async function InvoiceDetailPage({ params }: Props) {
   }
   const sharedIntrosSubtotal = sharedIntros.reduce((sum, d) => sum + introNet(d), 0)
 
+  const [iy, im] = invoice.month.split("-").map(Number)
+  const canPayFrom = new Date(iy, im, 0).toISOString()
+
   return (
     <>
       <Header
         title="Detalhe da Fatura"
-        subtitle={`${invoice.consultant.name || invoice.consultant.email} · ${monthLabel(invoice.month)}`}
+        subtitle={monthLabel(invoice.month)}
         action={
           <Link
-            href={`/admin/invoices?month=${invoice.month}`}
+            href="/consultant/payments"
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -108,27 +110,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
         {/* Summary card */}
         <Card>
           <CardContent className="py-5 space-y-4">
-            {/* Consultant */}
-            <div className="flex items-center gap-3">
-              {invoice.consultant.image ? (
-                <img src={invoice.consultant.image} alt="" className="w-11 h-11 rounded-full border border-slate-100" />
-              ) : (
-                <div className="w-11 h-11 rounded-full bg-[#0f3460] flex items-center justify-center text-white font-bold">
-                  {invoice.consultant.name?.[0] || "?"}
-                </div>
-              )}
-              <div>
-                <p className="font-semibold text-slate-900">{invoice.consultant.billingName || invoice.consultant.name}</p>
-                <p className="text-xs text-slate-400">{invoice.consultant.email}</p>
-                {invoice.consultant.billingNif && (
-                  <p className="text-xs text-slate-400">NIF {invoice.consultant.billingNif}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="h-px bg-slate-100" />
-
-            {/* Totals row */}
+            {/* Totals */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-slate-400">Subtotal s/ IVA</p>
@@ -158,7 +140,13 @@ export default async function InvoiceDetailPage({ params }: Props) {
                   </p>
                 )}
               </div>
-              {invoice.status !== "PAID" && <MarkPaidButton invoiceId={invoice.id} />}
+              {invoice.status !== "PAID" && (
+                <PayInvoiceButton
+                  invoiceId={invoice.id}
+                  isOverdue={invoice.status === "OVERDUE"}
+                  canPayFrom={canPayFrom}
+                />
+              )}
             </div>
 
             {invoice.dueDate && invoice.status !== "PAID" && (
@@ -167,33 +155,24 @@ export default async function InvoiceDetailPage({ params }: Props) {
               </p>
             )}
 
-            <div className="h-px bg-slate-100" />
-
-            {/* Moloni status */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-0.5">Documento Moloni</p>
-                {invoice.moloniDocumentId ? (
-                  <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                      <FileText className="w-3.5 h-3.5" />
-                      Emitido (#{invoice.moloniDocumentId})
-                    </span>
-                    <a
-                      href={`/api/invoices/${invoice.id}/pdf`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[#0f3460] underline underline-offset-2"
-                    >
-                      Ver PDF
-                    </a>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 mb-2">Não emitido</p>
-                )}
-              </div>
-              {!invoice.moloniDocumentId && <MoloniBackfillButton invoiceId={invoice.id} />}
-            </div>
+            {/* Moloni PDF */}
+            {(invoice as any).moloniDocumentId && (
+              <>
+                <div className="h-px bg-slate-100" />
+                <div className="flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+                  <a
+                    href={`/api/invoices/${invoice.id}/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-[#0f3460] font-medium hover:underline"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Descarregar fatura PDF
+                  </a>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -211,7 +190,6 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 const lineTotal = svcTotal + travel + intros
                 return (
                   <div key={booking.id} className="rounded-xl border border-slate-100 overflow-hidden">
-                    {/* Booking header */}
                     <div className="bg-slate-50 px-4 py-3 flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -231,7 +209,6 @@ export default async function InvoiceDetailPage({ params }: Props) {
                       <p className="text-sm font-bold text-slate-800 flex-shrink-0">{formatPrice(lineTotal)}</p>
                     </div>
 
-                    {/* Line items */}
                     <div className="px-4 py-2 space-y-1.5">
                       {booking.services.map((svc) => (
                         <div key={svc.id} className="flex justify-between text-sm">
@@ -265,7 +242,6 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 )
               })}
 
-              {/* Bookings subtotal */}
               <div className="flex justify-between text-sm pt-1 border-t border-slate-100">
                 <span className="text-slate-500">Subtotal marcações</span>
                 <span className="font-semibold text-slate-800">{formatPrice(bookingsSubtotal)}</span>
@@ -281,6 +257,9 @@ export default async function InvoiceDetailPage({ params }: Props) {
               <CardTitle>Intros Partilhadas ({sharedIntros.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-0">
+              <p className="text-xs text-slate-500 pb-1">
+                Vídeos filmados por outros consultores que incluem uma introdução sua. O custo de {formatPrice(ADDITIONAL_INTRO_PRICE)} é dividido entre todos os consultores que partilham a intro.
+              </p>
               {sharedIntros.map((d) => {
                 const count = introSplitCount(d)
                 const net = introNet(d)
@@ -315,7 +294,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
           </Card>
         )}
 
-        {/* Grand total reconciliation */}
+        {/* Grand total */}
         <Card>
           <CardContent className="py-4 space-y-1.5">
             {bookingsSubtotal > 0 && (
@@ -335,7 +314,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
               <span className="text-slate-700">{formatPrice(invoice.total - invoice.subtotal)}</span>
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-              <span className="font-bold text-slate-900">Total a cobrar</span>
+              <span className="font-bold text-slate-900">Total a pagar</span>
               <span className="text-xl font-bold text-[#0f3460]">{formatPrice(invoice.total)}</span>
             </div>
           </CardContent>

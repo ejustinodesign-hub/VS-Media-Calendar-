@@ -353,6 +353,12 @@ export default async function ConsultantPaymentsPage({
                     {/* Actions */}
                     {invoice && (
                       <div className="flex items-center gap-2 mt-auto pt-1">
+                        <Link
+                          href={`/consultant/payments/${invoice.id}`}
+                          className="flex items-center gap-1 px-2.5 py-1.5 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-white transition-colors"
+                        >
+                          Ver detalhe
+                        </Link>
                         {(invoice as any).moloniDocumentId && (
                           <a
                             href={`/api/invoices/${invoice.id}/pdf`}
