@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { formatPrice } from "@/lib/pricing"
 import { MarkPaidButton } from "./mark-paid-button"
+import { RecalculateButton } from "./recalculate-button"
 import { CheckCircle2, Clock, AlertCircle, Receipt } from "lucide-react"
 
 function monthLabel(month: string) {
@@ -62,7 +63,8 @@ export default async function AdminInvoicesPage({
       />
       <div className="flex-1 p-6 space-y-6">
 
-        {/* Month selector */}
+        {/* Month selector + recalculate */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           {months.map((m) => (
             <a
@@ -77,6 +79,8 @@ export default async function AdminInvoicesPage({
               {monthLabel(m)}
             </a>
           ))}
+        </div>
+        <RecalculateButton month={selectedMonth} />
         </div>
 
         {/* Summary */}
