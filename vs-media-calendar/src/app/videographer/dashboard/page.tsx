@@ -8,10 +8,9 @@ import { formatPrice } from "@/lib/pricing"
 import Link from "next/link"
 import {
   Calendar, Clock, CheckCircle2, XCircle, FileVideo,
-  TrendingUp, Wallet, Camera, Car, Video, Star, Sparkles,
+  TrendingUp, Wallet, Camera, Car, Video, Sparkles,
 } from "lucide-react"
 
-const BASE_SALARY   = 0    // default fallback (avença removida)
 const STANDARD_RATE = 80
 const DRONE_RATE    = 90
 const AI_RATE       = 15
@@ -69,16 +68,9 @@ export default async function VideographerDashboard() {
   let monthBookings: any[] = []
   let prevMonthBookings: any[] = []
   let sharedIntrosThisMonth: { videographerFee: number | null }[] = []
-  let baseSalary = BASE_SALARY
   let dbError: string | null = null
 
   try {
-    const rows = await prisma.$queryRawUnsafe<{ baseSalary: number }[]>(
-      `SELECT "baseSalary" FROM "VideographerProfile" WHERE "userId" = $1`,
-      userId
-    )
-    if (rows[0]?.baseSalary != null) baseSalary = rows[0].baseSalary
-
     ;[pendingBookings, upcomingBookings, stats, monthBookings, prevMonthBookings, sharedIntrosThisMonth] =
       await Promise.all([
         prisma.booking.findMany({
@@ -152,12 +144,10 @@ export default async function VideographerDashboard() {
   const curr = aggregateEarnings(monthBookings)
   const sharedIntrosTotal = sharedIntrosThisMonth.length * INTRO_RATE
   const ctaBonusTotal = sharedIntrosThisMonth.reduce((sum, d) => sum + ((d as any).ctaBonus ?? 0), 0)
-  const currVariable = curr.videoTotal + curr.aiTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal + ctaBonusTotal
-  const currTotal = baseSalary + currVariable
+  const currTotal = curr.videoTotal + curr.aiTotal + curr.introTotal + curr.photoTotal + curr.travelTotal + sharedIntrosTotal + ctaBonusTotal
 
   const prev = aggregateEarnings(prevMonthBookings)
-  const prevVariable = prev.videoTotal + prev.aiTotal + prev.introTotal + prev.photoTotal + prev.travelTotal
-  const prevTotal = baseSalary + prevVariable
+  const prevTotal = prev.videoTotal + prev.aiTotal + prev.introTotal + prev.photoTotal + prev.travelTotal
 
   const diffPct = prevTotal > 0
     ? Math.round(((currTotal - prevTotal) / prevTotal) * 100)
@@ -208,7 +198,6 @@ export default async function VideographerDashboard() {
             {/* Breakdown */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                ...(baseSalary > 0 ? [{ icon: Star, label: "Salário base", value: baseSalary, color: "bg-blue-500/20 text-blue-300" }] : []),
                 { icon: Video, label: `Vídeo std (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_STANDARD").length})`, value: curr.standardTotal, color: "bg-purple-500/20 text-purple-300" },
                 { icon: Video, label: `Vídeo drone (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_DRONE").length})`, value: curr.droneTotal, color: "bg-indigo-500/20 text-indigo-300" },
                 { icon: Sparkles, label: `IA (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_AI").length})`, value: curr.aiTotal, color: "bg-violet-500/20 text-violet-300" },

@@ -62,14 +62,12 @@ export default async function AdminRemunerationPage() {
     orderBy: { name: "asc" },
   })
 
-  let salaryMap: Record<string, number> = {}
   let ctaMap: Record<string, boolean> = {}
   try {
-    const profiles = await prisma.$queryRawUnsafe<{ userId: string; baseSalary: number; hasCta: boolean }[]>(
-      'SELECT "userId", "baseSalary", "hasCta" FROM "VideographerProfile"'
+    const profiles = await prisma.$queryRawUnsafe<{ userId: string; hasCta: boolean }[]>(
+      'SELECT "userId", "hasCta" FROM "VideographerProfile"'
     )
     for (const p of profiles) {
-      salaryMap[p.userId] = p.baseSalary
       ctaMap[p.userId] = p.hasCta
     }
   } catch {
@@ -104,7 +102,6 @@ export default async function AdminRemunerationPage() {
   const monthLabel = now.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
 
   const data = videographers.map((v) => {
-    const baseSalary = salaryMap[v.id] ?? 1200
     const bookings = allBookings.filter((b) => b.videographerId === v.id)
     const intros   = allIntros.filter((d) => d.uploadedBy === v.id)
 
@@ -124,15 +121,13 @@ export default async function AdminRemunerationPage() {
     const sharedIntrosTotal = intros.length * INTRO_RATE
     const ctaBonusTotal = intros.reduce((sum, d) => sum + ((d as any).ctaBonus ?? 0), 0)
     const videoTotal = standardTotal + droneTotal
-    const variable = videoTotal + aiTotal + introTotal + photoTotal + travelTotal + sharedIntrosTotal + ctaBonusTotal
-    const total    = baseSalary + variable
+    const total = videoTotal + aiTotal + introTotal + photoTotal + travelTotal + sharedIntrosTotal + ctaBonusTotal
 
     return {
       id: v.id,
       name: v.name,
       email: v.email,
       image: v.image,
-      baseSalary,
       hasCta: ctaMap[v.id] ?? false,
       bookingCount: bookings.length,
       standardTotal,
@@ -146,7 +141,6 @@ export default async function AdminRemunerationPage() {
       travelTotal,
       sharedIntrosTotal,
       ctaBonusTotal,
-      variable,
       total,
     }
   })
