@@ -6,9 +6,10 @@ import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { MarkPaidButton } from "../mark-paid-button"
+import { MoloniBackfillButton } from "../moloni-backfill-button"
 import {
   CheckCircle2, Clock, AlertCircle, ArrowLeft,
-  Car, MapPin, Package,
+  Car, MapPin, Package, FileText,
 } from "lucide-react"
 import Link from "next/link"
 import type { ServiceType } from "@prisma/client"
@@ -153,6 +154,34 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 Vencimento: {new Date(invoice.dueDate).toLocaleDateString("pt-PT")}
               </p>
             )}
+
+            <div className="h-px bg-slate-100" />
+
+            {/* Moloni status */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-0.5">Documento Moloni</p>
+                {invoice.moloniDocumentId ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                      <FileText className="w-3.5 h-3.5" />
+                      Emitido (#{invoice.moloniDocumentId})
+                    </span>
+                    <a
+                      href={`/api/invoices/${invoice.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#0f3460] underline underline-offset-2"
+                    >
+                      Ver PDF
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 mb-2">Não emitido</p>
+                )}
+              </div>
+              {!invoice.moloniDocumentId && <MoloniBackfillButton invoiceId={invoice.id} />}
+            </div>
           </CardContent>
         </Card>
 
