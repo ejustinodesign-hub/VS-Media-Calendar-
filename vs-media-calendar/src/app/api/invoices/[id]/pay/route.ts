@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const checkoutSession = await getStripe().checkout.sessions.create({
-      payment_method_types: ["card"],
+      payment_method_types: ["card", "mb_way"],
       mode: "payment",
       line_items: [
         {
