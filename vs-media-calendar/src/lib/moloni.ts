@@ -62,8 +62,16 @@ async function findOrCreateCustomer(
     return parseInt(defaultCustomerId)
   }
 
+  // Ask Moloni for the next available customer number
+  const nextNumRes = await moloniFetch("customers/getNextNumber", token, {
+    company_id: String(companyId),
+  })
+  const nextNumData = await nextNumRes.json()
+  const nextNumber = String(nextNumData?.number ?? nextNumData ?? "1")
+
   const createRes = await moloniFetch("customers/insert", token, {
     company_id: String(companyId),
+    number: nextNumber,
     vat,
     name,
     email: consultant.email || "",
