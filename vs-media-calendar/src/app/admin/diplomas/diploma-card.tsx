@@ -68,6 +68,7 @@ export function DiplomaCard({ type, month, winners, metric, metricLabel }: Props
     params.append("image", w.image ?? "")
   }
   const printUrl = `/api/diploma-print?${params}`
+  const pngUrl = `/api/diploma-png?${params}`
 
   return (
     <div className="space-y-3">
@@ -173,16 +174,26 @@ export function DiplomaCard({ type, month, winners, metric, metricLabel }: Props
         <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, transparent, ${cfg.accent}, transparent)` }} />
       </div>
 
-      {/* Download button */}
-      <a
-        href={printUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-[#0f3460] hover:text-[#0f3460] transition-colors bg-white"
-      >
-        <Download className="w-4 h-4" />
-        Abrir para guardar / imprimir
-      </a>
+      {/* Buttons */}
+      <div className="flex gap-2">
+        <a
+          href={printUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-[#0f3460] hover:text-[#0f3460] transition-colors bg-white"
+        >
+          <Download className="w-4 h-4" />
+          PDF / Imprimir
+        </a>
+        <a
+          href={pngUrl}
+          download
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:border-emerald-500 hover:text-emerald-600 transition-colors bg-white"
+        >
+          <Download className="w-4 h-4" />
+          Download PNG
+        </a>
+      </div>
     </div>
   )
 }
