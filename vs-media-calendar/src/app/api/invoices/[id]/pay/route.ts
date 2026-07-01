@@ -16,43 +16,52 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params
 
+  const isAdmin = userRole === "ADMIN"
   const invoice = await prisma.monthlyInvoice.findFirst({
     where: {
       id,
-      consultantId: session.user.id!,
+      ...(isAdmin ? {} : { consultantId: session.user.id! }),
       status: { in: ["PENDING", "OVERDUE"] },
     },
   })
 
   if (!invoice) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
+    return NextResponse.json({ error: "Fatura não encontrada ou já paga." }, { status: 404 })
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
-  const checkoutSession = await getStripe().checkout.sessions.create({
-    payment_method_types: ["card"],
-    mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "eur",
-          product_data: { name: `Fatura VS.Media - ${invoice.month}` },
-          unit_amount: Math.round(invoice.total * 100),
+  try {
+    const checkoutSession = await getStripe().checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: { name: `Fatura VS.Media - ${invoice.month}` },
+            unit_amount: Math.round(invoice.total * 100),
+          },
+          quantity: 1,
         },
-        quantity: 1,
-      },
-    ],
-    success_url: `${appUrl}/consultant/payments?payment=success`,
-    cancel_url: `${appUrl}/consultant/payments`,
-    metadata: { invoiceId: invoice.id },
-    locale: "pt",
-  })
+      ],
+      success_url: `${appUrl}/consultant/payments?payment=success`,
+      cancel_url: `${appUrl}/consultant/payments`,
+      metadata: { invoiceId: invoice.id },
+      locale: "pt",
+    })
 
-  await prisma.monthlyInvoice.update({
-    where: { id: invoice.id },
-    data: { stripeSessionId: checkoutSession.id },
-  })
+    await prisma.monthlyInvoice.update({
+      where: { id: invoice.id },
+      data: { stripeSessionId: checkoutSession.id },
+    })
 
-  return NextResponse.json({ checkoutUrl: checkoutSession.url })
+    return NextResponse.json({ checkoutUrl: checkoutSession.url })
+  } catch (err: any) {
+    console.error("[pay] Stripe error:", err)
+    return NextResponse.json(
+      { error: err?.message || "Erro ao criar sessão de pagamento Stripe." },
+      { status: 500 }
+    )
+  }
 }
