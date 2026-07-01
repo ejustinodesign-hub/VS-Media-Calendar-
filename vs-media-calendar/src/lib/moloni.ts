@@ -43,7 +43,7 @@ async function findOrCreateCustomer(
     billingAddress: string | null
   }
 ): Promise<number> {
-  const vat = consultant.billingNif || "999999990"
+  const vat = (consultant.billingNif || "999999990").replace(/\s/g, "")
   const name = consultant.billingName || consultant.name || "Consultor VS Media"
 
   const searchRes = await moloniFetch("customers/getBySearch", token, {
