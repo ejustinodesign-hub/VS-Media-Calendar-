@@ -15,9 +15,10 @@ export async function GET(req: NextRequest) {
   const winners = names.map((n, i) => ({ name: n || "—", image: images[i] || "" }))
   const html = buildDiplomaHtml({ type, month, winners, metric, metricLabel })
 
-  // Use globally installed Playwright with the pre-installed Chromium binary
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { chromium } = require("/opt/node22/lib/node_modules/playwright")
+  // Use globally installed Playwright — eval() prevents webpack from trying
+  // to bundle the absolute path at build time; resolved by Node at runtime.
+  // eslint-disable-next-line no-eval
+  const { chromium } = eval("require")("/opt/node22/lib/node_modules/playwright")
 
   const browser = await chromium.launch({
     executablePath: "/opt/pw-browsers/chromium",
