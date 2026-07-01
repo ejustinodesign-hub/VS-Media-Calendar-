@@ -258,6 +258,49 @@ export async function sendAdminBookingNotificationEmail(data: BookingEmailData) 
   return result
 }
 
+export async function sendInvoicePaidConfirmationEmail({
+  consultantName,
+  consultantEmail,
+  month,
+  total,
+  invoiceId,
+}: {
+  consultantName: string
+  consultantEmail: string
+  month: string
+  total: number
+  invoiceId: string
+}) {
+  if (!consultantEmail) return
+
+  const [year, m] = month.split("-")
+  const monthLabel = new Date(Number(year), Number(m) - 1, 1)
+    .toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+
+  const content = `
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Pagamento Confirmado</h2>
+    <p style="color:#666;margin:0 0 24px;">Olá ${consultantName}, o teu pagamento foi recebido com sucesso. Obrigado!</p>
+
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Mês</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${monthLabel}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Total pago</td><td style="color:#16a34a;padding:6px 0;font-size:18px;font-weight:700;">${formatAmount(total)}</td></tr>
+      </table>
+    </div>
+
+    <a href="${APP_URL}/consultant/payments" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Pagamentos</a>
+  `
+
+  const result = await getResend().emails.send({
+    from: FROM,
+    to: consultantEmail,
+    subject: `✅ Pagamento confirmado — ${monthLabel} · ${formatAmount(total)}`,
+    html: emailBase(content),
+  })
+  console.log(`[email] sendInvoicePaidConfirmationEmail → ${consultantEmail}`, result)
+  return result
+}
+
 export async function sendInvoicePaidEmail({
   consultantName,
   consultantEmail,

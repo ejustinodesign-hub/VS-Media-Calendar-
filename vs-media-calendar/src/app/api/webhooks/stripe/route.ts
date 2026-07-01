@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
-import { sendBookingConfirmationEmail, sendVideographerRequestEmail, sendInvoicePaidEmail } from "@/lib/email"
+import { sendBookingConfirmationEmail, sendVideographerRequestEmail, sendInvoicePaidEmail, sendInvoicePaidConfirmationEmail } from "@/lib/email"
 import { SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { createMoloniInvoice } from "@/lib/moloni"
 import type { ServiceType } from "@prisma/client"
@@ -44,15 +44,24 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Notify admin by email
+      // Notify admin and consultant by email
       try {
-        await sendInvoicePaidEmail({
-          consultantName: invoice.consultant.name || invoice.consultant.email || "—",
-          consultantEmail: invoice.consultant.email || "",
-          month: invoice.month,
-          total: invoice.total,
-          invoiceId: invoice.id,
-        })
+        await Promise.all([
+          sendInvoicePaidEmail({
+            consultantName: invoice.consultant.name || invoice.consultant.email || "—",
+            consultantEmail: invoice.consultant.email || "",
+            month: invoice.month,
+            total: invoice.total,
+            invoiceId: invoice.id,
+          }),
+          sendInvoicePaidConfirmationEmail({
+            consultantName: invoice.consultant.name || "—",
+            consultantEmail: invoice.consultant.email || "",
+            month: invoice.month,
+            total: invoice.total,
+            invoiceId: invoice.id,
+          }),
+        ])
       } catch (e) {
         console.error("[webhook] Invoice paid email failed:", e)
       }
