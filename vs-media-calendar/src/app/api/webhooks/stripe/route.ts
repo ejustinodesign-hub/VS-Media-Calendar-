@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
-import { sendBookingConfirmationEmail, sendVideographerRequestEmail } from "@/lib/email"
+import { sendBookingConfirmationEmail, sendVideographerRequestEmail, sendInvoicePaidEmail } from "@/lib/email"
 import { SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { createMoloniInvoice } from "@/lib/moloni"
 import type { ServiceType } from "@prisma/client"
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         include: {
           consultant: {
             select: {
-              name: true, email: true,
+              id: true, name: true, email: true,
               billingNif: true, billingName: true, billingAddress: true,
             },
           },
@@ -43,6 +43,19 @@ export async function POST(req: NextRequest) {
           },
         },
       })
+
+      // Notify admin by email
+      try {
+        await sendInvoicePaidEmail({
+          consultantName: invoice.consultant.name || invoice.consultant.email || "—",
+          consultantEmail: invoice.consultant.email || "",
+          month: invoice.month,
+          total: invoice.total,
+          invoiceId: invoice.id,
+        })
+      } catch (e) {
+        console.error("[webhook] Invoice paid email failed:", e)
+      }
 
       // Create Moloni document now that payment is confirmed
       if (process.env.MOLONI_CLIENT_ID && !invoice.moloniDocumentId) {
