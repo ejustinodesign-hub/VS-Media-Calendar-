@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { IVA_RATE, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { createMoloniInvoice } from "@/lib/moloni"
-import type { ServiceType } from "@prisma/client"
+import { IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 
 export async function GET(req: NextRequest) {
   const isDev = process.env.NODE_ENV === "development"
@@ -39,7 +37,6 @@ export async function GET(req: NextRequest) {
 
   let created = 0
   let updated = 0
-  const moloniErrors: string[] = []
 
   for (const [consultantId, consultantBookings] of byConsultant) {
     // Skip if no unlinked bookings to charge
@@ -96,51 +93,6 @@ export async function GET(req: NextRequest) {
         },
       })
       invoiceId = invoice.id
-
-      // Create invoice in Moloni — non-blocking, failure doesn't abort the cron
-      if (process.env.MOLONI_CLIENT_ID && consultant) {
-        try {
-          const lines = consultantBookings.flatMap((b) => {
-            const items = b.services.map((svc) => ({
-              description: `${SERVICE_LABELS[svc.serviceType as ServiceType]} — ${b.propertyAddress}`,
-              qty: 1,
-              unitPrice: svc.price,
-            }))
-            if (b.hasTravelFee && b.travelFeeAmount > 0) {
-              items.push({
-                description: `Taxa de deslocação — ${b.propertyAddress}`,
-                qty: 1,
-                unitPrice: b.travelFeeAmount,
-              })
-            }
-            if (b.additionalIntros > 0) {
-              items.push({
-                description: `Intros adicionais (×${b.additionalIntros}) — ${b.propertyAddress}`,
-                qty: b.additionalIntros,
-                unitPrice: ADDITIONAL_INTRO_PRICE,
-              })
-            }
-            return items
-          })
-
-          const moloniDocumentId = await createMoloniInvoice({
-            consultant,
-            month,
-            dueDate,
-            lines,
-          })
-
-          await prisma.monthlyInvoice.update({
-            where: { id: invoiceId },
-            data: { moloniDocumentId },
-          })
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          console.error(`[Moloni] Failed for consultant ${consultantId}:`, msg)
-          moloniErrors.push(`${consultantId}: ${msg}`)
-        }
-      }
-
       created++
     }
 
@@ -150,5 +102,5 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  return NextResponse.json({ created, moloniErrors })
+  return NextResponse.json({ created, updated })
 }

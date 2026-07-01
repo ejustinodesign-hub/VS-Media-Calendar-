@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
 import { sendBookingConfirmationEmail, sendVideographerRequestEmail } from "@/lib/email"
-import { SERVICE_LABELS } from "@/lib/pricing"
+import { SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
+import { createMoloniInvoice } from "@/lib/moloni"
+import type { ServiceType } from "@prisma/client"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-03-25.dahlia" })
@@ -25,10 +27,87 @@ export async function POST(req: NextRequest) {
 
     const invoiceId = stripeSession.metadata?.invoiceId
     if (invoiceId) {
-      await prisma.monthlyInvoice.update({
+      const invoice = await prisma.monthlyInvoice.update({
         where: { id: invoiceId },
         data: { status: "PAID", paidAt: new Date() },
+        include: {
+          consultant: {
+            select: {
+              name: true, email: true,
+              billingNif: true, billingName: true, billingAddress: true,
+            },
+          },
+          bookings: {
+            where: { paymentType: "FLAT_FEE" },
+            include: { services: true },
+          },
+        },
       })
+
+      // Create Moloni document now that payment is confirmed
+      if (process.env.MOLONI_CLIENT_ID && !invoice.moloniDocumentId) {
+        try {
+          const [year, m] = invoice.month.split("-").map(Number)
+          const monthStart = new Date(year, m - 1, 1)
+          const monthEnd = new Date(year, m, 0, 23, 59, 59)
+
+          const sharedIntros = await prisma.deliverable.findMany({
+            where: {
+              targetConsultantId: invoice.consultantId,
+              createdAt: { gte: monthStart, lte: monthEnd },
+            },
+            include: { booking: { select: { propertyAddress: true } } },
+          })
+
+          const bookingLines = invoice.bookings.flatMap((b) => {
+            const items = b.services.map((svc) => ({
+              description: `${SERVICE_LABELS[svc.serviceType as ServiceType]} — ${b.propertyAddress}`,
+              qty: 1,
+              unitPrice: svc.price,
+            }))
+            if (b.hasTravelFee && b.travelFeeAmount > 0) {
+              items.push({
+                description: `Taxa de deslocação — ${b.propertyAddress}`,
+                qty: 1,
+                unitPrice: b.travelFeeAmount,
+              })
+            }
+            if (b.additionalIntros > 0) {
+              items.push({
+                description: `Intros adicionais (×${b.additionalIntros}) — ${b.propertyAddress}`,
+                qty: b.additionalIntros,
+                unitPrice: ADDITIONAL_INTRO_PRICE,
+              })
+            }
+            return items
+          })
+
+          const sharedIntroLines = sharedIntros.map((d) => ({
+            description: `Intro partilhada — ${d.booking.propertyAddress}`,
+            qty: 1,
+            unitPrice: ADDITIONAL_INTRO_PRICE,
+          }))
+
+          const lines = [...bookingLines, ...sharedIntroLines]
+          const dueDate = invoice.dueDate ?? new Date()
+
+          if (lines.length > 0) {
+            const moloniDocumentId = await createMoloniInvoice({
+              consultant: invoice.consultant,
+              month: invoice.month,
+              dueDate,
+              lines,
+            })
+            await prisma.monthlyInvoice.update({
+              where: { id: invoiceId },
+              data: { moloniDocumentId },
+            })
+          }
+        } catch (e) {
+          console.error("[webhook] Moloni invoice creation failed:", e)
+        }
+      }
+
       return NextResponse.json({ ok: true })
     }
 
