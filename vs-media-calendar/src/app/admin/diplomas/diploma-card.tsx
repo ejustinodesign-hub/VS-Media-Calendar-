@@ -81,7 +81,7 @@ export function DiplomaCard({ type, month, name, image, metric, metricLabel }: P
         <div className="px-10 py-8">
           {/* VS Media branding */}
           <div className="flex items-center justify-between mb-8">
-            <p className="text-white/50 text-xs font-semibold tracking-widest uppercase">VS Media</p>
+            <img src="/logo.svg" alt="VS Media" className="h-4 w-auto opacity-50" />
             <p className="text-white/40 text-xs capitalize">{month}</p>
           </div>
 

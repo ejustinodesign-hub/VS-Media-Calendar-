@@ -101,7 +101,7 @@ body{
   border:1px solid rgba(${cfg.accentRgb},.10);
 }
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;position:relative;z-index:1}
-.brand{color:rgba(255,255,255,.35);font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase}
+.brand{height:14px;width:auto;opacity:.35}
 .mlabel{color:rgba(255,255,255,.28);font-size:11px;text-transform:capitalize}
 .center{text-align:center;margin-bottom:32px;position:relative;z-index:1}
 .icon-wrap{
@@ -171,7 +171,7 @@ body{
     <div class="ring1"></div>
     <div class="ring2"></div>
     <div class="header">
-      <span class="brand">VS Media</span>
+      <svg class="brand" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 476.51 68.49"><g><path fill="#fff" d="M24.95,67.3L0,.99h19.38l16.4,47.82L52.09.99h19.38l-24.95,66.31h-21.57Z"/><path fill="#fff" d="M71.57,57.96l9.05-13.32c4.77,4.77,12.13,8.75,21.27,8.75,5.77,0,9.34-1.99,9.34-5.27,0-8.75-37.48-1.49-37.48-27.04,0-11.13,9.34-21.07,26.34-21.07,10.64,0,19.88,3.18,26.94,9.24l-9.34,12.83c-5.57-4.67-12.82-6.96-19.38-6.96-4.97,0-7.16,1.69-7.16,4.57,0,8.15,37.48,1.99,37.48,26.64,0,13.32-9.84,22.17-27.64,22.17-13.42,0-22.76-4.27-29.42-10.54Z"/><path fill="#fff" d="M137.62,67.3v-12.65s17.1-6.5,17.1-6.5v19.15h-17.1Z"/></g><g><path fill="#fff" d="M176.88.99l24.26,48.14L225.31.99h9.29v66.34h-7.01l-.1-55.15-24.16,48.14h-4.55l-24.07-48.14v55.15h-7.2V.99h9.38Z"/><path fill="#fff" d="M299.79.99v7.01h-37.43v22.27h33.45v6.92h-33.45v23.12h38.66v7.01h-46.24V.99h45.01Z"/><path fill="#fff" d="M377.4,34.16c0,18.86-14.88,33.17-34.4,33.17h-26.53V.99h26.82c19.33,0,34.12,14.31,34.12,33.17ZM369.72,34.26c0-14.97-11.75-26.25-26.63-26.25h-19.05v52.31h19.33c14.78,0,26.34-11.18,26.34-26.06Z"/><path fill="#fff" d="M398.81.99v66.34h-7.58V.99h7.58Z"/><path fill="#fff" d="M460.78,50.37h-36.1l-7.39,16.96h-8.05L438.98.99h7.87l29.66,66.34h-8.24l-7.49-16.96ZM457.75,43.35l-15.07-34.12-14.88,34.12h29.95Z"/></g></svg>
       <span class="mlabel">${month}</span>
     </div>
     <div class="center">
@@ -192,7 +192,7 @@ body{
       <div class="mtext">${metricLabel}</div>
     </div>` : ""}
     <div class="footer">
-      <span class="fbrand">vs.media</span>
+      <svg style="height:10px;width:auto;opacity:.22" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 476.51 68.49"><g><path fill="#fff" d="M24.95,67.3L0,.99h19.38l16.4,47.82L52.09.99h19.38l-24.95,66.31h-21.57Z"/><path fill="#fff" d="M71.57,57.96l9.05-13.32c4.77,4.77,12.13,8.75,21.27,8.75,5.77,0,9.34-1.99,9.34-5.27,0-8.75-37.48-1.49-37.48-27.04,0-11.13,9.34-21.07,26.34-21.07,10.64,0,19.88,3.18,26.94,9.24l-9.34,12.83c-5.57-4.67-12.82-6.96-19.38-6.96-4.97,0-7.16,1.69-7.16,4.57,0,8.15,37.48,1.99,37.48,26.64,0,13.32-9.84,22.17-27.64,22.17-13.42,0-22.76-4.27-29.42-10.54Z"/><path fill="#fff" d="M137.62,67.3v-12.65s17.1-6.5,17.1-6.5v19.15h-17.1Z"/></g><g><path fill="#fff" d="M176.88.99l24.26,48.14L225.31.99h9.29v66.34h-7.01l-.1-55.15-24.16,48.14h-4.55l-24.07-48.14v55.15h-7.2V.99h9.38Z"/><path fill="#fff" d="M299.79.99v7.01h-37.43v22.27h33.45v6.92h-33.45v23.12h38.66v7.01h-46.24V.99h45.01Z"/><path fill="#fff" d="M377.4,34.16c0,18.86-14.88,33.17-34.4,33.17h-26.53V.99h26.82c19.33,0,34.12,14.31,34.12,33.17ZM369.72,34.26c0-14.97-11.75-26.25-26.63-26.25h-19.05v52.31h19.33c14.78,0,26.34-11.18,26.34-26.06Z"/><path fill="#fff" d="M398.81.99v66.34h-7.58V.99h7.58Z"/><path fill="#fff" d="M460.78,50.37h-36.1l-7.39,16.96h-8.05L438.98.99h7.87l29.66,66.34h-8.24l-7.49-16.96ZM457.75,43.35l-15.07-34.12-14.88,34.12h29.95Z"/></g></svg>
       <div class="dots">
         <div class="dot" style="opacity:.25"></div>
         <div class="dot" style="opacity:.40"></div>
