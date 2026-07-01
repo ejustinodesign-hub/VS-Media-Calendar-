@@ -7,7 +7,7 @@ import { formatPrice, IVA_RATE, SERVICE_LABELS, DEFAULT_PRICES } from "@/lib/pri
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
 import {
-  User, Calendar, MapPin, Clock, ArrowLeft,
+  User, Calendar, MapPin, Clock, ArrowLeft, Percent,
 } from "lucide-react"
 import { TravelFeeToggle } from "./travel-fee-toggle"
 import { EditServices } from "./edit-services"
@@ -31,6 +31,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
         payment:      true,
         deliverables: true,
       },
+      // salePrice is a scalar field, included automatically
     }),
     prisma.pricingRule.findMany({ where: { active: true, teamId: null }, select: { serviceType: true, basePrice: true } }),
   ])
@@ -67,9 +68,17 @@ export default async function AdminBookingDetailPage({ params }: Props) {
         {/* Status */}
         <Card>
           <CardContent className="flex items-center justify-between py-5">
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Estado</p>
-              <BookingStatusBadge status={booking.status} />
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Estado</p>
+                <BookingStatusBadge status={booking.status} />
+              </div>
+              {booking.paymentType === "COMMISSION" && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-xs font-semibold text-violet-700">
+                  <Percent className="w-3.5 h-3.5" />
+                  Comissão
+                </div>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xs text-slate-500">Criada em</p>
@@ -134,6 +143,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
             <div className="space-y-2 mb-4">
               <EditServices
                 bookingId={booking.id}
+                isCommission={booking.paymentType === "COMMISSION"}
                 services={booking.services.map((s) => ({ id: s.id, serviceType: s.serviceType, price: s.price }))}
                 serviceLabels={SERVICE_LABELS as Record<string, string>}
                 servicePrices={activePrices}
@@ -152,20 +162,36 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                 </div>
               )}
             </div>
-            <div className="pt-3 border-t border-slate-100 space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Subtotal (s/ IVA)</span>
-                <span className="text-slate-700">{formatPrice(net)}</span>
+            {booking.paymentType === "COMMISSION" ? (
+              <div className="pt-3 border-t border-slate-100">
+                <div className="p-3 bg-violet-50 border border-violet-200 rounded-xl">
+                  <p className="text-sm font-semibold text-violet-800">Marcação em modo comissão</p>
+                  <p className="text-xs text-violet-600 mt-1">
+                    Não há taxa fixa. O consultor paga 0,15% do valor de venda do imóvel após concretizar o negócio.
+                  </p>
+                  {booking.salePrice && (
+                    <p className="text-xs text-violet-700 mt-1 font-medium">
+                      Venda registada: {formatPrice(booking.salePrice)}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">IVA ({Math.round(IVA_RATE * 100)}%)</span>
-                <span className="text-slate-700">{formatPrice(iva)}</span>
+            ) : (
+              <div className="pt-3 border-t border-slate-100 space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Subtotal (s/ IVA)</span>
+                  <span className="text-slate-700">{formatPrice(net)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">IVA ({Math.round(IVA_RATE * 100)}%)</span>
+                  <span className="text-slate-700">{formatPrice(iva)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1">
+                  <span className="font-bold text-slate-900">Total</span>
+                  <span className="text-xl font-bold text-[#0f3460]">{formatPrice(gross)}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="font-bold text-slate-900">Total</span>
-                <span className="text-xl font-bold text-[#0f3460]">{formatPrice(gross)}</span>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

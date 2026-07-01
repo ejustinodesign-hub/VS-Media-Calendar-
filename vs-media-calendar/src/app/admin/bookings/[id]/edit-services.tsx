@@ -12,13 +12,14 @@ interface Service {
 
 interface Props {
   bookingId: string
+  isCommission?: boolean
   services: Service[]
   serviceLabels: Record<string, string>
   servicePrices: Record<string, number>
   allServiceTypes: string[]
 }
 
-export function EditServices({ bookingId, services, serviceLabels, servicePrices, allServiceTypes }: Props) {
+export function EditServices({ bookingId, isCommission, services, serviceLabels, servicePrices, allServiceTypes }: Props) {
   const [addOpen, setAddOpen] = useState(false)
   // swappingId = serviceId currently being replaced
   const [swappingId, setSwappingId] = useState<string | null>(null)
@@ -109,9 +110,11 @@ export function EditServices({ bookingId, services, serviceLabels, servicePrices
               </span>
               <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
                 <span className="font-medium text-slate-900 text-xs">
-                  {s.price === 0
-                    ? <span className="text-emerald-600 font-semibold">Grátis</span>
-                    : `${s.price.toFixed(2).replace(".", ",")} €`}
+                  {isCommission
+                    ? <span className="text-violet-600 font-semibold">Comissão</span>
+                    : s.price === 0
+                      ? <span className="text-emerald-600 font-semibold">Grátis</span>
+                      : `${s.price.toFixed(2).replace(".", ",")} €`}
                 </span>
                 {swapOptions.length > 0 && (
                   <button
