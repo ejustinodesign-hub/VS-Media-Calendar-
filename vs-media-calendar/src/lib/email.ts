@@ -346,6 +346,67 @@ export async function sendInvoicePaidEmail({
   return result
 }
 
+export async function sendPaymentReminderEmail({
+  consultantName,
+  consultantEmail,
+  month,
+  total,
+  dueDate,
+  invoiceId,
+}: {
+  consultantName: string
+  consultantEmail: string
+  month: string
+  total: number
+  dueDate: Date | null
+  invoiceId: string
+}) {
+  const [year, m] = month.split("-")
+  const monthLabel = new Date(Number(year), Number(m) - 1, 1)
+    .toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+
+  const dueDateStr = dueDate
+    ? new Date(dueDate).toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" })
+    : null
+
+  const content = `
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Fatura por Pagar — ${monthLabel}</h2>
+    <p style="color:#666;margin:0 0 24px;">
+      Olá ${consultantName},<br/><br/>
+      Existe uma fatura pendente de pagamento referente a ${monthLabel}. Por favor regularize o pagamento o mais brevemente possível.
+    </p>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Mês</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${monthLabel}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Valor em dívida</td><td style="color:#b45309;padding:6px 0;font-size:20px;font-weight:700;">${formatAmount(total)}</td></tr>
+        ${dueDateStr ? `<tr><td style="color:#666;padding:6px 0;font-size:14px;">Data de vencimento</td><td style="color:#92400e;padding:6px 0;font-size:14px;font-weight:600;">${dueDateStr}</td></tr>` : ""}
+      </table>
+    </div>
+
+    <p style="color:#666;font-size:14px;margin:0 0 24px;">
+      Pode pagar diretamente na plataforma em <strong>Pagamentos</strong>, onde também encontra o detalhe completo dos serviços incluídos nesta fatura.
+    </p>
+
+    <a href="${APP_URL}/consultant/payments/${invoiceId}" style="display:inline-block;background:#0f3460;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;">
+      Pagar agora →
+    </a>
+
+    <p style="color:#aaa;font-size:12px;margin-top:32px;">
+      Se já efectuou o pagamento recentemente, por favor ignore este email. Em caso de dúvida contacte o administrador.
+    </p>
+  `
+
+  const result = await getResend().emails.send({
+    from: FROM,
+    to: consultantEmail,
+    subject: `⚠️ Fatura por pagar — ${monthLabel} · ${formatAmount(total)}`,
+    html: emailBase(content),
+  })
+  console.log(`[email] sendPaymentReminderEmail → ${consultantEmail}`, result)
+  return result
+}
+
 export async function sendStatusUpdateEmail(
   data: BookingEmailData,
   to: "consultant" | "videographer",
