@@ -55,6 +55,13 @@ async function findOrCreateCustomer(
     return (results[0].customer_id ?? results[0].id) as number
   }
 
+  // Fallback: use a pre-existing generic customer configured via env var.
+  // Useful when the Moloni plan doesn't allow customers/insert via API.
+  const defaultCustomerId = process.env.MOLONI_DEFAULT_CUSTOMER_ID
+  if (defaultCustomerId) {
+    return parseInt(defaultCustomerId)
+  }
+
   const createRes = await moloniFetch("customers/insert", token, {
     company_id: String(companyId),
     number: "0",
