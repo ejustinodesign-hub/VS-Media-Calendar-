@@ -30,15 +30,6 @@ export async function GET(req: NextRequest) {
     include: { services: true },
   })
 
-  // Intros delivered to other consultants this month (charged to the target consultant)
-  const introDeliverables = await prisma.deliverable.findMany({
-    where: {
-      targetConsultantId: { not: null },
-      booking: { scheduledAt: { gte: monthStart, lte: monthEnd } },
-    },
-    select: { targetConsultantId: true, booking: { select: { propertyAddress: true } } },
-  })
-
   const byConsultant = new Map<string, typeof bookings>()
   for (const booking of bookings) {
     const existing = byConsultant.get(booking.consultantId) ?? []
@@ -46,21 +37,13 @@ export async function GET(req: NextRequest) {
     byConsultant.set(booking.consultantId, existing)
   }
 
-  // Ensure consultants with only intros (no own bookings) are also included
-  for (const d of introDeliverables) {
-    if (d.targetConsultantId && !byConsultant.has(d.targetConsultantId)) {
-      byConsultant.set(d.targetConsultantId, [])
-    }
-  }
-
   let created = 0
+  let updated = 0
   const moloniErrors: string[] = []
 
   for (const [consultantId, consultantBookings] of byConsultant) {
-    const existing = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId, month },
-    })
-    if (existing) continue
+    // Skip if no unlinked bookings to charge
+    if (consultantBookings.length === 0) continue
 
     const consultant = await prisma.user.findUnique({
       where: { id: consultantId },
@@ -73,37 +56,51 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    const consultantIntros = introDeliverables.filter((d) => d.targetConsultantId === consultantId)
-
-    const subtotal = consultantBookings.reduce((sum, b) => {
+    // Bookings subtotal: services + travel + additionalIntros
+    // Note: shared intro deliverables are charged in real-time by chargeConsultantInvoice
+    const bookingSubtotal = consultantBookings.reduce((sum, b) => {
       const servicesTotal = b.services.reduce((s, svc) => s + svc.price, 0)
       const travelTotal = b.hasTravelFee ? b.travelFeeAmount : 0
-      return sum + servicesTotal + travelTotal
-    }, 0) + consultantIntros.length * ADDITIONAL_INTRO_PRICE
+      const introsTotal = b.additionalIntros * ADDITIONAL_INTRO_PRICE
+      return sum + servicesTotal + travelTotal + introsTotal
+    }, 0)
 
-    const total = Math.round(subtotal * (1 + IVA_RATE) * 100) / 100
+    const bookingTotal = Math.round(bookingSubtotal * (1 + IVA_RATE) * 100) / 100
 
-    const invoice = await prisma.monthlyInvoice.create({
-      data: {
-        consultantId,
-        month,
-        subtotal,
-        total,
-        dueDate,
-        status: "PENDING",
-      },
+    const existing = await prisma.monthlyInvoice.findFirst({
+      where: { consultantId, month },
     })
 
-    await prisma.booking.updateMany({
-      where: { id: { in: consultantBookings.map((b) => b.id) } },
-      data: { invoiceId: invoice.id },
-    })
+    let invoiceId: string
 
-    // Create invoice in Moloni — non-blocking, failure doesn't abort the cron
-    if (process.env.MOLONI_CLIENT_ID && consultant) {
-      try {
-        const lines = [
-          ...consultantBookings.flatMap((b) => {
+    if (existing) {
+      // Invoice already exists (created by a real-time intro charge) — add booking charges
+      await prisma.monthlyInvoice.update({
+        where: { id: existing.id },
+        data: {
+          subtotal: existing.subtotal + bookingSubtotal,
+          total: existing.total + bookingTotal,
+        },
+      })
+      invoiceId = existing.id
+      updated++
+    } else {
+      const invoice = await prisma.monthlyInvoice.create({
+        data: {
+          consultantId,
+          month,
+          subtotal: bookingSubtotal,
+          total: bookingTotal,
+          dueDate,
+          status: "PENDING",
+        },
+      })
+      invoiceId = invoice.id
+
+      // Create invoice in Moloni — non-blocking, failure doesn't abort the cron
+      if (process.env.MOLONI_CLIENT_ID && consultant) {
+        try {
+          const lines = consultantBookings.flatMap((b) => {
             const items = b.services.map((svc) => ({
               description: `${SERVICE_LABELS[svc.serviceType as ServiceType]} — ${b.propertyAddress}`,
               qty: 1,
@@ -116,34 +113,41 @@ export async function GET(req: NextRequest) {
                 unitPrice: b.travelFeeAmount,
               })
             }
+            if (b.additionalIntros > 0) {
+              items.push({
+                description: `Intros adicionais (×${b.additionalIntros}) — ${b.propertyAddress}`,
+                qty: b.additionalIntros,
+                unitPrice: ADDITIONAL_INTRO_PRICE,
+              })
+            }
             return items
-          }),
-          ...consultantIntros.map((d) => ({
-            description: `Introdução adicional — ${d.booking.propertyAddress}`,
-            qty: 1,
-            unitPrice: ADDITIONAL_INTRO_PRICE,
-          })),
-        ]
+          })
 
-        const moloniDocumentId = await createMoloniInvoice({
-          consultant,
-          month,
-          dueDate,
-          lines,
-        })
+          const moloniDocumentId = await createMoloniInvoice({
+            consultant,
+            month,
+            dueDate,
+            lines,
+          })
 
-        await prisma.monthlyInvoice.update({
-          where: { id: invoice.id },
-          data: { moloniDocumentId },
-        })
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        console.error(`[Moloni] Failed for consultant ${consultantId}:`, msg)
-        moloniErrors.push(`${consultantId}: ${msg}`)
+          await prisma.monthlyInvoice.update({
+            where: { id: invoiceId },
+            data: { moloniDocumentId },
+          })
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error(`[Moloni] Failed for consultant ${consultantId}:`, msg)
+          moloniErrors.push(`${consultantId}: ${msg}`)
+        }
       }
+
+      created++
     }
 
-    created++
+    await prisma.booking.updateMany({
+      where: { id: { in: consultantBookings.map((b) => b.id) } },
+      data: { invoiceId },
+    })
   }
 
   return NextResponse.json({ created, moloniErrors })
