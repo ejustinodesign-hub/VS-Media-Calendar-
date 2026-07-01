@@ -6,7 +6,6 @@ import { DiplomaCard } from "./diploma-card"
 
 export default async function DiplomasPage() {
   const now = new Date()
-  // Default to previous month (most recently completed)
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const monthStart = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1)
   const monthEnd   = new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 0, 23, 59, 59)
@@ -14,8 +13,8 @@ export default async function DiplomasPage() {
 
   const COUNTED_STATUSES = ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] as const
 
-  // ── Campeão dos Vídeos ─────────────────────────────────────────────────
-  const videoBookings = await prisma.bookingService.findMany({
+  // ── Campeão dos Vídeos — consultant with most video services booked ─────
+  const videoServices = await prisma.bookingService.findMany({
     where: {
       serviceType: { in: ["VIDEO_STANDARD", "VIDEO_DRONE"] },
       booking: {
@@ -24,42 +23,54 @@ export default async function DiplomasPage() {
       },
     },
     include: {
-      booking: { include: { videographer: { select: { id: true, name: true, image: true } } } },
+      booking: { include: { consultant: { select: { id: true, name: true, image: true } } } },
     },
   })
 
-  const videoCountByVg: Record<string, { count: number; name: string | null; image: string | null }> = {}
-  for (const svc of videoBookings) {
-    const vg = svc.booking.videographer
-    if (!videoCountByVg[vg.id]) videoCountByVg[vg.id] = { count: 0, name: vg.name, image: vg.image }
-    videoCountByVg[vg.id].count++
+  const videoCountByConsultant: Record<string, { count: number; name: string | null; image: string | null }> = {}
+  for (const svc of videoServices) {
+    const c = svc.booking.consultant
+    if (!videoCountByConsultant[c.id]) videoCountByConsultant[c.id] = { count: 0, name: c.name, image: c.image }
+    videoCountByConsultant[c.id].count++
   }
-  const videoChampEntry = Object.values(videoCountByVg).sort((a, b) => b.count - a.count)[0] ?? null
+  const videoChamp = Object.values(videoCountByConsultant).sort((a, b) => b.count - a.count)[0] ?? null
 
-  // ── Campeão das Intros ─────────────────────────────────────────────────
-  const introDels = await prisma.deliverable.findMany({
+  // ── Campeão das Intros — consultant who ordered the most additional intros
+  // (additionalIntros on bookings + shared intros received as targetConsultant)
+  const bookingsWithIntros = await prisma.booking.findMany({
+    where: {
+      scheduledAt: { gte: monthStart, lte: monthEnd },
+      status: { in: [...COUNTED_STATUSES] },
+      additionalIntros: { gt: 0 },
+    },
+    select: { consultantId: true, additionalIntros: true, consultant: { select: { id: true, name: true, image: true } } },
+  })
+
+  const sharedIntrosReceived = await prisma.deliverable.findMany({
     where: {
       targetConsultantId: { not: null },
       createdAt: { gte: monthStart, lte: monthEnd },
     },
-    include: {
-      booking: { include: { videographer: { select: { id: true, name: true, image: true } } } },
-    },
+    select: { targetConsultantId: true, targetConsultant: { select: { id: true, name: true, image: true } } },
   })
 
-  const introCountByVg: Record<string, { count: number; name: string | null; image: string | null }> = {}
-  for (const d of introDels) {
-    const vg = d.booking.videographer
-    if (!introCountByVg[vg.id]) introCountByVg[vg.id] = { count: 0, name: vg.name, image: vg.image }
-    introCountByVg[vg.id].count++
+  const introCountByConsultant: Record<string, { count: number; name: string | null; image: string | null }> = {}
+  for (const b of bookingsWithIntros) {
+    const c = b.consultant
+    if (!introCountByConsultant[c.id]) introCountByConsultant[c.id] = { count: 0, name: c.name, image: c.image }
+    introCountByConsultant[c.id].count += b.additionalIntros
   }
-  const introChampEntry = Object.values(introCountByVg).sort((a, b) => b.count - a.count)[0] ?? null
+  for (const d of sharedIntrosReceived) {
+    if (!d.targetConsultant) continue
+    const c = d.targetConsultant
+    if (!introCountByConsultant[c.id]) introCountByConsultant[c.id] = { count: 0, name: c.name, image: c.image }
+    introCountByConsultant[c.id].count++
+  }
+  const introChamp = Object.values(introCountByConsultant).sort((a, b) => b.count - a.count)[0] ?? null
 
-  // ── Big Spender ────────────────────────────────────────────────────────
+  // ── Big Spender — consultant with highest invoice total ────────────────
   const invoices = await prisma.monthlyInvoice.findMany({
-    where: {
-      month: `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}`,
-    },
+    where: { month: `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}` },
     include: { consultant: { select: { id: true, name: true, image: true } } },
     orderBy: { total: "desc" },
   })
@@ -73,18 +84,18 @@ export default async function DiplomasPage() {
           <DiplomaCard
             type="video"
             month={monthLabel}
-            name={videoChampEntry?.name ?? "—"}
-            image={videoChampEntry?.image ?? null}
-            metric={videoChampEntry?.count ?? 0}
-            metricLabel="vídeos realizados"
+            name={videoChamp?.name ?? "—"}
+            image={videoChamp?.image ?? null}
+            metric={videoChamp?.count ?? 0}
+            metricLabel="vídeos marcados"
           />
           <DiplomaCard
             type="intros"
             month={monthLabel}
-            name={introChampEntry?.name ?? "—"}
-            image={introChampEntry?.image ?? null}
-            metric={introChampEntry?.count ?? 0}
-            metricLabel="intros partilhadas"
+            name={introChamp?.name ?? "—"}
+            image={introChamp?.image ?? null}
+            metric={introChamp?.count ?? 0}
+            metricLabel="intros no total"
           />
           <DiplomaCard
             type="spender"
