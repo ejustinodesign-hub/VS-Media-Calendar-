@@ -56,7 +56,7 @@ export function DiplomaCard({ type, month, name, image, metric, metricLabel }: P
   const cfg = CONFIG[type]
   const Icon = cfg.icon
 
-  const metricDisplay = type === "spender" ? formatPrice(metric) : `${metric}`
+  const metricDisplay = type === "spender" ? null : `${metric}`
 
   const params = new URLSearchParams({ type, month, name, metric: String(metric), metricLabel })
   if (image) params.set("image", image)
@@ -119,10 +119,12 @@ export function DiplomaCard({ type, month, name, image, metric, metricLabel }: P
           </div>
 
           {/* Metric */}
-          <div className={`text-center rounded-2xl border py-4 ${cfg.badgeBg}`}>
-            <p className="text-4xl font-black" style={{ color: cfg.accent }}>{metricDisplay}</p>
-            <p className="text-white/60 text-sm mt-1 capitalize">{metricLabel}</p>
-          </div>
+          {metricDisplay !== null && (
+            <div className={`text-center rounded-2xl border py-4 ${cfg.badgeBg}`}>
+              <p className="text-4xl font-black" style={{ color: cfg.accent }}>{metricDisplay}</p>
+              <p className="text-white/60 text-sm mt-1 capitalize">{metricLabel}</p>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">

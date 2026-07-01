@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const image = searchParams.get("image") ?? ""
 
   const cfg = CONFIG[type] ?? CONFIG.video
-  const displayMetric = type === "spender" ? formatEuro(metric) : String(metric)
+  const displayMetric = type === "spender" ? null : String(metric)
   const initials = name[0] ?? "?"
 
   const html = `<!DOCTYPE html>
@@ -187,10 +187,10 @@ body{
       ${image ? `<img src="${image}" class="avatar" alt="${name}" crossorigin="anonymous"/>` : `<div class="avatar-ph">${initials}</div>`}
       <div class="wname">${name}</div>
     </div>
-    <div class="metric-box">
+    ${displayMetric !== null ? `<div class="metric-box">
       <div class="mvalue">${displayMetric}</div>
       <div class="mtext">${metricLabel}</div>
-    </div>
+    </div>` : ""}
     <div class="footer">
       <span class="fbrand">vs.media</span>
       <div class="dots">
