@@ -11,11 +11,18 @@ import {
   TrendingUp, Wallet, Camera, Car, Video, Star, Sparkles,
 } from "lucide-react"
 
-// Videographer earnings model
-const BASE_SALARY = 1200
-const VIDEO_RATE = 10      // per video service delivered
-const INTRO_RATE = 10      // per additional intro (within same booking)
-const PHOTO_RATE = 10      // per photo service delivered (any typology)
+const BASE_SALARY   = 0    // default fallback (avença removida)
+const STANDARD_RATE = 80
+const DRONE_RATE    = 90
+const AI_RATE       = 15
+const INTRO_RATE    = 10
+
+const PHOTO_RATES: Record<string, number> = {
+  PHOTO_T1_T2:   20,
+  PHOTO_T3_T4:   30,
+  PHOTO_T5_PLUS: 40,
+  PHOTO_DRONE:   30,
+}
 
 function calcBookingEarnings(booking: {
   services: { serviceType: string }[]
@@ -23,28 +30,24 @@ function calcBookingEarnings(booking: {
   hasTravelFee: boolean
   travelFeeAmount: number
 }) {
-  const AI_RATE = 10
-  const videoEarnings = booking.services.filter((s) =>
-    s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE"
-  ).length * VIDEO_RATE
-
-  const aiEarnings = booking.services.filter((s) =>
-    s.serviceType === "VIDEO_AI"
-  ).length * AI_RATE
-
-  const introEarnings = booking.additionalIntros * INTRO_RATE
-
   const hasDroneVideo = booking.services.some((s) => s.serviceType === "VIDEO_DRONE")
-  const photoEarnings = booking.services
-    .filter((s) => s.serviceType.startsWith("PHOTO_"))
-    .reduce((sum, s) => {
-      if (s.serviceType === "PHOTO_DRONE" && hasDroneVideo) return sum
-      return sum + PHOTO_RATE
-    }, 0)
+  let standardEarnings = 0, droneEarnings = 0, aiEarnings = 0, photoEarnings = 0
 
+  for (const s of booking.services) {
+    if      (s.serviceType === "VIDEO_STANDARD") standardEarnings += STANDARD_RATE
+    else if (s.serviceType === "VIDEO_DRONE")    droneEarnings    += DRONE_RATE
+    else if (s.serviceType === "VIDEO_AI")       aiEarnings       += AI_RATE
+    else if (s.serviceType.startsWith("PHOTO_")) {
+      if (s.serviceType === "PHOTO_DRONE" && hasDroneVideo) continue
+      photoEarnings += PHOTO_RATES[s.serviceType] ?? 0
+    }
+  }
+
+  const introEarnings  = booking.additionalIntros * INTRO_RATE
   const travelEarnings = booking.hasTravelFee ? booking.travelFeeAmount : 0
+  const videoEarnings  = standardEarnings + droneEarnings
 
-  return { videoEarnings, aiEarnings, introEarnings, photoEarnings, travelEarnings }
+  return { videoEarnings, standardEarnings, droneEarnings, aiEarnings, introEarnings, photoEarnings, travelEarnings }
 }
 
 export default async function VideographerDashboard() {
@@ -131,18 +134,19 @@ export default async function VideographerDashboard() {
   const statusCount = (status: string) =>
     stats.find((s) => s.status === status)?._count.id || 0
 
-  // Aggregate earnings for a list of bookings
   function aggregateEarnings(bookings: typeof monthBookings) {
-    let videoTotal = 0, aiTotal = 0, introTotal = 0, photoTotal = 0, travelTotal = 0
+    let standardTotal = 0, droneTotal = 0, aiTotal = 0, introTotal = 0, photoTotal = 0, travelTotal = 0
     for (const b of bookings) {
       const e = calcBookingEarnings(b)
-      videoTotal += e.videoEarnings
-      aiTotal += e.aiEarnings
-      introTotal += e.introEarnings
-      photoTotal += e.photoEarnings
-      travelTotal += e.travelEarnings
+      standardTotal += e.standardEarnings
+      droneTotal    += e.droneEarnings
+      aiTotal       += e.aiEarnings
+      introTotal    += e.introEarnings
+      photoTotal    += e.photoEarnings
+      travelTotal   += e.travelEarnings
     }
-    return { videoTotal, aiTotal, introTotal, photoTotal, travelTotal }
+    const videoTotal = standardTotal + droneTotal
+    return { standardTotal, droneTotal, videoTotal, aiTotal, introTotal, photoTotal, travelTotal }
   }
 
   const curr = aggregateEarnings(monthBookings)
@@ -202,14 +206,15 @@ export default async function VideographerDashboard() {
             </div>
 
             {/* Breakdown */}
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { icon: Star, label: "Salário base", value: baseSalary, color: "bg-blue-500/20 text-blue-300" },
-                { icon: Video, label: `Vídeos (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE").length})`, value: curr.videoTotal, color: "bg-purple-500/20 text-purple-300" },
+                ...(baseSalary > 0 ? [{ icon: Star, label: "Salário base", value: baseSalary, color: "bg-blue-500/20 text-blue-300" }] : []),
+                { icon: Video, label: `Vídeo std (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_STANDARD").length})`, value: curr.standardTotal, color: "bg-purple-500/20 text-purple-300" },
+                { icon: Video, label: `Vídeo drone (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_DRONE").length})`, value: curr.droneTotal, color: "bg-indigo-500/20 text-indigo-300" },
                 { icon: Sparkles, label: `IA (×${monthBookings.flatMap(b => b.services).filter((s: any) => s.serviceType === "VIDEO_AI").length})`, value: curr.aiTotal, color: "bg-violet-500/20 text-violet-300" },
                 { icon: Camera, label: "Fotografia", value: curr.photoTotal, color: "bg-pink-500/20 text-pink-300" },
                 { icon: Car, label: "Deslocação", value: curr.travelTotal, color: "bg-amber-500/20 text-amber-300" },
-                { icon: TrendingUp, label: `Intros extras (×${sharedIntrosThisMonth.length})`, value: sharedIntrosTotal, color: "bg-emerald-500/20 text-emerald-300" },
+                { icon: TrendingUp, label: `Intros (×${sharedIntrosThisMonth.length})`, value: sharedIntrosTotal, color: "bg-emerald-500/20 text-emerald-300" },
               ].map((item) => (
                 <div key={item.label} className={`rounded-xl p-3 ${item.color.split(" ")[0]}`}>
                   <item.icon className={`w-4 h-4 mb-1 ${item.color.split(" ")[1]}`} />

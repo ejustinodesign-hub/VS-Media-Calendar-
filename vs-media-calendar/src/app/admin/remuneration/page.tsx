@@ -8,10 +8,17 @@ import { Wallet } from "lucide-react"
 import { RemunerationCard } from "./remuneration-card"
 import { SimulationPanel } from "./simulation-panel"
 
-const VIDEO_RATE = 10
-const PHOTO_RATE = 10
-const AI_RATE    = 10
-const INTRO_RATE = 10
+const STANDARD_RATE = 80
+const DRONE_RATE    = 90
+const AI_RATE       = 15
+const INTRO_RATE    = 10
+
+const PHOTO_RATES: Record<string, number> = {
+  PHOTO_T1_T2:   20,
+  PHOTO_T3_T4:   30,
+  PHOTO_T5_PLUS: 40,
+  PHOTO_DRONE:   30,
+}
 
 function calcBookingEarnings(booking: {
   services: { serviceType: string }[]
@@ -21,26 +28,25 @@ function calcBookingEarnings(booking: {
 }) {
   const hasDroneVideo = booking.services.some((s) => s.serviceType === "VIDEO_DRONE")
 
-  const videoEarnings = booking.services.filter(
-    (s) => s.serviceType === "VIDEO_STANDARD" || s.serviceType === "VIDEO_DRONE"
-  ).length * VIDEO_RATE
+  let standardEarnings = 0
+  let droneEarnings    = 0
+  let aiEarnings       = 0
+  let photoEarnings    = 0
 
-  const aiEarnings = booking.services.filter(
-    (s) => s.serviceType === "VIDEO_AI"
-  ).length * AI_RATE
+  for (const s of booking.services) {
+    if      (s.serviceType === "VIDEO_STANDARD") standardEarnings += STANDARD_RATE
+    else if (s.serviceType === "VIDEO_DRONE")    droneEarnings    += DRONE_RATE
+    else if (s.serviceType === "VIDEO_AI")       aiEarnings       += AI_RATE
+    else if (s.serviceType.startsWith("PHOTO_")) {
+      if (s.serviceType === "PHOTO_DRONE" && hasDroneVideo) continue
+      photoEarnings += PHOTO_RATES[s.serviceType] ?? 0
+    }
+  }
 
-  const introEarnings = booking.additionalIntros * INTRO_RATE
-
-  const photoEarnings = booking.services
-    .filter((s) => s.serviceType.startsWith("PHOTO_"))
-    .reduce((sum, s) => {
-      if (s.serviceType === "PHOTO_DRONE" && hasDroneVideo) return sum
-      return sum + PHOTO_RATE
-    }, 0)
-
+  const introEarnings  = booking.additionalIntros * INTRO_RATE
   const travelEarnings = booking.hasTravelFee ? booking.travelFeeAmount : 0
 
-  return { videoEarnings, aiEarnings, introEarnings, photoEarnings, travelEarnings }
+  return { standardEarnings, droneEarnings, aiEarnings, introEarnings, photoEarnings, travelEarnings }
 }
 
 export default async function AdminRemunerationPage() {
@@ -102,17 +108,22 @@ export default async function AdminRemunerationPage() {
     const bookings = allBookings.filter((b) => b.videographerId === v.id)
     const intros   = allIntros.filter((d) => d.uploadedBy === v.id)
 
-    let videoTotal = 0, aiTotal = 0, introTotal = 0, photoTotal = 0, travelTotal = 0
+    let standardTotal = 0, droneTotal = 0, aiTotal = 0, introTotal = 0, photoTotal = 0, travelTotal = 0
+    let standardCount = 0, droneCount = 0
     for (const b of bookings) {
       const e = calcBookingEarnings(b)
-      videoTotal  += e.videoEarnings
-      aiTotal     += e.aiEarnings
-      introTotal  += e.introEarnings
-      photoTotal  += e.photoEarnings
-      travelTotal += e.travelEarnings
+      standardTotal += e.standardEarnings
+      droneTotal    += e.droneEarnings
+      aiTotal       += e.aiEarnings
+      introTotal    += e.introEarnings
+      photoTotal    += e.photoEarnings
+      travelTotal   += e.travelEarnings
+      standardCount += b.services.filter((s) => s.serviceType === "VIDEO_STANDARD").length
+      droneCount    += b.services.filter((s) => s.serviceType === "VIDEO_DRONE").length
     }
     const sharedIntrosTotal = intros.length * INTRO_RATE
     const ctaBonusTotal = intros.reduce((sum, d) => sum + ((d as any).ctaBonus ?? 0), 0)
+    const videoTotal = standardTotal + droneTotal
     const variable = videoTotal + aiTotal + introTotal + photoTotal + travelTotal + sharedIntrosTotal + ctaBonusTotal
     const total    = baseSalary + variable
 
@@ -124,6 +135,10 @@ export default async function AdminRemunerationPage() {
       baseSalary,
       hasCta: ctaMap[v.id] ?? false,
       bookingCount: bookings.length,
+      standardTotal,
+      droneTotal,
+      standardCount,
+      droneCount,
       videoTotal,
       aiTotal,
       introTotal,
@@ -159,7 +174,7 @@ export default async function AdminRemunerationPage() {
             <RemunerationCard
               key={v.id}
               videographer={v}
-              rates={{ VIDEO_RATE, PHOTO_RATE, AI_RATE, INTRO_RATE }}
+              rates={{ STANDARD_RATE, DRONE_RATE, AI_RATE, INTRO_RATE }}
             />
           ))}
         </div>

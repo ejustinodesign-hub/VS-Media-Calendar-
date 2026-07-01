@@ -14,6 +14,10 @@ interface Videographer {
   baseSalary: number
   hasCta: boolean
   bookingCount: number
+  standardTotal: number
+  droneTotal: number
+  standardCount: number
+  droneCount: number
   videoTotal: number
   aiTotal: number
   introTotal: number
@@ -26,8 +30,8 @@ interface Videographer {
 }
 
 interface Rates {
-  VIDEO_RATE: number
-  PHOTO_RATE: number
+  STANDARD_RATE: number
+  DRONE_RATE: number
   AI_RATE: number
   INTRO_RATE: number
 }
@@ -171,20 +175,27 @@ export function RemunerationCard({ videographer: v, rates }: { videographer: Vid
           <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">{saveError}</p>
         )}
 
-        {v.videoTotal > 0 && (
+        {v.standardTotal > 0 && (
           <EarningsRow
             icon={<Video className="w-3.5 h-3.5 text-blue-500" />}
-            label="Serviços de vídeo"
-            amount={v.videoTotal}
-            detail={`${v.videoTotal / rates.VIDEO_RATE} × ${rates.VIDEO_RATE}€`}
+            label="Vídeo standard"
+            amount={v.standardTotal}
+            detail={`${v.standardCount} × ${rates.STANDARD_RATE}€`}
+          />
+        )}
+        {v.droneTotal > 0 && (
+          <EarningsRow
+            icon={<Video className="w-3.5 h-3.5 text-indigo-500" />}
+            label="Vídeo drone"
+            amount={v.droneTotal}
+            detail={`${v.droneCount} × ${rates.DRONE_RATE}€`}
           />
         )}
         {v.photoTotal > 0 && (
           <EarningsRow
             icon={<Camera className="w-3.5 h-3.5 text-violet-500" />}
-            label="Serviços de fotografia"
+            label="Fotografia"
             amount={v.photoTotal}
-            detail={`${v.photoTotal / rates.PHOTO_RATE} × ${rates.PHOTO_RATE}€`}
           />
         )}
         {v.aiTotal > 0 && (
