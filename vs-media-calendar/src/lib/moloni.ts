@@ -189,6 +189,26 @@ export interface MoloniInvoiceParams {
   lines: MoloniInvoiceLine[]
 }
 
+// Returns the Moloni payment_method_id for bank transfer.
+// Checks MOLONI_PAYMENT_METHOD_ID env var first; otherwise queries the API and picks
+// the first method whose name contains "transfer" (case-insensitive).
+async function findBankTransferPaymentMethod(token: string, companyId: number): Promise<number | null> {
+  if (process.env.MOLONI_PAYMENT_METHOD_ID) {
+    return parseInt(process.env.MOLONI_PAYMENT_METHOD_ID)
+  }
+  try {
+    const res = await moloniFetch("paymentMethods/getAll", token, { company_id: String(companyId) })
+    const methods = await res.json()
+    if (!Array.isArray(methods)) return null
+    const match = methods.find((m: any) =>
+      /transfer/i.test(m.name) || /multibanco/i.test(m.name)
+    ) ?? methods[0] ?? null
+    return match ? (match.payment_method_id ?? match.id) as number : null
+  } catch {
+    return null
+  }
+}
+
 export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<number> {
   const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)
   const documentSetId = parseInt(process.env.MOLONI_DOCUMENT_SET_ID!)
@@ -199,13 +219,21 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
   }
 
   const token = await getMoloniToken()
-  const customerId = await findOrCreateCustomer(token, companyId, params.consultant)
-  const productId = await findOrCreateServiceProduct(token, companyId, taxId)
+  const [customerId, productId, paymentMethodId] = await Promise.all([
+    findOrCreateCustomer(token, companyId, params.consultant),
+    findOrCreateServiceProduct(token, companyId, taxId),
+    findBankTransferPaymentMethod(token, companyId),
+  ])
 
   const [year, month] = params.month.split("-").map(Number)
   const lastDayOfMonth = new Date(year, month, 0)
   const dateStr = lastDayOfMonth.toISOString().split("T")[0]
   const dueDateStr = params.dueDate.toISOString().split("T")[0]
+
+  // Total with tax for the payments[] entry
+  const totalWithTax = Math.round(
+    params.lines.reduce((sum, l) => sum + l.qty * Math.round(l.unitPrice * 100) / 100, 0) * 1.23 * 100
+  ) / 100
 
   const invoiceParams: Record<string, string> = {
     company_id: String(companyId),
@@ -221,6 +249,13 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     your_reference: "",
     notes: "",
     status: "1",
+  }
+
+  if (paymentMethodId) {
+    invoiceParams[`payments[0][payment_method_id]`] = String(paymentMethodId)
+    invoiceParams[`payments[0][date]`]              = dateStr
+    invoiceParams[`payments[0][value]`]             = String(totalWithTax)
+    invoiceParams[`payments[0][notes]`]             = ""
   }
 
   // Products in body with literal bracket keys — same pattern that works for products/insert.
