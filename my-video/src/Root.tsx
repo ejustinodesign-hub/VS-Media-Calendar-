@@ -30,5 +30,14 @@ export const RemotionRoot: React.FC = () => (
       width={1920}
       height={1080}
     />
+    <Composition
+      id="HydrationBreakChroma"
+      component={HydrationBreakOverlay}
+      defaultProps={{ chroma: "#00b140" }}
+      durationInFrames={30 * 8}
+      fps={30}
+      width={1920}
+      height={1080}
+    />
   </>
 );

@@ -23,7 +23,9 @@ const BANNER_W = 1560;
 const BANNER_H = 250;
 const BORDER = 14;
 
-export const HydrationBreakOverlay: React.FC = () => {
+// When `chroma` is set, the banner is rendered over that solid color (for
+// chroma keying) and the drop shadow is removed so no dark halo survives the key.
+export const HydrationBreakOverlay: React.FC<{ chroma?: string }> = ({ chroma }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames, width, height } = useVideoConfig();
 
@@ -61,7 +63,7 @@ export const HydrationBreakOverlay: React.FC = () => {
   });
 
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ backgroundColor: chroma }}>
       <style
         dangerouslySetInnerHTML={{
           __html: `@font-face {
@@ -82,7 +84,7 @@ export const HydrationBreakOverlay: React.FC = () => {
           height: BANNER_H,
           transform: `scale(${scale})`,
           opacity,
-          filter: "drop-shadow(0 18px 40px rgba(0,0,0,0.45))",
+          filter: chroma ? undefined : "drop-shadow(0 18px 40px rgba(0,0,0,0.45))",
         }}
       >
         {/* Gradient border capsule */}
