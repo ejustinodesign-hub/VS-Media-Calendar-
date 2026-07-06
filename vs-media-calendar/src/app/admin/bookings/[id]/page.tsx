@@ -163,15 +163,33 @@ export default async function AdminBookingDetailPage({ params }: Props) {
               )}
             </div>
             {booking.paymentType === "COMMISSION" ? (
-              <div className="pt-3 border-t border-slate-100">
-                <div className="p-3 bg-violet-50 border border-violet-200 rounded-xl">
-                  <p className="text-sm font-semibold text-violet-800">Marcação em modo comissão</p>
-                  <p className="text-xs text-violet-600 mt-1">
-                    Não há taxa fixa. O consultor paga 0,15% do valor de venda do imóvel após concretizar o negócio.
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Percent className="w-4 h-4 text-violet-600" />
+                    <p className="text-sm font-semibold text-violet-800">Marcação em modo comissão</p>
+                  </div>
+                  <p className="text-xs text-violet-600">
+                    Sem taxa fixa — o consultor paga {((booking.commissionRate ?? 0.0015) * 100).toFixed(2)}% do valor de venda do imóvel.
                   </p>
-                  {booking.salePrice && (
-                    <p className="text-xs text-violet-700 mt-1 font-medium">
-                      Venda registada: {formatPrice(booking.salePrice)}
+                  {booking.salePrice ? (
+                    <div className="space-y-1.5 pt-1 border-t border-violet-200">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-violet-700">Valor de venda registado</span>
+                        <span className="font-bold text-violet-900">{formatPrice(booking.salePrice)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-violet-700">
+                          Comissão ({((booking.commissionRate ?? 0.0015) * 100).toFixed(2)}%)
+                        </span>
+                        <span className="font-bold text-violet-900">
+                          {formatPrice(Math.round(booking.salePrice * (booking.commissionRate ?? 0.0015) * 100) / 100)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-medium">
+                      ⚠️ Valor de venda ainda não registado pelo consultor.
                     </p>
                   )}
                 </div>

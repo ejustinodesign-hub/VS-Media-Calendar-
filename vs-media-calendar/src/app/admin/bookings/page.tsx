@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/pricing"
 import Link from "next/link"
-import { Calendar, Clock, Filter, Plus } from "lucide-react"
+import { Calendar, Clock, Filter, Plus, Percent } from "lucide-react"
 import type { BookingStatus } from "@prisma/client"
 
 interface Props {
@@ -26,6 +26,7 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
         videographer: { select: { name: true, email: true } },
         services: true,
         payment: true,
+        // salePrice, commissionRate, paymentType are scalar fields included automatically
       },
       orderBy: { scheduledAt: "desc" },
     }),
@@ -127,8 +128,24 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
                       </div>
 
                       <div className="col-span-2 text-right">
-                        {booking.payment?.amount && (
-                          <p className="text-sm font-bold text-slate-900">{formatPrice(booking.payment.amount)}</p>
+                        {booking.paymentType === "COMMISSION" ? (
+                          <div>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                              <Percent className="w-3 h-3" />
+                              Comissão
+                            </span>
+                            {booking.salePrice ? (
+                              <p className="text-xs text-violet-700 font-semibold mt-0.5">
+                                Venda: {formatPrice(booking.salePrice)}
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 mt-0.5">Venda por registar</p>
+                            )}
+                          </div>
+                        ) : (
+                          booking.payment?.amount && (
+                            <p className="text-sm font-bold text-slate-900">{formatPrice(booking.payment.amount)}</p>
+                          )
                         )}
                       </div>
 
