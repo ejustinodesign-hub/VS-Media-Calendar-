@@ -54,13 +54,19 @@ export default async function InvoiceDetailPage({ params }: Props) {
 
   const sharedIntros = await prisma.deliverable.findMany({
     where: {
-      targetConsultantId: invoice.consultantId,
+      OR: [
+        { targetConsultantId: invoice.consultantId },
+        { secondConsultantId: invoice.consultantId },
+        { thirdConsultantId: invoice.consultantId },
+        { fourthConsultantId: invoice.consultantId },
+      ],
       createdAt: { gte: monthStart, lte: monthEnd },
     },
     select: {
       id: true,
       fileName: true,
       createdAt: true,
+      targetConsultantId: true,
       secondConsultantId: true,
       thirdConsultantId: true,
       fourthConsultantId: true,

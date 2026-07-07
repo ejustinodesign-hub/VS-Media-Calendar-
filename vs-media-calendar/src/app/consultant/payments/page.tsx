@@ -39,8 +39,23 @@ export default async function ConsultantPaymentsPage({
       select: { id: true, propertyAddress: true, commissionRate: true, scheduledAt: true },
     }),
     prisma.deliverable.findMany({
-      where: { targetConsultantId: consultantId },
-      include: {
+      where: {
+        OR: [
+          { targetConsultantId: consultantId },
+          { secondConsultantId: consultantId },
+          { thirdConsultantId: consultantId },
+          { fourthConsultantId: consultantId },
+        ],
+      },
+      select: {
+        id: true,
+        fileName: true,
+        fileUrl: true,
+        createdAt: true,
+        targetConsultantId: true,
+        secondConsultantId: true,
+        thirdConsultantId: true,
+        fourthConsultantId: true,
         booking: { select: { propertyAddress: true, scheduledAt: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -73,7 +88,10 @@ export default async function ConsultantPaymentsPage({
     const servicesNet = b.services.reduce((s, svc) => s + (DEFAULT_PRICES[svc.serviceType as keyof typeof DEFAULT_PRICES] ?? 0), 0)
     const travel = b.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0
     return sum + servicesNet + travel
-  }, 0) + currentMonthIntros.length * ADDITIONAL_INTRO_PRICE
+  }, 0) + currentMonthIntros.reduce((sum, d) => {
+    const count = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    return sum + Math.round((ADDITIONAL_INTRO_PRICE / count) * 100) / 100
+  }, 0)
   const summaryIva = Math.round(summaryNet * IVA_RATE * 100) / 100
   const summaryTotal = Math.round(summaryNet * (1 + IVA_RATE) * 100) / 100
 
@@ -196,7 +214,7 @@ export default async function ConsultantPaymentsPage({
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-slate-500">
-                Vídeos filmados por outros consultores que incluem uma introdução personalizada sua. Cada intro tem o custo de 25€ adicionado à sua fatura.
+                Vídeos filmados por outros consultores que incluem uma introdução personalizada sua. O custo de 25€ é dividido por todos os consultores que partilham a intro.
               </p>
               {sharedIntros.map((d) => {
                 const expiry = new Date(d.createdAt)

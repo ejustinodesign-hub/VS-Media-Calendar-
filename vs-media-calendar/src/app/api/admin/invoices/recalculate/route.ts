@@ -71,13 +71,28 @@ export async function POST(req: NextRequest) {
       // and can be read from deliverables for this month.
       const sharedIntroDeliverables = await prisma.deliverable.findMany({
         where: {
-          targetConsultantId: consultantId,
+          OR: [
+            { targetConsultantId: consultantId },
+            { secondConsultantId: consultantId },
+            { thirdConsultantId: consultantId },
+            { fourthConsultantId: consultantId },
+          ],
           createdAt: { gte: monthStart, lte: monthEnd },
         },
-        select: { videographerFee: true },
+        select: {
+          secondConsultantId: true,
+          thirdConsultantId: true,
+          fourthConsultantId: true,
+        },
       })
-      // Each shared intro charged the ADDITIONAL_INTRO_PRICE to the consultant
-      const sharedIntroSubtotal = sharedIntroDeliverables.length * ADDITIONAL_INTRO_PRICE
+      // Use the actual split price per deliverable
+      function splitCount(d: { secondConsultantId: string | null; thirdConsultantId: string | null; fourthConsultantId: string | null }) {
+        return 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+      }
+      const sharedIntroSubtotal = sharedIntroDeliverables.reduce(
+        (sum, d) => sum + Math.round((ADDITIONAL_INTRO_PRICE / splitCount(d)) * 100) / 100,
+        0
+      )
       const sharedIntroTotal = Math.round(sharedIntroSubtotal * (1 + IVA_RATE) * 100) / 100
 
       await prisma.monthlyInvoice.update({
