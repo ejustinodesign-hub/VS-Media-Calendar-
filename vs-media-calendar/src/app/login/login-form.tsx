@@ -2,15 +2,18 @@
 
 import { signIn } from "next-auth/react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 
-export function LoginForm() {
+interface Props {
+  callbackUrl?: string
+}
+
+export function LoginForm({ callbackUrl }: Props) {
   const [loading, setLoading] = useState(false)
 
   const handleGoogleLogin = async () => {
     setLoading(true)
     try {
-      await signIn("google", { callbackUrl: "/" })
+      await signIn("google", { callbackUrl: callbackUrl || "/" })
     } catch {
       setLoading(false)
     }

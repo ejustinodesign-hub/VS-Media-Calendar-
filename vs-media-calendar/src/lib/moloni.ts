@@ -225,10 +225,12 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     findBankTransferPaymentMethod(token, companyId),
   ])
 
-  const [year, month] = params.month.split("-").map(Number)
-  const lastDayOfMonth = new Date(year, month, 0)
-  const dateStr = lastDayOfMonth.toISOString().split("T")[0]
-  const dueDateStr = params.dueDate.toISOString().split("T")[0]
+  // Use today's local date — Moloni rejects dates before the last issued document
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  const due = params.dueDate
+  const dueDateStr = `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}`
 
   // Total with tax for the payments[] entry
   const totalWithTax = Math.round(

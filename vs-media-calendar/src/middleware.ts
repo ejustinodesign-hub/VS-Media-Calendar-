@@ -30,7 +30,9 @@ export function middleware(req: NextRequest) {
     req.cookies.get("__Secure-next-auth.session-token")
 
   if (!sessionToken) {
-    return NextResponse.redirect(new URL("/login", req.url))
+    const loginUrl = new URL("/login", req.url)
+    loginUrl.searchParams.set("callbackUrl", nextUrl.pathname + nextUrl.search)
+    return NextResponse.redirect(loginUrl)
   }
 
   return NextResponse.next()

@@ -4,7 +4,11 @@ import { LoginForm } from "./login-form"
 import { LoginLogo } from "./login-logo"
 import { Calendar, CreditCard, Video } from "lucide-react"
 
-export default async function LoginPage() {
+interface Props {
+  searchParams: Promise<{ callbackUrl?: string }>
+}
+
+export default async function LoginPage({ searchParams }: Props) {
   const session = await auth()
 
   if (session?.user) {
@@ -13,6 +17,8 @@ export default async function LoginPage() {
     if (role === "VIDEOGRAPHER") redirect("/videographer/dashboard")
     redirect("/consultant/dashboard")
   }
+
+  const { callbackUrl } = await searchParams
 
   const features = [
     { Icon: Calendar, label: "Agendamento Online" },
@@ -43,7 +49,7 @@ export default async function LoginPage() {
             </p>
           </div>
 
-          <LoginForm />
+          <LoginForm callbackUrl={callbackUrl} />
 
           <p className="mt-6 text-center text-xs text-slate-400">
             Acesso reservado a membros da equipa VS.Brothers
