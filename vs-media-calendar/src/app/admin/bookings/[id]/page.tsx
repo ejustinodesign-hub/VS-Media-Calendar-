@@ -12,6 +12,7 @@ import {
 import { TravelFeeToggle } from "./travel-fee-toggle"
 import { EditServices } from "./edit-services"
 import { DeliverablesList } from "./deliverables-list"
+import { RemaxWatch } from "./remax-watch"
 import type { ServiceType } from "@prisma/client"
 
 interface Props {
@@ -192,6 +193,19 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                       ⚠️ Valor de venda ainda não registado pelo consultor.
                     </p>
                   )}
+                </div>
+
+                {/* Remax property watch */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Monitorização Remax</p>
+                  <p className="text-xs text-slate-500">
+                    Cola o link do anúncio na Remax. Serás notificado por email quando o imóvel passar a vendido.
+                  </p>
+                  <RemaxWatch
+                    bookingId={booking.id}
+                    initialUrl={(booking as any).remaxUrl ?? null}
+                    soldAt={(booking as any).remaxSoldAt ? new Date((booking as any).remaxSoldAt) : null}
+                  />
                 </div>
               </div>
             ) : (

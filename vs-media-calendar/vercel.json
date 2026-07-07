@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/cleanup-deliverables", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/generate-invoices", "schedule": "0 8 28-31 * *" }
+    { "path": "/api/cron/generate-invoices", "schedule": "0 8 28-31 * *" },
+    { "path": "/api/cron/check-remax", "schedule": "0 9,15,20 * * *" }
   ]
 }

@@ -236,6 +236,8 @@ model Booking {
   salePrice             Float?
   commissionAmount      Float?
   invoiceId             String?
+  remaxUrl              String?
+  remaxSoldAt           DateTime?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
