@@ -24,11 +24,14 @@ export async function POST(req: NextRequest) {
     hasTravelFee = false,
     travelFeeAmount = 0,
     notes,
+    paymentType = "FLAT_FEE",
+    commissionRate = 0.0015,
   } = body
 
   if (!consultantId || !videographerId || !scheduledAt || !services?.length || !propertyAddress) {
     return NextResponse.json({ error: "Campos obrigatórios em falta" }, { status: 400 })
   }
+  const isCommission = paymentType === "COMMISSION"
 
   const [consultant, videographer] = await Promise.all([
     prisma.user.findFirst({
@@ -71,9 +74,11 @@ export async function POST(req: NextRequest) {
       additionalIntros,
       notes,
       status: "PENDING_ACCEPTANCE",
-      paymentType: "FLAT_FEE",
+      paymentType: isCommission ? "COMMISSION" : "FLAT_FEE",
+      commissionRate: isCommission ? commissionRate : null,
       services: {
-        create: pricing.services.map((s) => ({ serviceType: s.type, price: s.price })),
+        // Commission bookings: price 0 (billed on sale), flat fee: normal prices
+        create: pricing.services.map((s) => ({ serviceType: s.type, price: isCommission ? 0 : s.price })),
       },
     },
   })
