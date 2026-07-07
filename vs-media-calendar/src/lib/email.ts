@@ -27,6 +27,8 @@ interface BookingEmailData {
   totalAmount?: number
   status: BookingStatus
   durationMinutes?: number
+  paymentType?: "FLAT_FEE" | "COMMISSION"
+  commissionRate?: number
 }
 
 function formatPropertyType(type?: string | null): string {
@@ -117,6 +119,9 @@ const emailBase = (content: string) => `
 `
 
 export async function sendBookingConfirmationEmail(data: BookingEmailData) {
+  const isCommission = data.paymentType === "COMMISSION"
+  const commissionPct = ((data.commissionRate ?? 0.0015) * 100).toFixed(2)
+
   const content = `
     <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Pedido de Marcação Enviado</h2>
     <p style="color:#666;margin:0 0 24px;">O seu pedido foi enviado ao videógrafo e está a aguardar confirmação.</p>
@@ -128,9 +133,16 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}${data.propertyType ? ` <span style="color:#666;font-weight:400;">(${formatPropertyType(data.propertyType)})</span>` : ""}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Videógrafo</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.videographerName}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Serviços</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.services.join(", ")}</td></tr>
-        ${data.totalAmount ? `<tr><td style="color:#666;padding:6px 0;font-size:14px;">Total Pago</td><td style="color:#10b981;padding:6px 0;font-size:14px;font-weight:700;">${formatAmount(data.totalAmount)}</td></tr>` : ""}
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Tipo de pagamento</td><td style="padding:6px 0;font-size:14px;font-weight:700;${isCommission ? "color:#7c3aed;" : "color:#1a1a2e;"}">${isCommission ? `Comissão (${commissionPct}% do valor de venda)` : "Taxa Fixa"}</td></tr>
+        ${!isCommission && data.totalAmount ? `<tr><td style="color:#666;padding:6px 0;font-size:14px;">Total Pago</td><td style="color:#10b981;padding:6px 0;font-size:14px;font-weight:700;">${formatAmount(data.totalAmount)}</td></tr>` : ""}
       </table>
     </div>
+
+    ${isCommission ? `<div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:16px;margin-bottom:24px;">
+      <p style="color:#6d28d9;font-size:13px;margin:0;">
+        ℹ️ Esta marcação está em <strong>modo comissão</strong>. Não há pagamento antecipado. Quando o imóvel for vendido, deverá registar o valor de venda na plataforma para que a comissão de ${commissionPct}% seja calculada.
+      </p>
+    </div>` : ""}
 
     <a href="${APP_URL}/consultant/bookings/${data.bookingId}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Marcação</a>
   `
@@ -146,6 +158,9 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
 }
 
 export async function sendVideographerRequestEmail(data: BookingEmailData) {
+  const isCommission = data.paymentType === "COMMISSION"
+  const commissionPct = ((data.commissionRate ?? 0.0015) * 100).toFixed(2)
+
   const content = `
     <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Novo Pedido de Serviço</h2>
     <p style="color:#666;margin:0 0 24px;">Recebeu um novo pedido de agendamento. Por favor aceite ou recuse o pedido.</p>
@@ -158,6 +173,7 @@ export async function sendVideographerRequestEmail(data: BookingEmailData) {
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Consultor</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.consultantName}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Serviços</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.services.join(", ")}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Duração</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">1h30</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Tipo de pagamento</td><td style="padding:6px 0;font-size:14px;font-weight:700;${isCommission ? "color:#7c3aed;" : "color:#1a1a2e;"}">${isCommission ? `Comissão (${commissionPct}% do valor de venda)` : "Taxa Fixa"}</td></tr>
       </table>
     </div>
 
@@ -229,8 +245,11 @@ export async function sendAdminBookingNotificationEmail(data: BookingEmailData) 
   const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
   if (!adminEmail) return
 
+  const isCommission = data.paymentType === "COMMISSION"
+  const commissionPct = ((data.commissionRate ?? 0.0015) * 100).toFixed(2)
+
   const content = `
-    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Nova Marcação Criada</h2>
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Nova Marcação Criada${isCommission ? ' <span style="font-size:14px;color:#7c3aed;">(Comissão)</span>' : ""}</h2>
     <p style="color:#666;margin:0 0 24px;">Uma nova marcação foi registada na plataforma.</p>
 
     <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:24px;">
@@ -241,7 +260,7 @@ export async function sendAdminBookingNotificationEmail(data: BookingEmailData) 
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Videógrafo</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.videographerName}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}${data.propertyType ? ` (${formatPropertyType(data.propertyType)})` : ""}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Serviços</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.services.join(", ")}</td></tr>
-        ${data.totalAmount ? `<tr><td style="color:#666;padding:6px 0;font-size:14px;">Total</td><td style="color:#0f3460;padding:6px 0;font-size:14px;font-weight:700;">${formatAmount(data.totalAmount)}</td></tr>` : ""}
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Tipo de pagamento</td><td style="padding:6px 0;font-size:14px;font-weight:700;${isCommission ? "color:#7c3aed;" : "color:#0f3460;"}">${isCommission ? `Comissão — ${commissionPct}% do valor de venda` : `Taxa Fixa${data.totalAmount ? ` · ${formatAmount(data.totalAmount)}` : ""}`}</td></tr>
       </table>
     </div>
 
@@ -251,7 +270,7 @@ export async function sendAdminBookingNotificationEmail(data: BookingEmailData) 
   const result = await getResend().emails.send({
     from: FROM,
     to: adminEmail,
-    subject: `Nova marcação — ${data.consultantName} · ${formatDate(data.scheduledAt)}`,
+    subject: `Nova marcação${isCommission ? " [Comissão]" : ""} — ${data.consultantName} · ${formatDate(data.scheduledAt)}`,
     html: emailBase(content),
   })
   console.log(`[email] sendAdminBookingNotificationEmail → ${adminEmail}`, result)

@@ -121,6 +121,8 @@ export async function POST(req: NextRequest) {
     services: pricing.services.map((s) => s.label),
     totalAmount: isCommission ? undefined : pricing.total,
     status: "PENDING_ACCEPTANCE" as const,
+    paymentType: isCommission ? "COMMISSION" as const : "FLAT_FEE" as const,
+    commissionRate: isCommission ? 0.0015 : undefined,
   }
 
   console.log(`[bookings] sending emails → videographer: ${emailData.videographerEmail}, consultant: ${emailData.consultantEmail}`)

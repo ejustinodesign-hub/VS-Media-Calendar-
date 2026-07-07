@@ -93,8 +93,10 @@ export async function POST(req: NextRequest) {
     propertyType: propertyType as string | undefined,
     scheduledAt: new Date(scheduledAt),
     services: pricing.services.map((s) => s.label),
-    totalAmount: pricing.total,
+    totalAmount: isCommission ? undefined : pricing.total,
     status: "PENDING_ACCEPTANCE" as const,
+    paymentType: isCommission ? "COMMISSION" as const : "FLAT_FEE" as const,
+    commissionRate: isCommission ? commissionRate : undefined,
   }
 
   await Promise.allSettled([
