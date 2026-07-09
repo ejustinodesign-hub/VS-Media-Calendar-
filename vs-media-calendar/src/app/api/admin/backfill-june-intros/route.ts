@@ -98,11 +98,18 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Idempotency: check if already ran (first deliverable already exists)
-  const alreadyDone = await prisma.deliverable.findFirst({
+  // Idempotency: marker written at end of a successful run
+  const marker = await prisma.availabilityBlock.findFirst({
+    where: { reason: "backfill:intro-junho-2026:DONE" },
+  })
+  if (marker) {
+    return NextResponse.json({ error: "Os intros de junho já foram adicionados anteriormente." }, { status: 409 })
+  }
+  // Belt-and-suspenders: also check deliverables (in case marker was manually deleted)
+  const deliverableCheck = await prisma.deliverable.findFirst({
     where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
   })
-  if (alreadyDone) {
+  if (deliverableCheck) {
     return NextResponse.json({ error: "Os intros de junho já foram adicionados anteriormente." }, { status: 409 })
   }
 
@@ -136,6 +143,16 @@ export async function POST() {
     await chargeJuneInvoice(user.id)
     results.push({ consultant: user.name ?? row.consultant, charged: true, deliverable: !!booking })
   }
+
+  // Write idempotency marker (videographerId has no FK constraint — safe to use as sentinel)
+  await prisma.availabilityBlock.create({
+    data: {
+      videographerId: "system:backfill-junho-2026",
+      startAt: new Date(2026, 5, 1),
+      endAt: new Date(2026, 5, 30),
+      reason: "backfill:intro-junho-2026:DONE",
+    },
+  })
 
   return NextResponse.json({
     ok: true,
@@ -211,4 +228,71 @@ export async function PATCH() {
   }
 
   return NextResponse.json({ ok: true, moved, skipped })
+}
+
+// DELETE: repair triplication — subtracts 2× excess charges (assumes POST ran 3×, brings back to 1×).
+// Determines where charges landed by checking current June status:
+//   June NOT PAID → charges are in June → subtract there
+//   June PAID     → charges are in July → subtract there
+export async function DELETE() {
+  const session = await auth()
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // Count expected appearances per user
+  const userCounts = new Map<string, { id: string; name: string | null; count: number }>()
+  for (const row of INTROS) {
+    const user = await findUser(row.consultant)
+    if (!user) continue
+    const prev = userCounts.get(user.id)
+    userCounts.set(user.id, { id: user.id, name: user.name, count: (prev?.count ?? 0) + 1 })
+  }
+
+  const repaired: string[] = []
+  const skipped: string[] = []
+
+  for (const { id: userId, name, count } of userCounts.values()) {
+    const excessNet   = round2(2 * count * INTRO_PRICE_NET)
+    const excessTotal = round2(2 * count * INTRO_WITH_IVA)
+
+    const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: userId, month: TARGET_MONTH } })
+
+    if (june?.status === "PAID") {
+      // All (excess) charges went to July
+      const july = await prisma.monthlyInvoice.findFirst({ where: { consultantId: userId, month: JULY_MONTH } })
+      if (!july) { skipped.push(name ?? userId); continue }
+      await prisma.monthlyInvoice.update({
+        where: { id: july.id },
+        data: {
+          subtotal: round2(Math.max(0, july.subtotal - excessNet)),
+          total:    round2(Math.max(0, july.total    - excessTotal)),
+        },
+      })
+    } else {
+      // Charges went to June (or June doesn't exist yet)
+      if (!june) { skipped.push(name ?? userId); continue }
+      await prisma.monthlyInvoice.update({
+        where: { id: june.id },
+        data: {
+          subtotal: round2(Math.max(0, june.subtotal - excessNet)),
+          total:    round2(Math.max(0, june.total    - excessTotal)),
+        },
+      })
+    }
+
+    repaired.push(name ?? userId)
+  }
+
+  // Delete all backfill deliverables (if any were created)
+  const deleted = await prisma.deliverable.deleteMany({
+    where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
+  })
+
+  // Remove idempotency marker so POST can be re-run if needed
+  await prisma.availabilityBlock.deleteMany({
+    where: { reason: "backfill:intro-junho-2026:DONE" },
+  })
+
+  return NextResponse.json({ ok: true, repaired, skipped, deletedDeliverables: deleted.count })
 }

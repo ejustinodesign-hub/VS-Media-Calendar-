@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Users, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react"
+import { Users, CheckCircle2, AlertCircle, ArrowRight, RotateCcw } from "lucide-react"
 
 type State = "idle" | "confirm" | "loading" | "done" | "error"
         | "fix-confirm" | "fix-loading" | "fix-done"
+        | "repair-confirm" | "repair-loading" | "repair-done"
 
 export function JuneIntrosButton() {
   const [state, setState] = useState<State>("idle")
@@ -58,6 +59,25 @@ export function JuneIntrosButton() {
     }
   }
 
+  async function runRepair() {
+    setState("repair-loading")
+    try {
+      const res = await fetch("/api/admin/backfill-june-intros", { method: "DELETE" })
+      const data = await res.json()
+      if (!res.ok) {
+        setMessage(data.error || "Erro desconhecido")
+        setState("error")
+        return
+      }
+      setMessage(`Corrigido: ${data.repaired.length} consultor(es) repostos a 1× intro.`)
+      setState("repair-done")
+      router.refresh()
+    } catch {
+      setMessage("Erro de ligação.")
+      setState("error")
+    }
+  }
+
   if (state === "error") {
     return (
       <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
@@ -67,7 +87,7 @@ export function JuneIntrosButton() {
     )
   }
 
-  if (state === "done" || state === "fix-done") {
+  if (state === "done" || state === "fix-done" || state === "repair-done") {
     return (
       <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-medium">
         <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -108,8 +128,24 @@ export function JuneIntrosButton() {
     )
   }
 
+  if (state === "repair-confirm") {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+        <p className="text-sm text-red-800 font-medium flex-1">
+          Remover as 2 cobranças extra por consultor (de 3× para 1×)?
+        </p>
+        <button onClick={() => setState("idle")} className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">
+          Cancelar
+        </button>
+        <button onClick={runRepair} className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">
+          Confirmar
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <button
         onClick={() => setState("confirm")}
         disabled={state === "loading"}
@@ -126,6 +162,15 @@ export function JuneIntrosButton() {
       >
         <ArrowRight className="w-4 h-4" />
         {state === "fix-loading" ? "A corrigir..." : "Corrigir junho pago → julho"}
+      </button>
+      <button
+        onClick={() => setState("repair-confirm")}
+        disabled={state === "repair-loading"}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+        title="Remove as cobranças duplicadas — repõe cada consultor a 1× intro"
+      >
+        <RotateCcw className="w-4 h-4" />
+        {state === "repair-loading" ? "A repor..." : "Repor triplicados"}
       </button>
     </div>
   )
