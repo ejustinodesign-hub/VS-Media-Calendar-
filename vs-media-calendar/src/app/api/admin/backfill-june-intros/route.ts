@@ -13,24 +13,24 @@ function round2(n: number) {
   return Math.round(n * 100) / 100
 }
 
-// Cada linha = um intro individual de junho 2026
-// consultor | quem fez a marcação | palavra-chave da morada
+// Cada linha = um intro individual de junho 2026, copiado do Excel "para_plataforma_edu.xlsx"
+// (colunas: Consultor | Imóvel de | Localização — o label usa o texto literal do Excel)
 const INTROS = [
-  { consultant: "evandro almeida", bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — Estúdio Podcast (imóvel de Rúben)" },
-  { consultant: "diogo antunes",   bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — Estúdio Podcast (imóvel de Rúben)" },
-  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — Estúdio Podcast (imóvel de Rúben)" },
-  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — Arrendamento Escritórios Av. Liberdade (imóvel de Lucas)" },
-  { consultant: "sofia andrade",   bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — Arrendamento Escritórios Av. Liberdade (imóvel de Lucas)" },
-  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
-  { consultant: "evandro",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
-  { consultant: "diogo antunes",   bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
-  { consultant: "gabriel",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
-  { consultant: "batista",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
-  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "benfica",          label: "Intro — S. Domingos de Benfica (imóvel de Rúben)" },
-  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "benfica",          label: "Intro — S. Domingos de Benfica (imóvel de Rúben)" },
-  { consultant: "evandro",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — T3 Ramada (imóvel de Rúben)" },
-  { consultant: "gabriel",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — T3 Ramada (imóvel de Rúben)" },
-  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "ramada",           label: "Intro — T3 Ramada (imóvel de Rúben)" },
+  { consultant: "evandro almeida", bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
+  { consultant: "diogo antunes",   bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
+  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
+  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — arrendamento escritorios av liberdade (imóvel de Lucas)" },
+  { consultant: "sofia andrade",   bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — arrendamento escritorios av liberdade (imóvel de Lucas)" },
+  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultant: "evandro",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultant: "diogo antunes",   bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultant: "gabriel",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultant: "batista",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "benfica",          label: "Intro — s domingos benfica (imóvel de Rúben)" },
+  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "benfica",          label: "Intro — s domingos benfica (imóvel de Rúben)" },
+  { consultant: "evandro",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
+  { consultant: "gabriel",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
+  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
 ]
 
 async function findUser(nameHint: string) {
