@@ -77,7 +77,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
 
   const [selectedVideographerId, setSelectedVideographerId] = useState("")
   const [selectedServices, setSelectedServices] = useState<ServiceType[]>([])
-  const [additionalIntros, setAdditionalIntros] = useState(0)
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
   const [propertyAddress, setPropertyAddress] = useState("")
@@ -132,21 +131,21 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   }
 
   const pricing = useMemo(() => {
-    if (selectedServices.length === 0 && additionalIntros === 0) return null
+    if (selectedServices.length === 0) return null
     return calculateTotal(
       selectedServices,
-      additionalIntros,
+      0,
       travelEstimate?.hasTravelFee || false,
       consultantTeamType,
       activePrices as Partial<Record<ServiceType, number>>
     )
-  }, [selectedServices, additionalIntros, travelEstimate, consultantTeamType, activePrices])
+  }, [selectedServices, travelEstimate, consultantTeamType, activePrices])
 
   const hasVideoService = selectedServices.some((s) => VIDEO_SERVICES.includes(s))
 
   const canProceed = () => {
     if (step === 1) return !!selectedVideographerId
-    if (step === 2) return selectedServices.length > 0 || additionalIntros > 0
+    if (step === 2) return selectedServices.length > 0
     if (step === 3) return !!selectedDate && !!selectedSlot
     if (step === 4) return propertyAddress.length >= 5 && (!hasVideoService || !!propertyType)
     return true
@@ -164,7 +163,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
           videographerId: selectedVideographerId,
           scheduledAt: selectedSlot.datetime,
           services: selectedServices,
-          additionalIntros,
           propertyAddress,
           hasTravelFee: travelEstimate?.hasTravelFee || false,
           travelFeeAmount: travelEstimate?.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0,
@@ -338,48 +336,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             </CardContent>
           </Card>
 
-          {/* Intros */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="w-5 h-5 text-violet-500" />
-                Intros de Vídeo
-              </CardTitle>
-              <CardDescription>
-                Clips de introdução personalizados — {formatPrice(ADDITIONAL_INTRO_PRICE)} + IVA cada
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-slate-200">
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Intros</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {additionalIntros === 0
-                      ? "Nenhuma intro selecionada"
-                      : `${additionalIntros} intro${additionalIntros > 1 ? "s" : ""} — ${formatPrice(additionalIntros * ADDITIONAL_INTRO_PRICE)} + IVA`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setAdditionalIntros(Math.max(0, additionalIntros - 1))}
-                    disabled={additionalIntros === 0}
-                    className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-600 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="w-6 text-center font-bold text-slate-900">{additionalIntros}</span>
-                  <button
-                    onClick={() => setAdditionalIntros(Math.min(4, additionalIntros + 1))}
-                    disabled={additionalIntros >= 4}
-                    className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-600 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {pricing && (
             <div className="bg-[#0f3460] text-white rounded-xl p-4 flex items-center justify-between">
               <div>
@@ -387,13 +343,10 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                 <p className="text-2xl font-bold">{formatPrice(pricing.totalWithIva)}</p>
                 <p className="text-xs text-slate-400 mt-0.5">IVA 23%: {formatPrice(pricing.ivaAmount)}</p>
               </div>
-              <div className="text-right text-sm text-slate-300 space-y-0.5">
+              <div className="text-right text-sm text-slate-300">
                 {pricing.services.map((s) => (
                   <div key={s.type}>{s.label}: {formatPrice(s.price)} + IVA</div>
                 ))}
-                {additionalIntros > 0 && (
-                  <div>{additionalIntros}× Intro: {formatPrice(additionalIntros * ADDITIONAL_INTRO_PRICE)} + IVA</div>
-                )}
               </div>
             </div>
           )}
@@ -711,12 +664,6 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
                     <span className="font-medium text-slate-900">{formatPrice(s.price)} + IVA</span>
                   </div>
                 ))}
-                {additionalIntros > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Intro{additionalIntros > 1 ? "s" : ""} de vídeo ({additionalIntros}×)</span>
-                    <span className="font-medium text-slate-900">{formatPrice(additionalIntros * ADDITIONAL_INTRO_PRICE)} + IVA</span>
-                  </div>
-                )}
                 {pricing.hasTravelFee && (
                   <div className="flex justify-between text-sm">
                     <span className="text-amber-600">Taxa de deslocação</span>
