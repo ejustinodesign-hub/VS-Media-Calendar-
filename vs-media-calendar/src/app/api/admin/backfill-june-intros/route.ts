@@ -148,7 +148,7 @@ export async function POST() {
     }
 
     await chargeJuneInvoice(user.id)
-    results.push({ consultant: user.name ?? row.consultant, charged: true, deliverable: !!booking })
+    results.push({ consultant: user.name ?? row.consultant, charged: true, deliverable: !!anchorBooking })
   }
 
   // Write idempotency marker (videographerId has no FK constraint — safe to use as sentinel)
@@ -237,7 +237,8 @@ export async function PATCH() {
   return NextResponse.json({ ok: true, moved, skipped })
 }
 
-// DELETE: repair triplication — subtracts 2× excess charges (assumes POST ran 3×, brings back to 1×).
+// DELETE: repair triplication — subtracts ALL 3× charges (so POST can add the correct 1×).
+// Called by runRepair() in june-intros-button.tsx which then calls POST to re-add 1×.
 // Determines where charges landed by checking current June status:
 //   June NOT PAID → charges are in June → subtract there
 //   June PAID     → charges are in July → subtract there
@@ -260,8 +261,8 @@ export async function DELETE() {
   const skipped: string[] = []
 
   for (const { id: userId, name, count } of userCounts.values()) {
-    const excessNet   = round2(2 * count * INTRO_PRICE_NET)
-    const excessTotal = round2(2 * count * INTRO_WITH_IVA)
+    const excessNet   = round2(3 * count * INTRO_PRICE_NET)
+    const excessTotal = round2(3 * count * INTRO_WITH_IVA)
 
     const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: userId, month: TARGET_MONTH } })
 

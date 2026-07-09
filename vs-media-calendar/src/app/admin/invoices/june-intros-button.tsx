@@ -62,14 +62,26 @@ export function JuneIntrosButton() {
   async function runRepair() {
     setState("repair-loading")
     try {
-      const res = await fetch("/api/admin/backfill-june-intros", { method: "DELETE" })
-      const data = await res.json()
-      if (!res.ok) {
-        setMessage(data.error || "Erro desconhecido")
+      // Step 1: zero out all tripled charges and delete backfill deliverables
+      const del = await fetch("/api/admin/backfill-june-intros", { method: "DELETE" })
+      const delData = await del.json()
+      if (!del.ok) {
+        setMessage(delData.error || "Erro ao remover cobranças")
         setState("error")
         return
       }
-      setMessage(`Corrigido: ${data.repaired.length} consultor(es) repostos a 1× intro.`)
+      // Step 2: re-add the correct 1× charge + create deliverables with descriptions
+      const post = await fetch("/api/admin/backfill-june-intros", { method: "POST" })
+      const postData = await post.json()
+      if (!post.ok) {
+        setMessage(postData.error || "Erro ao re-adicionar intros")
+        setState("error")
+        return
+      }
+      // Step 3: ensure descriptions are set
+      await fetch("/api/admin/backfill-june-intros", { method: "PUT" })
+      const extra = postData.notFound?.length ? ` · ${postData.notFound.length} não encontrado(s): ${postData.notFound.join(", ")}` : ""
+      setMessage(`Reposto: cobranças zeradas e ${postData.charged} intros adicionados a 1× com descrições.${extra}`)
       setState("repair-done")
       router.refresh()
     } catch {
@@ -132,7 +144,7 @@ export function JuneIntrosButton() {
     return (
       <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
         <p className="text-sm text-red-800 font-medium flex-1">
-          Remover as 2 cobranças extra por consultor (de 3× para 1×)?
+          Remover todas as cobranças e adicionar 1× correto com descrições?
         </p>
         <button onClick={() => setState("idle")} className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">
           Cancelar

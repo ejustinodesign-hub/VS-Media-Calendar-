@@ -78,15 +78,21 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
     orderBy: { createdAt: "asc" },
   })
 
-  // Backfill June 2026 intros were created after month-end — include them for unpaid June invoices
-  const backfillIntros =
-    invoice.month === "2026-06" && invoice.status !== "PAID"
-      ? await prisma.deliverable.findMany({
-          where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" }, targetConsultantId: consultantId },
-          select: introSelect,
-          orderBy: { createdAt: "asc" },
-        })
-      : []
+  // Backfill June 2026 intros: show on unpaid June invoice OR on July invoice when June was paid
+  const juneWasPaid =
+    invoice.month === "2026-07"
+      ? (await prisma.monthlyInvoice.findFirst({ where: { consultantId, month: "2026-06" } }))?.status === "PAID"
+      : false
+  const showBackfill =
+    (invoice.month === "2026-06" && invoice.status !== "PAID") ||
+    (invoice.month === "2026-07" && juneWasPaid)
+  const backfillIntros = showBackfill
+    ? await prisma.deliverable.findMany({
+        where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" }, targetConsultantId: consultantId },
+        select: introSelect,
+        orderBy: { createdAt: "asc" },
+      })
+    : []
 
   const seen = new Set(regularIntros.map((d) => d.id))
   const sharedIntros = [...regularIntros, ...backfillIntros.filter((d) => !seen.has(d.id))]
