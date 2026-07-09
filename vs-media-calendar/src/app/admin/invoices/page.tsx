@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/pricing"
 import { MarkPaidButton } from "./mark-paid-button"
 import { RecalculateButton } from "./recalculate-button"
 import { SendRemindersButton } from "./send-reminders-button"
+import { JuneIntrosButton } from "./june-intros-button"
 import { CheckCircle2, Clock, AlertCircle, Receipt, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
@@ -82,7 +83,8 @@ export default async function AdminInvoicesPage({
             </a>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {selectedMonth === "2026-06" && <JuneIntrosButton />}
           <SendRemindersButton month={selectedMonth} unpaidCount={pending.length + overdue.length} />
           <RecalculateButton month={selectedMonth} />
         </div>
