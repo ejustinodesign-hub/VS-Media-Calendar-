@@ -20,18 +20,32 @@ export default async function VideographerSchedulePage({ searchParams }: Props) 
   const monthStart = new Date(year, month, 1, 0, 0, 0, 0)
   const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999)
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      videographerId: userId,
-      scheduledAt: { gte: monthStart, lte: monthEnd },
-      status: { notIn: ["CANCELLED", "REJECTED"] },
-    },
-    include: {
-      consultant: { select: { name: true } },
-      services: { select: { serviceType: true } },
-    },
-    orderBy: { scheduledAt: "asc" },
-  })
+  const [bookings, rawBlocks, profile] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        videographerId: userId,
+        scheduledAt: { gte: monthStart, lte: monthEnd },
+        status: { notIn: ["CANCELLED", "REJECTED"] },
+      },
+      include: {
+        consultant: { select: { name: true } },
+        services: { select: { serviceType: true } },
+      },
+      orderBy: { scheduledAt: "asc" },
+    }),
+    prisma.availabilityBlock.findMany({
+      where: {
+        videographerId: userId,
+        startAt: { lte: monthEnd },
+        endAt:   { gte: monthStart },
+      },
+      orderBy: { startAt: "asc" },
+    }),
+    prisma.videographerProfile.findUnique({
+      where: { userId },
+      select: { weeklyCapacity: true },
+    }),
+  ])
 
   const calendarBookings = bookings.map((b) => ({
     id: b.id,
@@ -43,14 +57,16 @@ export default async function VideographerSchedulePage({ searchParams }: Props) 
     propertyType: b.propertyType,
   }))
 
+  const calendarBlocks = rawBlocks.map((b) => ({
+    id: b.id,
+    startAt: b.startAt.toISOString(),
+    endAt: b.endAt.toISOString(),
+    reason: b.reason,
+  }))
+
   const monthTotal = bookings.filter((b) =>
     ["ACCEPTED", "IN_PROGRESS"].includes(b.status)
   ).length
-
-  const profile = await prisma.videographerProfile.findUnique({
-    where: { userId },
-    select: { weeklyCapacity: true },
-  })
 
   return (
     <>
@@ -81,7 +97,7 @@ export default async function VideographerSchedulePage({ searchParams }: Props) 
           </CardContent>
         </Card>
 
-        <CalendarView bookings={calendarBookings} month={month} year={year} />
+        <CalendarView bookings={calendarBookings} blocks={calendarBlocks} month={month} year={year} />
       </div>
     </>
   )

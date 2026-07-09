@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Clock, MapPin } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, MapPin, BanIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BOOKING_STATUS_COLORS, BOOKING_STATUS_LABELS } from "@/lib/utils"
 import type { BookingStatus } from "@prisma/client"
@@ -18,6 +18,13 @@ export interface CalendarBooking {
   propertyType: string | null
 }
 
+export interface CalendarBlock {
+  id: string
+  startAt: string
+  endAt: string
+  reason?: string | null
+}
+
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 
 const STATUS_DOT: Partial<Record<BookingStatus, string>> = {
@@ -30,19 +37,21 @@ const STATUS_DOT: Partial<Record<BookingStatus, string>> = {
 
 interface Props {
   bookings: CalendarBooking[]
+  blocks: CalendarBlock[]
   month: number  // 0-indexed
   year: number
 }
 
-export function CalendarView({ bookings, month, year }: Props) {
+export function CalendarView({ bookings, blocks: initialBlocks, month, year }: Props) {
   const router = useRouter()
   const today = new Date()
   const [selectedDay, setSelectedDay] = useState<number | null>(
     today.getMonth() === month && today.getFullYear() === year ? today.getDate() : null
   )
+  const [blocks, setBlocks] = useState<CalendarBlock[]>(initialBlocks)
+  const [blockLoading, setBlockLoading] = useState(false)
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  // getDay: 0=Sun…6=Sat → convert to Mon-start: (day + 6) % 7
   const firstDayOffset = (new Date(year, month, 1).getDay() + 6) % 7
 
   const monthName = new Date(year, month, 1).toLocaleDateString("pt-PT", {
@@ -56,6 +65,43 @@ export function CalendarView({ bookings, month, year }: Props) {
       return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year
     })
 
+  function getBlockForDay(day: number): CalendarBlock | undefined {
+    const dayStart = new Date(year, month, day, 0, 0, 0)
+    const dayEnd   = new Date(year, month, day, 23, 59, 59)
+    return blocks.find((b) => {
+      const bStart = new Date(b.startAt)
+      const bEnd   = new Date(b.endAt)
+      return bStart <= dayEnd && bEnd >= dayStart
+    })
+  }
+
+  const dateStr = (day: number) => {
+    const mm = String(month + 1).padStart(2, "0")
+    const dd = String(day).padStart(2, "0")
+    return `${year}-${mm}-${dd}`
+  }
+
+  async function toggleBlock(day: number) {
+    setBlockLoading(true)
+    const existing = getBlockForDay(day)
+    try {
+      if (existing) {
+        await fetch(`/api/videographer/availability-blocks/${existing.id}`, { method: "DELETE" })
+        setBlocks((prev) => prev.filter((b) => b.id !== existing.id))
+      } else {
+        const res = await fetch("/api/videographer/availability-blocks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: dateStr(day) }),
+        })
+        const data = await res.json()
+        if (res.ok) setBlocks((prev) => [...prev, data])
+      }
+    } finally {
+      setBlockLoading(false)
+    }
+  }
+
   const prevMonth = () => {
     const d = new Date(year, month - 1, 1)
     router.push(`/videographer/schedule?month=${d.getMonth()}&year=${d.getFullYear()}`)
@@ -66,6 +112,7 @@ export function CalendarView({ bookings, month, year }: Props) {
   }
 
   const selectedBookings = selectedDay ? getBookingsForDay(selectedDay) : []
+  const selectedBlock = selectedDay ? getBlockForDay(selectedDay) : undefined
 
   return (
     <div className="space-y-4">
@@ -99,13 +146,13 @@ export function CalendarView({ bookings, month, year }: Props) {
 
         {/* Day cells */}
         <div className="grid grid-cols-7">
-          {/* Empty offset cells */}
           {Array.from({ length: firstDayOffset }).map((_, i) => (
             <div key={`e${i}`} className="h-16 border-b border-r border-slate-50" />
           ))}
 
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const dayBookings = getBookingsForDay(day)
+            const block = getBlockForDay(day)
             const isToday =
               day === today.getDate() &&
               month === today.getMonth() &&
@@ -122,24 +169,34 @@ export function CalendarView({ bookings, month, year }: Props) {
                 className={cn(
                   "h-16 p-1.5 border-b border-r border-slate-100 flex flex-col items-start transition-colors relative",
                   isLastCol && "border-r-0",
-                  isSelected && "bg-[#0f3460]/5",
-                  !isSelected && !isToday && "hover:bg-slate-50"
+                  block && "bg-red-50",
+                  isSelected && !block && "bg-[#0f3460]/5",
+                  isSelected && block && "bg-red-100",
+                  !isSelected && !isToday && !block && "hover:bg-slate-50",
+                  !isSelected && !isToday && block && "hover:bg-red-100",
                 )}
               >
-                <span
-                  className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold leading-none",
-                    isToday
-                      ? "bg-[#e94560] text-white"
-                      : isSelected
-                      ? "bg-[#0f3460] text-white"
-                      : isPast
-                      ? "text-slate-300"
-                      : "text-slate-700"
+                <div className="flex items-center justify-between w-full">
+                  <span
+                    className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold leading-none",
+                      isToday
+                        ? "bg-[#e94560] text-white"
+                        : isSelected
+                        ? block ? "bg-red-600 text-white" : "bg-[#0f3460] text-white"
+                        : isPast
+                        ? "text-slate-300"
+                        : block
+                        ? "text-red-600"
+                        : "text-slate-700"
+                    )}
+                  >
+                    {day}
+                  </span>
+                  {block && (
+                    <BanIcon className="w-3 h-3 text-red-400 flex-shrink-0" />
                   )}
-                >
-                  {day}
-                </span>
+                </div>
                 {/* Booking dots */}
                 <div className="flex gap-0.5 mt-auto flex-wrap">
                   {dayBookings.slice(0, 3).map((b) => (
@@ -161,25 +218,55 @@ export function CalendarView({ bookings, month, year }: Props) {
         </div>
       </div>
 
-      {/* Selected day bookings */}
+      {/* Selected day panel */}
       {selectedDay !== null && (
-        <div className="bg-white rounded-xl border border-slate-200">
-          <div className="px-5 py-3 border-b border-slate-100">
-            <p className="font-bold text-slate-900">
-              {new Date(year, month, selectedDay).toLocaleDateString("pt-PT", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })}
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {selectedBookings.length === 0
-                ? "Sem serviços"
-                : `${selectedBookings.length} serviço(s)`}
-            </p>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+            <div>
+              <p className="font-bold text-slate-900">
+                {new Date(year, month, selectedDay).toLocaleDateString("pt-PT", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {selectedBlock
+                  ? "Dia bloqueado — não aceita novas marcações"
+                  : selectedBookings.length === 0
+                  ? "Sem serviços"
+                  : `${selectedBookings.length} serviço(s)`}
+              </p>
+            </div>
+            <button
+              onClick={() => toggleBlock(selectedDay)}
+              disabled={blockLoading}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex-shrink-0",
+                selectedBlock
+                  ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  : "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+              )}
+            >
+              {blockLoading
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <BanIcon className="w-3.5 h-3.5" />}
+              {selectedBlock ? "Desbloquear" : "Bloquear dia"}
+            </button>
           </div>
 
-          {selectedBookings.length === 0 ? (
+          {selectedBlock && (
+            <div className="px-5 py-3 bg-red-50 border-b border-red-100 text-xs text-red-700 font-medium">
+              Este dia está bloqueado. Os consultores não conseguem marcar neste dia.
+              {selectedBookings.length > 0 && (
+                <span className="ml-1 text-amber-700">
+                  Atenção: há {selectedBookings.length} marcação(ões) existente(s) — o bloqueio não as cancela.
+                </span>
+              )}
+            </div>
+          )}
+
+          {selectedBookings.length === 0 && !selectedBlock ? (
             <div className="py-8 text-center text-slate-300 text-sm">Nenhum serviço neste dia</div>
           ) : (
             <div className="divide-y divide-slate-100">
@@ -237,6 +324,7 @@ export function CalendarView({ bookings, month, year }: Props) {
           { color: "bg-cyan-500", label: "Em Execução" },
           { color: "bg-indigo-500", label: "Ficheiro Entregue" },
           { color: "bg-slate-400", label: "Concluído" },
+          { color: "bg-red-300", label: "Bloqueado", square: true },
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <span className={cn("w-2 h-2 rounded-full", l.color)} />
