@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!videographerId || !scheduledAt || !services?.length || !propertyAddress) {
+  // intro-only bookings have no services but additionalIntros > 0
+  const hasContent = services?.length > 0 || additionalIntros > 0
+  if (!videographerId || !scheduledAt || !hasContent || !propertyAddress) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
 

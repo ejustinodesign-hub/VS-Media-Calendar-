@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     commissionRate = 0.0015,
   } = body
 
-  if (!consultantId || !videographerId || !scheduledAt || !services?.length || !propertyAddress) {
+  if (!consultantId || !videographerId || !scheduledAt || (!services?.length && !additionalIntros) || !propertyAddress) {
     return NextResponse.json({ error: "Campos obrigatórios em falta" }, { status: 400 })
   }
   const isCommission = paymentType === "COMMISSION"

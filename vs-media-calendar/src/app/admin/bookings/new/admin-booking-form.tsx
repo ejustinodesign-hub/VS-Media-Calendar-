@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { SERVICE_LABELS, VIDEO_SERVICES, PHOTO_SERVICES, DEFAULT_PRICES, COMMISSION_RATE, IVA_RATE } from "@/lib/pricing"
+import { SERVICE_LABELS, VIDEO_SERVICES, PHOTO_SERVICES, DEFAULT_PRICES, COMMISSION_RATE, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import type { ServiceType } from "@prisma/client"
-import { Percent, CreditCard, Calculator } from "lucide-react"
+import { Percent, CreditCard, Calculator, Plus, Minus } from "lucide-react"
 
 interface User {
   id: string
@@ -36,6 +36,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
   const [consultantId, setConsultantId]   = useState("")
   const [videographerId, setVideographerId] = useState("")
   const [selectedServices, setSelectedServices] = useState<ServiceType[]>([])
+  const [additionalIntros, setAdditionalIntros] = useState(0)
   const [scheduledAt, setScheduledAt]     = useState("")
   const [propertyAddress, setPropertyAddress] = useState("")
   const [notes, setNotes]                 = useState("")
@@ -64,7 +65,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
   const flatFeeTotal = selectedServices.reduce((sum, s) => {
     if (s === "PHOTO_DRONE" && hasDroneVideoSelected) return sum
     return sum + (activePrices[s] ?? DEFAULT_PRICES[s] ?? 0)
-  }, 0) + (hasTravelFee ? 50 : 0)
+  }, 0) + (hasTravelFee ? 50 : 0) + additionalIntros * ADDITIONAL_INTRO_PRICE
 
   const simValue = parseFloat(simPropertyValue.replace(",", ".")) || 0
   const simCommission = Math.round(simValue * COMMISSION_RATE * 100) / 100
@@ -72,7 +73,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!consultantId || !videographerId || !selectedServices.length || !scheduledAt || !propertyAddress) {
+    if (!consultantId || !videographerId || (!selectedServices.length && !additionalIntros) || !scheduledAt || !propertyAddress) {
       setError("Preenche todos os campos obrigatórios.")
       return
     }
@@ -87,6 +88,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
           videographerId,
           scheduledAt: new Date(scheduledAt).toISOString(),
           services: selectedServices,
+          additionalIntros,
           propertyAddress,
           notes,
           hasTravelFee,
@@ -277,6 +279,37 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
         </div>
       </div>
 
+      {/* Intros counter */}
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-slate-700">Intros de vídeo <span className="text-slate-400 font-normal">({ADDITIONAL_INTRO_PRICE}€ cada)</span></label>
+        <div className="flex items-center justify-between px-4 py-3 border border-slate-200 rounded-xl bg-white">
+          <span className="text-sm text-slate-700">
+            {additionalIntros === 0
+              ? "Nenhuma intro"
+              : `${additionalIntros} intro${additionalIntros > 1 ? "s" : ""} — ${additionalIntros * ADDITIONAL_INTRO_PRICE}€`}
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAdditionalIntros(Math.max(0, additionalIntros - 1))}
+              disabled={additionalIntros === 0}
+              className="w-7 h-7 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
+            <span className="w-5 text-center font-bold text-slate-900 text-sm">{additionalIntros}</span>
+            <button
+              type="button"
+              onClick={() => setAdditionalIntros(Math.min(4, additionalIntros + 1))}
+              disabled={additionalIntros >= 4}
+              className="w-7 h-7 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Travel fee */}
       <label className="flex items-center gap-3 cursor-pointer select-none">
         <input
@@ -301,7 +334,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
       </div>
 
       {/* Total / commission note */}
-      {selectedServices.length > 0 && (
+      {(selectedServices.length > 0 || additionalIntros > 0) && (
         paymentType === "FLAT_FEE" ? (
           <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between">
             <span className="text-sm text-slate-600">Total estimado (sem IVA)</span>
