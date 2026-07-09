@@ -1,12 +1,10 @@
 /**
- * Backfill: intros de junho 2026
- * Cria deliverables e cobra as faturas de junho para cada consultor.
+ * Backfill: intros individuais de junho 2026
+ * Cada linha do Excel = um intro individual → 25€ net por consultor.
  *
  * Uso:
  *   DATABASE_URL="postgresql://..." npx tsx scripts/add-june-intros.ts
- *
- * Flags:
- *   --dry-run   Mostra o que faria mas não escreve nada
+ *   DATABASE_URL="postgresql://..." npx tsx scripts/add-june-intros.ts --dry-run
  */
 import { PrismaClient } from "@prisma/client"
 
@@ -15,8 +13,8 @@ const prisma = new PrismaClient()
 const DRY_RUN = process.argv.includes("--dry-run")
 const INTRO_PRICE_NET = 25
 const IVA_RATE = 0.23
+const INTRO_PRICE_WITH_IVA = Math.round(INTRO_PRICE_NET * (1 + IVA_RATE) * 100) / 100
 const TARGET_MONTH = "2026-06"
-// Último dia de junho a local-time (Portugal = UTC+1 em junho)
 const JUNE_DUE_DATE = new Date(2026, 5, 30, 23, 59, 59)
 
 if (DRY_RUN) console.log("🔍 DRY RUN — nada será escrito\n")
@@ -25,42 +23,28 @@ function round2(n: number) {
   return Math.round(n * 100) / 100
 }
 
-function splitPrice(count: number) {
-  const net = round2(INTRO_PRICE_NET / count)
-  const withIva = round2(net * (1 + IVA_RATE))
-  return { net, withIva }
-}
-
-async function chargeJuneInvoice(consultantId: string, net: number, withIva: number) {
-  if (DRY_RUN) return
-  const existing = await prisma.monthlyInvoice.findFirst({
-    where: { consultantId, month: TARGET_MONTH },
-  })
-  if (existing) {
-    await prisma.monthlyInvoice.update({
-      where: { id: existing.id },
-      data: {
-        subtotal: round2(existing.subtotal + net),
-        total: round2(existing.total + withIva),
-      },
-    })
-  } else {
-    await prisma.monthlyInvoice.create({
-      data: {
-        consultantId,
-        month: TARGET_MONTH,
-        subtotal: net,
-        total: withIva,
-        dueDate: JUNE_DUE_DATE,
-        status: "PENDING",
-      },
-    })
-  }
-}
+// ─── Dados do Excel (cada linha = um intro individual) ─────────────────────
+// consultor | imóvel de (consultor que fez a marcação) | localização
+const INTROS: { consultant: string; bookingConsultant: string; location: string }[] = [
+  { consultant: "evandro almeida",  bookingConsultant: "Rúben", location: "estudio podcast" },
+  { consultant: "diogo antunes",    bookingConsultant: "Rúben", location: "estudio podcast" },
+  { consultant: "joao mendes",      bookingConsultant: "Rúben", location: "estudio podcast" },
+  { consultant: "joao mendes",      bookingConsultant: "Lucas", location: "liberdade" },
+  { consultant: "sofia andrade",    bookingConsultant: "Lucas", location: "liberdade" },
+  { consultant: "joao mendes",      bookingConsultant: "Lucas", location: "riverside" },
+  { consultant: "evandro",          bookingConsultant: "Lucas", location: "riverside" },
+  { consultant: "diogo antunes",    bookingConsultant: "Lucas", location: "riverside" },
+  { consultant: "gabriel",          bookingConsultant: "Lucas", location: "riverside" },
+  { consultant: "batista",          bookingConsultant: "Lucas", location: "riverside" },
+  { consultant: "joao mendes",      bookingConsultant: "Rúben", location: "benfica" },
+  { consultant: "filipe silva",     bookingConsultant: "Rúben", location: "benfica" },
+  { consultant: "evandro",          bookingConsultant: "Rúben", location: "ramada" },
+  { consultant: "gabriel",          bookingConsultant: "Rúben", location: "ramada" },
+  { consultant: "filipe silva",     bookingConsultant: "Rúben", location: "ramada" },
+]
 
 async function findUser(nameHint: string) {
   const name = nameHint.trim()
-  // Try full name first, then first/last word
   let user = await prisma.user.findFirst({
     where: {
       role: { in: ["CONSULTANT", "ADMIN"] as any },
@@ -69,14 +53,13 @@ async function findUser(nameHint: string) {
     },
     select: { id: true, name: true, email: true },
   })
+  // fallback: only first word
   if (!user && name.includes(" ")) {
-    // Try first word only
-    const first = name.split(" ")[0]
     user = await prisma.user.findFirst({
       where: {
         role: { in: ["CONSULTANT", "ADMIN"] as any },
         active: true,
-        name: { contains: first, mode: "insensitive" },
+        name: { contains: name.split(" ")[0], mode: "insensitive" },
       },
       select: { id: true, name: true, email: true },
     })
@@ -84,172 +67,116 @@ async function findUser(nameHint: string) {
   return user
 }
 
-async function findBooking(locationKeyword: string, bookingConsultantHint: string) {
-  // Find the booking consultant
+// Cache bookings to avoid repeated queries for the same location
+const bookingCache = new Map<string, { id: string; propertyAddress: string; videographerId: string } | null>()
+
+async function findBooking(location: string, bookingConsultantHint: string) {
+  const key = `${bookingConsultantHint}|${location}`
+  if (bookingCache.has(key)) return bookingCache.get(key)!
+
   const consultant = await prisma.user.findFirst({
     where: {
       role: { in: ["CONSULTANT", "ADMIN"] as any },
       active: true,
       name: { contains: bookingConsultantHint.trim(), mode: "insensitive" },
     },
-    select: { id: true, name: true },
+    select: { id: true },
   })
-  if (!consultant) return null
 
-  // Use the first meaningful word of the location (>3 chars) as keyword
-  const keyword = locationKeyword.split(" ").find((w) => w.length > 3) || locationKeyword.split(" ")[0]
+  if (!consultant) { bookingCache.set(key, null); return null }
 
-  return prisma.booking.findFirst({
+  const booking = await prisma.booking.findFirst({
     where: {
       consultantId: consultant.id,
-      propertyAddress: { contains: keyword, mode: "insensitive" },
+      propertyAddress: { contains: location, mode: "insensitive" },
     },
     orderBy: { scheduledAt: "desc" },
     select: { id: true, propertyAddress: true, videographerId: true },
   })
+
+  bookingCache.set(key, booking)
+  return booking
 }
 
-// ─── Dados do Excel ────────────────────────────────────────────────────────
-// Cada grupo = uma sessão com os consultores que apareceram no intro
-// A coluna "Imóvel de" identifica o consultor que fez a marcação original
-const GROUPS = [
-  {
-    label: "Estúdio Podcast (Rúben)",
-    location: "estudio podcast",
-    bookingConsultant: "Rúben",
-    // 3 consultores → 25/3 ≈ 8,33€ net cada
-    consultantNames: ["evandro almeida", "diogo antunes", "joao mendes"],
-  },
-  {
-    label: "Arrendamento Escritórios Av. Liberdade (Lucas)",
-    location: "liberdade",
-    bookingConsultant: "Lucas",
-    // 2 consultores → 12,50€ net cada
-    consultantNames: ["joao mendes", "sofia andrade"],
-  },
-  {
-    label: "Prata Riverside (Lucas)",
-    location: "riverside",
-    bookingConsultant: "Lucas",
-    // 5 consultores → 5€ net cada
-    // Nota: deliverable suporta max 4 campos; o 5.º (batista) fica na descrição
-    consultantNames: ["joao mendes", "evandro", "diogo antunes", "gabriel", "batista"],
-  },
-  {
-    label: "S. Domingos Benfica (Rúben)",
-    location: "benfica",
-    bookingConsultant: "Rúben",
-    // 2 consultores → 12,50€ net cada
-    consultantNames: ["joao mendes", "filipe silva"],
-  },
-  {
-    label: "T3 Ramada (Rúben)",
-    location: "ramada",
-    bookingConsultant: "Rúben",
-    // 3 consultores → 8,33€ net cada
-    consultantNames: ["evandro", "gabriel", "filipe silva"],
-  },
-]
+async function chargeJuneInvoice(consultantId: string) {
+  if (DRY_RUN) return
+  const existing = await prisma.monthlyInvoice.findFirst({
+    where: { consultantId, month: TARGET_MONTH },
+  })
+  if (existing) {
+    await prisma.monthlyInvoice.update({
+      where: { id: existing.id },
+      data: {
+        subtotal: round2(existing.subtotal + INTRO_PRICE_NET),
+        total: round2(existing.total + INTRO_PRICE_WITH_IVA),
+      },
+    })
+  } else {
+    await prisma.monthlyInvoice.create({
+      data: {
+        consultantId,
+        month: TARGET_MONTH,
+        subtotal: INTRO_PRICE_NET,
+        total: INTRO_PRICE_WITH_IVA,
+        dueDate: JUNE_DUE_DATE,
+        status: "PENDING",
+      },
+    })
+  }
+}
 
 async function main() {
-  console.log("=== Backfill Intros Junho 2026 ===\n")
-  let totalCharges = 0
+  console.log("=== Backfill Intros Individuais — Junho 2026 ===")
+  console.log(`    ${INTRO_PRICE_NET}€ net / ${INTRO_PRICE_WITH_IVA}€ c/ IVA por intro\n`)
+
+  let ok = 0
   const errors: string[] = []
 
-  for (const group of GROUPS) {
-    console.log(`📍 ${group.label}`)
-
-    // ── 1. Encontrar consultores ──────────────────────────────────────────
-    const consultants: { id: string; name: string; email: string | null }[] = []
-    for (const name of group.consultantNames) {
-      const user = await findUser(name)
-      if (!user) {
-        const msg = `❌ Consultor não encontrado: "${name}" (grupo: ${group.label})`
-        console.error("  " + msg)
-        errors.push(msg)
-        continue
-      }
-      consultants.push(user)
-      console.log(`  👤 ${user.name} [${user.id}]`)
-    }
-
-    if (consultants.length !== group.consultantNames.length) {
-      console.error("  ⚠️  Consultor(es) em falta — a saltar este grupo\n")
+  for (const row of INTROS) {
+    const user = await findUser(row.consultant)
+    if (!user) {
+      const msg = `Consultor não encontrado: "${row.consultant}"`
+      console.error(`❌ ${msg}`)
+      errors.push(msg)
       continue
     }
 
-    // ── 2. Encontrar marcação ─────────────────────────────────────────────
-    const booking = await findBooking(group.location, group.bookingConsultant)
+    const booking = await findBooking(row.location, row.bookingConsultant)
     if (!booking) {
-      console.warn(`  ⚠️  Marcação não encontrada para "${group.location}" de ${group.bookingConsultant}`)
-      console.warn("      A cobrar nas faturas sem deliverable associado")
-    } else {
-      console.log(`  📋 Marcação: ${booking.id} (${booking.propertyAddress})`)
+      console.warn(`⚠️  Marcação não encontrada: ${row.location} / ${row.bookingConsultant} — a cobrar sem deliverable`)
     }
 
-    // ── 3. Calcular split ─────────────────────────────────────────────────
-    const count = consultants.length
-    const { net, withIva } = splitPrice(count)
-    console.log(`  💰 ${count} consultores → ${net}€ net / ${withIva}€ c/ IVA cada`)
-
-    // ── 4. Criar deliverable (se houver marcação) ─────────────────────────
-    if (booking) {
-      // Deliverable suporta máx. 4 campos de consultor
-      const [c1, c2, c3, c4] = consultants
-      const extraNote = count > 4
-        ? ` + ${consultants.slice(4).map((c) => c.name).join(", ")}`
-        : ""
-
-      if (!DRY_RUN) {
-        const deliverable = await prisma.deliverable.create({
+    if (!DRY_RUN) {
+      if (booking) {
+        await prisma.deliverable.create({
           data: {
             bookingId: booking.id,
-            fileName: `intro-jun26-${group.location.replace(/\s+/g, "-")}.mp4`,
-            fileUrl: `backfill:intro-junho-2026:${group.location.replace(/\s+/g, "-")}`,
+            fileName: `intro-jun26-${user.name?.replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
+            fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
             uploadedBy: booking.videographerId,
-            description: `Intro junho 2026 — ${group.label}${extraNote}`,
-            targetConsultantId: c1.id,
-            secondConsultantId: c2?.id ?? null,
-            thirdConsultantId: c3?.id ?? null,
-            fourthConsultantId: c4?.id ?? null,
+            description: `Intro junho 2026 — ${row.location}`,
+            targetConsultantId: user.id,
             videographerFee: 10,
           },
         })
-        console.log(`  📎 Deliverable criado: ${deliverable.id}`)
-      } else {
-        console.log(`  📎 [dry-run] criaria deliverable com ${Math.min(count, 4)} consultores`)
       }
+      await chargeJuneInvoice(user.id)
     }
 
-    // ── 5. Cobrar fatura de junho a cada consultor ────────────────────────
-    for (const c of consultants) {
-      await chargeJuneInvoice(c.id, net, withIva)
-      console.log(`  ✅ ${c.name}: +${net}€ net (+${withIva}€ c/ IVA) → fatura Jun 2026`)
-      totalCharges++
-    }
-
-    console.log()
+    console.log(`✅ ${user.name.padEnd(25)} → +${INTRO_PRICE_NET}€ net (${row.location})${booking ? "" : " [sem deliverable]"}`)
+    ok++
   }
 
-  if (errors.length > 0) {
-    console.error("⚠️  Erros encontrados:")
+  console.log(`\n📊 ${ok}/${INTROS.length} intros processados`)
+  console.log(`   Total net: ${round2(ok * INTRO_PRICE_NET)}€`)
+  console.log(`   Total c/ IVA: ${round2(ok * INTRO_PRICE_WITH_IVA)}€`)
+
+  if (errors.length) {
+    console.error(`\n⚠️  ${errors.length} erro(s):`)
     errors.forEach((e) => console.error("   " + e))
+    process.exit(1)
   }
-
-  const totalNet = GROUPS.reduce((sum, g) => {
-    const { net } = splitPrice(g.consultantNames.length)
-    return sum + net * g.consultantNames.length
-  }, 0)
-  const totalWithIva = GROUPS.reduce((sum, g) => {
-    const { withIva } = splitPrice(g.consultantNames.length)
-    return sum + withIva * g.consultantNames.length
-  }, 0)
-
-  console.log(`\n📊 Resumo:`)
-  console.log(`   ${totalCharges} cobranças${DRY_RUN ? " (simuladas)" : " aplicadas"}`)
-  console.log(`   Total líquido: ~${round2(totalNet)}€`)
-  console.log(`   Total c/ IVA:  ~${round2(totalWithIva)}€`)
-  console.log(DRY_RUN ? "\n✅ Dry run concluído (nada foi escrito)" : "\n✅ Concluído!")
+  console.log(DRY_RUN ? "\n✅ Dry run — corre sem --dry-run para aplicar" : "\n✅ Concluído!")
 }
 
 main()
