@@ -7,6 +7,8 @@ const IVA_RATE = 0.23
 const INTRO_WITH_IVA = Math.round(INTRO_PRICE_NET * (1 + IVA_RATE) * 100) / 100
 const TARGET_MONTH = "2026-06"
 const JUNE_DUE_DATE = new Date(2026, 5, 30, 23, 59, 59)
+const JULY_MONTH = "2026-07"
+const JULY_DUE_DATE = new Date(2026, 6, 31, 23, 59, 59)
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
@@ -66,8 +68,8 @@ async function findBooking(location: string, consultantHint: string) {
   return booking
 }
 
-async function chargeJuneInvoice(consultantId: string) {
-  const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month: TARGET_MONTH } })
+async function addToInvoice(consultantId: string, month: string, dueDate: Date) {
+  const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })
   if (existing) {
     await prisma.monthlyInvoice.update({
       where: { id: existing.id },
@@ -75,8 +77,18 @@ async function chargeJuneInvoice(consultantId: string) {
     })
   } else {
     await prisma.monthlyInvoice.create({
-      data: { consultantId, month: TARGET_MONTH, subtotal: INTRO_PRICE_NET, total: INTRO_WITH_IVA, dueDate: JUNE_DUE_DATE, status: "PENDING" },
+      data: { consultantId, month, subtotal: INTRO_PRICE_NET, total: INTRO_WITH_IVA, dueDate, status: "PENDING" },
     })
+  }
+}
+
+async function chargeJuneInvoice(consultantId: string) {
+  const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month: TARGET_MONTH } })
+  // Se junho já está pago, cobrar em julho
+  if (june?.status === "PAID") {
+    await addToInvoice(consultantId, JULY_MONTH, JULY_DUE_DATE)
+  } else {
+    await addToInvoice(consultantId, TARGET_MONTH, JUNE_DUE_DATE)
   }
 }
 
@@ -132,4 +144,73 @@ export async function POST() {
     notFound,
     results,
   })
+}
+
+// PATCH: move intro charges from PAID June invoices to July
+// Usado quando o backfill já correu mas alguns consultores já tinham junho pago
+export async function PATCH() {
+  const session = await auth()
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const moved: string[] = []
+  const skipped: string[] = []
+
+  // Colect unique consultant IDs from the backfill list
+  const seenIds = new Set<string>()
+  for (const row of INTROS) {
+    const user = await findUser(row.consultant)
+    if (!user || seenIds.has(user.id)) continue
+
+    // Count how many intros this consultant has in the backfill
+    const introCount = INTROS.filter((r) => r.consultant === row.consultant ||
+      r.consultant.split(" ")[0].toLowerCase() === row.consultant.split(" ")[0].toLowerCase()
+    ).length
+
+    seenIds.add(user.id)
+
+    const juneInvoice = await prisma.monthlyInvoice.findFirst({
+      where: { consultantId: user.id, month: TARGET_MONTH },
+    })
+
+    if (!juneInvoice || juneInvoice.status !== "PAID") {
+      skipped.push(user.name ?? row.consultant)
+      continue
+    }
+
+    // Count how many intros this specific user.id has (may differ from name match count)
+    const deliverables = await prisma.deliverable.findMany({
+      where: {
+        fileUrl: { startsWith: "backfill:intro-junho-2026:" },
+        targetConsultantId: user.id,
+      },
+      select: { id: true },
+    })
+    const count = deliverables.length
+    if (count === 0) { skipped.push(user.name ?? row.consultant); continue }
+
+    const netToMove = round2(INTRO_PRICE_NET * count)
+    const ivaToMove = round2(INTRO_WITH_IVA * count)
+
+    // Subtract from paid June invoice
+    await prisma.monthlyInvoice.update({
+      where: { id: juneInvoice.id },
+      data: {
+        subtotal: round2(juneInvoice.subtotal - netToMove),
+        total: round2(juneInvoice.total - ivaToMove),
+      },
+    })
+
+    // Add to July
+    await addToInvoice(user.id, JULY_MONTH, JULY_DUE_DATE)
+    // addToInvoice only adds one intro at a time; repeat for count > 1
+    for (let i = 1; i < count; i++) {
+      await addToInvoice(user.id, JULY_MONTH, JULY_DUE_DATE)
+    }
+
+    moved.push(`${user.name ?? row.consultant} (${count} intro${count > 1 ? "s" : ""})`)
+  }
+
+  return NextResponse.json({ ok: true, moved, skipped })
 }
