@@ -52,28 +52,42 @@ export default async function InvoiceDetailPage({ params }: Props) {
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
 
-  const sharedIntros = await prisma.deliverable.findMany({
-    where: {
-      OR: [
-        { targetConsultantId: invoice.consultantId },
-        { secondConsultantId: invoice.consultantId },
-        { thirdConsultantId: invoice.consultantId },
-        { fourthConsultantId: invoice.consultantId },
-      ],
-      createdAt: { gte: monthStart, lte: monthEnd },
-    },
-    select: {
-      id: true,
-      fileName: true,
-      createdAt: true,
-      targetConsultantId: true,
-      secondConsultantId: true,
-      thirdConsultantId: true,
-      fourthConsultantId: true,
-      booking: { select: { propertyAddress: true, videographer: { select: { name: true } } } },
-    },
+  const consultantFilter = [
+    { targetConsultantId: invoice.consultantId },
+    { secondConsultantId: invoice.consultantId },
+    { thirdConsultantId: invoice.consultantId },
+    { fourthConsultantId: invoice.consultantId },
+  ] as const
+
+  const introSelect = {
+    id: true,
+    fileName: true,
+    description: true,
+    createdAt: true,
+    targetConsultantId: true,
+    secondConsultantId: true,
+    thirdConsultantId: true,
+    fourthConsultantId: true,
+    booking: { select: { propertyAddress: true, videographer: { select: { name: true } } } },
+  } as const
+
+  const regularIntros = await prisma.deliverable.findMany({
+    where: { OR: [...consultantFilter], createdAt: { gte: monthStart, lte: monthEnd } },
+    select: introSelect,
     orderBy: { createdAt: "asc" },
   })
+
+  const backfillIntros =
+    invoice.month === "2026-06" && invoice.status !== "PAID"
+      ? await prisma.deliverable.findMany({
+          where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" }, targetConsultantId: invoice.consultantId },
+          select: introSelect,
+          orderBy: { createdAt: "asc" },
+        })
+      : []
+
+  const seen = new Set(regularIntros.map((d) => d.id))
+  const sharedIntros = [...regularIntros, ...backfillIntros.filter((d) => !seen.has(d.id))]
 
   const cfg = STATUS_CONFIG[invoice.status]
   const Icon = cfg.icon
@@ -291,14 +305,19 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 const count = introSplitCount(d)
                 const net = introNet(d)
                 const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
+                const label = d.description || d.booking?.propertyAddress || d.fileName
                 return (
                   <div key={d.id} className="flex items-start justify-between text-sm py-1 gap-3">
                     <div className="flex items-start gap-2 min-w-0">
                       <Package className="w-3.5 h-3.5 text-pink-400 flex-shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="text-slate-700 truncate">{d.fileName}</p>
-                        <p className="text-xs text-slate-400 truncate">{d.booking.propertyAddress}</p>
-                        <p className="text-xs text-slate-400">{d.booking.videographer.name}</p>
+                        <p className="text-slate-700 truncate">{label}</p>
+                        {d.description && d.booking?.propertyAddress && (
+                          <p className="text-xs text-slate-400 truncate">{d.booking.propertyAddress}</p>
+                        )}
+                        {d.booking?.videographer?.name && (
+                          <p className="text-xs text-slate-400">{d.booking.videographer.name}</p>
+                        )}
                         {count > 1 && (
                           <p className="text-[11px] text-violet-500 mt-0.5">
                             Partilhada com {count} consultores — {formatPrice(ADDITIONAL_INTRO_PRICE)} ÷ {count}

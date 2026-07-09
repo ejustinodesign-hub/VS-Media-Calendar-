@@ -40,16 +40,17 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   // Delete DB record
   await prisma.deliverable.delete({ where: { id } })
 
-  // If no deliverables remain, revert booking status to ACCEPTED
-  const remaining = await prisma.deliverable.count({
-    where: { bookingId: deliverable.booking.id },
-  })
-
-  if (remaining === 0) {
-    await prisma.booking.update({
-      where: { id: deliverable.booking.id },
-      data: { status: "ACCEPTED" },
+  // If no deliverables remain for the booking, revert booking status to ACCEPTED
+  if (deliverable.booking) {
+    const remaining = await prisma.deliverable.count({
+      where: { bookingId: deliverable.booking.id },
     })
+    if (remaining === 0) {
+      await prisma.booking.update({
+        where: { id: deliverable.booking.id },
+        data: { status: "ACCEPTED" },
+      })
+    }
   }
 
   return NextResponse.json({ success: true })

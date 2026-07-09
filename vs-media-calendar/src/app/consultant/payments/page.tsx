@@ -81,7 +81,7 @@ export default async function ConsultantPaymentsPage({
   // Current month billing estimate (only shown if no invoice generated yet for this month)
   const hasCurrentMonthInvoice = invoices.some((i) => i.month === currentMonth)
   const currentMonthIntros = sharedIntros.filter((d) => {
-    const bookingDate = new Date(d.booking.scheduledAt)
+    const bookingDate = new Date(d.booking?.scheduledAt ?? d.createdAt)
     return bookingDate >= monthStart && bookingDate <= monthEnd
   })
   const summaryNet = currentMonthBookings.reduce((sum, b) => {
@@ -230,7 +230,7 @@ export default async function ConsultantPaymentsPage({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-800 truncate">{d.fileName}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{d.booking.propertyAddress}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{d.booking?.propertyAddress ?? d.fileName}</p>
                       <p className={`text-xs mt-0.5 ${isExpired ? "text-red-500" : "text-amber-600"}`}>
                         {isExpired
                           ? "Ficheiro expirado"

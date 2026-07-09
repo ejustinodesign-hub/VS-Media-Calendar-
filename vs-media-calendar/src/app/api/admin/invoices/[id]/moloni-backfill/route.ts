@@ -48,15 +48,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
 
-  const sharedIntros = await prisma.deliverable.findMany({
-    where: {
-      targetConsultantId: invoice.consultantId,
-      createdAt: { gte: monthStart, lte: monthEnd },
-    },
-    include: {
-      booking: { select: { propertyAddress: true } },
-    },
+  const regularSharedIntros = await prisma.deliverable.findMany({
+    where: { targetConsultantId: invoice.consultantId, createdAt: { gte: monthStart, lte: monthEnd } },
+    include: { booking: { select: { propertyAddress: true } } },
   })
+  const backfillSharedIntros =
+    invoice.month === "2026-06"
+      ? await prisma.deliverable.findMany({
+          where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" }, targetConsultantId: invoice.consultantId },
+          include: { booking: { select: { propertyAddress: true } } },
+        })
+      : []
+  const seenIntroIds = new Set(regularSharedIntros.map((d) => d.id))
+  const sharedIntros = [...regularSharedIntros, ...backfillSharedIntros.filter((d) => !seenIntroIds.has(d.id))]
 
   const bookingLines = invoice.bookings.flatMap((b) => {
     const items = b.services.map((svc) => ({
@@ -82,7 +86,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   })
 
   const sharedIntroLines = sharedIntros.map((d) => ({
-    description: `Intro partilhada — ${d.booking.propertyAddress}`,
+    description: d.description ?? `Intro partilhada — ${d.booking?.propertyAddress ?? d.fileName}`,
     qty: 1,
     unitPrice: ADDITIONAL_INTRO_PRICE,
   }))
