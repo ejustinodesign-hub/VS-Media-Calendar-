@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { sendStatusUpdateEmail } from "@/lib/email"
+import { sendBookingRejectedEmail } from "@/lib/email"
 import { SERVICE_LABELS } from "@/lib/pricing"
 
 interface RouteContext {
@@ -31,8 +31,18 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     data: { status: "REJECTED", cancelledAt: new Date() },
   })
 
+  await prisma.notification.create({
+    data: {
+      userId: booking.consultantId,
+      bookingId: booking.id,
+      type: "SERVICE_REJECTED",
+      title: "Marcação recusada",
+      message: `${booking.videographer.name} recusou a marcação para ${booking.propertyAddress}. Crie uma nova marcação.`,
+    },
+  })
+
   try {
-    const emailData = {
+    await sendBookingRejectedEmail({
       bookingId: booking.id,
       consultantName: booking.consultant.name || "",
       consultantEmail: booking.consultant.email || "",
@@ -44,8 +54,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         (s) => SERVICE_LABELS[s.serviceType as keyof typeof SERVICE_LABELS]
       ),
       status: "REJECTED" as const,
-    }
-    await sendStatusUpdateEmail(emailData, "consultant", "A sua marcação foi recusada pelo videógrafo. Por favor, crie uma nova marcação com outro horário ou videógrafo.")
+    })
   } catch (e) {
     console.error("Email error:", e)
   }

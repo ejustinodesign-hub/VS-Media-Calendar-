@@ -426,6 +426,38 @@ export async function sendPaymentReminderEmail({
   return result
 }
 
+export async function sendBookingRejectedEmail(data: BookingEmailData) {
+  const content = `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+      <p style="margin:0;font-size:15px;font-weight:700;color:#b91c1c;">❌ Marcação recusada</p>
+      <p style="margin:6px 0 0;font-size:14px;color:#dc2626;">
+        O videógrafo <strong>${data.videographerName}</strong> não está disponível para esta data e recusou a marcação.
+      </p>
+    </div>
+
+    <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Data e Hora</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${formatDate(data.scheduledAt)}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.propertyAddress}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Serviços</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${data.services.join(", ")}</td></tr>
+      </table>
+    </div>
+
+    <p style="color:#666;font-size:14px;margin:0 0 24px;">
+      Por favor, crie uma nova marcação com outro horário ou escolha um videógrafo diferente.
+    </p>
+
+    <a href="${APP_URL}/consultant/bookings/new" style="display:inline-block;background:#e94560;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Nova Marcação →</a>
+  `
+
+  await getResend().emails.send({
+    from: FROM,
+    to: data.consultantEmail,
+    subject: `❌ Marcação recusada — ${data.propertyAddress}`,
+    html: emailBase(content),
+  })
+}
+
 export async function sendStatusUpdateEmail(
   data: BookingEmailData,
   to: "consultant" | "videographer",
