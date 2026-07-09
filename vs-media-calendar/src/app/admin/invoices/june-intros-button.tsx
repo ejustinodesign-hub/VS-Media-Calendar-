@@ -43,12 +43,13 @@ export function JuneIntrosButton() {
         return
       }
       if (data.moved.length === 0) {
-        setMessage("Nenhuma fatura paga encontrada para corrigir.")
+        setMessage("Nenhuma fatura de junho paga encontrada para corrigir.")
+        setState("fix-done")
+        router.refresh()
       } else {
-        setMessage(`Movido para julho: ${data.moved.join(", ")}.`)
+        // Redirecionar para julho para ver as faturas criadas
+        router.push("/admin/invoices?month=2026-07")
       }
-      setState("fix-done")
-      router.refresh()
     } catch {
       setMessage("Erro de ligação.")
       setState("error")

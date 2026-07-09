@@ -146,8 +146,9 @@ export async function POST() {
   })
 }
 
-// PATCH: move intro charges from PAID June invoices to July
-// Usado quando o backfill já correu mas alguns consultores já tinham junho pago
+// PATCH: para cada linha do Excel, se a fatura de junho do consultor está PAID,
+// subtrai esse intro de junho e adiciona a julho.
+// Processa linha a linha — consultores com múltiplos intros são tratados N vezes.
 export async function PATCH() {
   const session = await auth()
   if (!session?.user || (session.user as any).role !== "ADMIN") {
@@ -157,18 +158,9 @@ export async function PATCH() {
   const moved: string[] = []
   const skipped: string[] = []
 
-  // Colect unique consultant IDs from the backfill list
-  const seenIds = new Set<string>()
   for (const row of INTROS) {
     const user = await findUser(row.consultant)
-    if (!user || seenIds.has(user.id)) continue
-
-    // Count how many intros this consultant has in the backfill
-    const introCount = INTROS.filter((r) => r.consultant === row.consultant ||
-      r.consultant.split(" ")[0].toLowerCase() === row.consultant.split(" ")[0].toLowerCase()
-    ).length
-
-    seenIds.add(user.id)
+    if (!user) { skipped.push(row.consultant); continue }
 
     const juneInvoice = await prisma.monthlyInvoice.findFirst({
       where: { consultantId: user.id, month: TARGET_MONTH },
@@ -179,37 +171,20 @@ export async function PATCH() {
       continue
     }
 
-    // Count how many intros this specific user.id has (may differ from name match count)
-    const deliverables = await prisma.deliverable.findMany({
-      where: {
-        fileUrl: { startsWith: "backfill:intro-junho-2026:" },
-        targetConsultantId: user.id,
-      },
-      select: { id: true },
-    })
-    const count = deliverables.length
-    if (count === 0) { skipped.push(user.name ?? row.consultant); continue }
-
-    const netToMove = round2(INTRO_PRICE_NET * count)
-    const ivaToMove = round2(INTRO_WITH_IVA * count)
-
-    // Subtract from paid June invoice
+    // Subtrair este intro de junho (refrescar o registo para evitar race conditions)
+    const fresh = await prisma.monthlyInvoice.findUniqueOrThrow({ where: { id: juneInvoice.id } })
     await prisma.monthlyInvoice.update({
       where: { id: juneInvoice.id },
       data: {
-        subtotal: round2(juneInvoice.subtotal - netToMove),
-        total: round2(juneInvoice.total - ivaToMove),
+        subtotal: round2(fresh.subtotal - INTRO_PRICE_NET),
+        total: round2(fresh.total - INTRO_WITH_IVA),
       },
     })
 
-    // Add to July
+    // Adicionar a julho
     await addToInvoice(user.id, JULY_MONTH, JULY_DUE_DATE)
-    // addToInvoice only adds one intro at a time; repeat for count > 1
-    for (let i = 1; i < count; i++) {
-      await addToInvoice(user.id, JULY_MONTH, JULY_DUE_DATE)
-    }
 
-    moved.push(`${user.name ?? row.consultant} (${count} intro${count > 1 ? "s" : ""})`)
+    moved.push(user.name ?? row.consultant)
   }
 
   return NextResponse.json({ ok: true, moved, skipped })
