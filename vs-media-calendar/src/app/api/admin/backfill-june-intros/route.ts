@@ -111,7 +111,7 @@ export async function POST() {
       await prisma.deliverable.create({
         data: {
           bookingId: booking.id,
-          fileName: `intro-jun26-${user.name?.replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
+          fileName: `intro-jun26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
           fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
           uploadedBy: booking.videographerId,
           description: `Intro junho 2026 — ${row.location}`,
