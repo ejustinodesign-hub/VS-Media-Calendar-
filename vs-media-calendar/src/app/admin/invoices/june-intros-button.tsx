@@ -22,6 +22,8 @@ export function JuneIntrosButton() {
         setState("error")
         return
       }
+      // Actualizar descrições imediatamente após criar
+      await fetch("/api/admin/backfill-june-intros", { method: "PUT" })
       const extra = data.notFound?.length ? ` · ${data.notFound.length} não encontrado(s): ${data.notFound.join(", ")}` : ""
       setMessage(`${data.charged} intros adicionados.${extra}`)
       setState("done")

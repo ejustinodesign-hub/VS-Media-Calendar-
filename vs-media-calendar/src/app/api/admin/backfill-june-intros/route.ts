@@ -17,21 +17,21 @@ function round2(n: number) {
 // Cada linha = um intro individual de junho 2026
 // consultor | quem fez a marcação | palavra-chave da morada
 const INTROS = [
-  { consultant: "evandro almeida", bookingConsultant: "Rúben", location: "estudio podcast" },
-  { consultant: "diogo antunes",   bookingConsultant: "Rúben", location: "estudio podcast" },
-  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "estudio podcast" },
-  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "liberdade" },
-  { consultant: "sofia andrade",   bookingConsultant: "Lucas", location: "liberdade" },
-  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "riverside" },
-  { consultant: "evandro",         bookingConsultant: "Lucas", location: "riverside" },
-  { consultant: "diogo antunes",   bookingConsultant: "Lucas", location: "riverside" },
-  { consultant: "gabriel",         bookingConsultant: "Lucas", location: "riverside" },
-  { consultant: "batista",         bookingConsultant: "Lucas", location: "riverside" },
-  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "benfica" },
-  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "benfica" },
-  { consultant: "evandro",         bookingConsultant: "Rúben", location: "ramada" },
-  { consultant: "gabriel",         bookingConsultant: "Rúben", location: "ramada" },
-  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "ramada" },
+  { consultant: "evandro almeida", bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — Estúdio Podcast (imóvel de Rúben)" },
+  { consultant: "diogo antunes",   bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — Estúdio Podcast (imóvel de Rúben)" },
+  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — Estúdio Podcast (imóvel de Rúben)" },
+  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — Arrendamento Escritórios Av. Liberdade (imóvel de Lucas)" },
+  { consultant: "sofia andrade",   bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — Arrendamento Escritórios Av. Liberdade (imóvel de Lucas)" },
+  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
+  { consultant: "evandro",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
+  { consultant: "diogo antunes",   bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
+  { consultant: "gabriel",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
+  { consultant: "batista",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — Prata Riverside (imóvel de Lucas)" },
+  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "benfica",          label: "Intro — S. Domingos de Benfica (imóvel de Rúben)" },
+  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "benfica",          label: "Intro — S. Domingos de Benfica (imóvel de Rúben)" },
+  { consultant: "evandro",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — T3 Ramada (imóvel de Rúben)" },
+  { consultant: "gabriel",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — T3 Ramada (imóvel de Rúben)" },
+  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "ramada",           label: "Intro — T3 Ramada (imóvel de Rúben)" },
 ]
 
 async function findUser(nameHint: string) {
@@ -126,7 +126,7 @@ export async function POST() {
           fileName: `intro-jun26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
           fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
           uploadedBy: booking.videographerId,
-          description: `Intro junho 2026 — ${row.location}`,
+          description: row.label,
           targetConsultantId: user.id,
           videographerFee: 10,
         },
@@ -144,6 +144,29 @@ export async function POST() {
     notFound,
     results,
   })
+}
+
+// PUT: actualiza as descrições dos deliverables já criados para labels legíveis
+export async function PUT() {
+  const session = await auth()
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  let updated = 0
+  for (const row of INTROS) {
+    const user = await findUser(row.consultant)
+    if (!user) continue
+    const result = await prisma.deliverable.updateMany({
+      where: {
+        fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
+      },
+      data: { description: row.label },
+    })
+    updated += result.count
+  }
+
+  return NextResponse.json({ ok: true, updated })
 }
 
 // PATCH: para cada linha do Excel, se a fatura de junho do consultor está PAID,

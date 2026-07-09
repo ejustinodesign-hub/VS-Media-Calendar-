@@ -65,6 +65,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
     select: {
       id: true,
       fileName: true,
+      description: true,
       createdAt: true,
       targetConsultantId: true,
       secondConsultantId: true,
@@ -256,27 +257,30 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
           </Card>
         )}
 
-        {/* Shared intros */}
+        {/* Intros */}
         {sharedIntros.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Intros Partilhadas ({sharedIntros.length})</CardTitle>
+              <CardTitle>Intros de Vídeo ({sharedIntros.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-0">
               <p className="text-xs text-slate-500 pb-1">
-                Vídeos filmados por outros consultores que incluem uma introdução sua. O custo de {formatPrice(ADDITIONAL_INTRO_PRICE)} é dividido entre todos os consultores que partilham a intro.
+                Introduções suas incluídas em vídeos de imóveis. O custo base é de {formatPrice(ADDITIONAL_INTRO_PRICE)} por intro.
               </p>
               {sharedIntros.map((d) => {
                 const count = introSplitCount(d)
                 const net = introNet(d)
                 const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
+                const label = d.description || d.booking.propertyAddress || d.fileName
                 return (
-                  <div key={d.id} className="flex items-start justify-between text-sm py-1 gap-3">
+                  <div key={d.id} className="flex items-start justify-between text-sm py-2 border-b border-slate-50 last:border-0 gap-3">
                     <div className="flex items-start gap-2 min-w-0">
                       <Package className="w-3.5 h-3.5 text-pink-400 flex-shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="text-slate-700 truncate">{d.fileName}</p>
-                        <p className="text-xs text-slate-400 truncate">{d.booking.propertyAddress}</p>
+                        <p className="text-slate-800 font-medium truncate">{label}</p>
+                        {d.description && (
+                          <p className="text-xs text-slate-400 truncate">{d.booking.propertyAddress}</p>
+                        )}
                         <p className="text-xs text-slate-400">{d.booking.videographer.name}</p>
                         {count > 1 && (
                           <p className="text-[11px] text-violet-500 mt-0.5">
@@ -293,7 +297,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
                 )
               })}
               <div className="flex justify-between text-sm pt-1 border-t border-slate-100">
-                <span className="text-slate-500">Subtotal intros partilhadas</span>
+                <span className="text-slate-500">Subtotal intros</span>
                 <span className="font-semibold text-slate-800">{formatPrice(sharedIntrosSubtotal)}</span>
               </div>
             </CardContent>
