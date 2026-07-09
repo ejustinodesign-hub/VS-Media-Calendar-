@@ -49,18 +49,24 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
 
   const regularSharedIntros = await prisma.deliverable.findMany({
-    where: { targetConsultantId: invoice.consultantId, createdAt: { gte: monthStart, lte: monthEnd } },
+    where: {
+      targetConsultantId: invoice.consultantId,
+      createdAt: { gte: monthStart, lte: monthEnd },
+      NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
+    },
     include: { booking: { select: { propertyAddress: true } } },
   })
-  const backfillSharedIntros =
-    invoice.month === "2026-06"
-      ? await prisma.deliverable.findMany({
-          where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" }, targetConsultantId: invoice.consultantId },
-          include: { booking: { select: { propertyAddress: true } } },
-        })
-      : []
-  const seenIntroIds = new Set(regularSharedIntros.map((d) => d.id))
-  const sharedIntros = [...regularSharedIntros, ...backfillSharedIntros.filter((d) => !seenIntroIds.has(d.id))]
+  const backfillSharedIntros = ["2026-06", "2026-07"].includes(invoice.month)
+    ? await prisma.deliverable.findMany({
+        where: {
+          fileUrl: { startsWith: "backfill:intro-junho-2026:" },
+          targetConsultantId: invoice.consultantId,
+          mimeType: `backfill-charged:${invoice.month}`,
+        },
+        include: { booking: { select: { propertyAddress: true } } },
+      })
+    : []
+  const sharedIntros = [...regularSharedIntros, ...backfillSharedIntros]
 
   const bookingLines = invoice.bookings.flatMap((b) => {
     const items = b.services.map((svc) => ({

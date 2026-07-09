@@ -51,6 +51,7 @@ export default async function ConsultantPaymentsPage({
         id: true,
         fileName: true,
         fileUrl: true,
+        description: true,
         createdAt: true,
         targetConsultantId: true,
         secondConsultantId: true,
@@ -217,27 +218,34 @@ export default async function ConsultantPaymentsPage({
                 Vídeos filmados por outros consultores que incluem uma introdução personalizada sua. O custo de 25€ é dividido por todos os consultores que partilham a intro.
               </p>
               {sharedIntros.map((d) => {
+                const isBackfill = d.fileUrl.startsWith("backfill:intro-junho-2026:")
                 const expiry = new Date(d.createdAt)
                 expiry.setDate(expiry.getDate() + 30)
                 const isExpired = expiry < new Date()
                 return (
                   <div
                     key={d.id}
-                    className={`flex items-center gap-4 p-4 rounded-xl border ${isExpired ? "bg-slate-50 border-slate-200 opacity-60" : "bg-blue-50 border-blue-200"}`}
+                    className={`flex items-center gap-4 p-4 rounded-xl border ${isExpired && !isBackfill ? "bg-slate-50 border-slate-200 opacity-60" : "bg-blue-50 border-blue-200"}`}
                   >
                     <div className="w-10 h-10 bg-[#0f3460] rounded-lg flex items-center justify-center flex-shrink-0">
                       <FileVideo className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{d.fileName}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{d.booking?.propertyAddress ?? d.fileName}</p>
-                      <p className={`text-xs mt-0.5 ${isExpired ? "text-red-500" : "text-amber-600"}`}>
-                        {isExpired
-                          ? "Ficheiro expirado"
-                          : `Disponível até ${expiry.toLocaleDateString("pt-PT")}`}
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {d.description || d.fileName}
                       </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {isBackfill ? "Intro de junho 2026" : d.booking?.propertyAddress ?? d.fileName}
+                      </p>
+                      {!isBackfill && (
+                        <p className={`text-xs mt-0.5 ${isExpired ? "text-red-500" : "text-amber-600"}`}>
+                          {isExpired
+                            ? "Ficheiro expirado"
+                            : `Disponível até ${expiry.toLocaleDateString("pt-PT")}`}
+                        </p>
+                      )}
                     </div>
-                    {!isExpired && (
+                    {!isExpired && !isBackfill && (
                       <a
                         href={d.fileUrl}
                         target="_blank"

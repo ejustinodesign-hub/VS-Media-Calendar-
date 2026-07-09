@@ -62,6 +62,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
   const introSelect = {
     id: true,
     fileName: true,
+    fileUrl: true,
     description: true,
     createdAt: true,
     targetConsultantId: true,
@@ -71,31 +72,31 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
     booking: { select: { propertyAddress: true, videographer: { select: { name: true } } } },
   } as const
 
-  // Regular intros: created within the invoice month
+  // Regular intros: created within the invoice month (backfill ones are month-tagged separately)
   const regularIntros = await prisma.deliverable.findMany({
-    where: { OR: [...consultantFilter], createdAt: { gte: monthStart, lte: monthEnd } },
+    where: {
+      OR: [...consultantFilter],
+      createdAt: { gte: monthStart, lte: monthEnd },
+      NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
+    },
     select: introSelect,
     orderBy: { createdAt: "asc" },
   })
 
-  // Backfill June 2026 intros: show on unpaid June invoice OR on July invoice when June was paid
-  const juneWasPaid =
-    invoice.month === "2026-07"
-      ? (await prisma.monthlyInvoice.findFirst({ where: { consultantId, month: "2026-06" } }))?.status === "PAID"
-      : false
-  const showBackfill =
-    (invoice.month === "2026-06" && invoice.status !== "PAID") ||
-    (invoice.month === "2026-07" && juneWasPaid)
-  const backfillIntros = showBackfill
+  // Backfill June 2026 intros carry the month they were charged to in mimeType
+  const backfillIntros = ["2026-06", "2026-07"].includes(invoice.month)
     ? await prisma.deliverable.findMany({
-        where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" }, targetConsultantId: consultantId },
+        where: {
+          fileUrl: { startsWith: "backfill:intro-junho-2026:" },
+          targetConsultantId: consultantId,
+          mimeType: `backfill-charged:${invoice.month}`,
+        },
         select: introSelect,
         orderBy: { createdAt: "asc" },
       })
     : []
 
-  const seen = new Set(regularIntros.map((d) => d.id))
-  const sharedIntros = [...regularIntros, ...backfillIntros.filter((d) => !seen.has(d.id))]
+  const sharedIntros = [...regularIntros, ...backfillIntros]
 
   const cfg = STATUS_CONFIG[invoice.status]
   const Icon = cfg.icon
@@ -292,6 +293,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
                 const count = introSplitCount(d)
                 const net = introNet(d)
                 const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
+                const isBackfill = d.fileUrl.startsWith("backfill:intro-junho-2026:")
                 const label = d.description || d.booking?.propertyAddress || d.fileName
                 return (
                   <div key={d.id} className="flex items-start justify-between text-sm py-2 border-b border-slate-50 last:border-0 gap-3">
@@ -299,10 +301,13 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
                       <Package className="w-3.5 h-3.5 text-pink-400 flex-shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <p className="text-slate-800 font-medium truncate">{label}</p>
-                        {d.description && d.booking?.propertyAddress && (
+                        {isBackfill && (
+                          <p className="text-xs text-slate-400">Intro de junho 2026</p>
+                        )}
+                        {!isBackfill && d.description && d.booking?.propertyAddress && (
                           <p className="text-xs text-slate-400 truncate">{d.booking.propertyAddress}</p>
                         )}
-                        {d.booking?.videographer?.name && (
+                        {!isBackfill && d.booking?.videographer?.name && (
                           <p className="text-xs text-slate-400">{d.booking.videographer.name}</p>
                         )}
                         {count > 1 && (

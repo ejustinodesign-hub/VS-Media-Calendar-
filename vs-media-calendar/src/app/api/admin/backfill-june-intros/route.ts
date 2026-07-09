@@ -4,11 +4,10 @@ import { prisma } from "@/lib/prisma"
 
 const INTRO_PRICE_NET = 25
 const IVA_RATE = 0.23
-const INTRO_WITH_IVA = Math.round(INTRO_PRICE_NET * (1 + IVA_RATE) * 100) / 100
 const TARGET_MONTH = "2026-06"
-const JUNE_DUE_DATE = new Date(2026, 5, 30, 23, 59, 59)
 const JULY_MONTH = "2026-07"
-const JULY_DUE_DATE = new Date(2026, 6, 31, 23, 59, 59)
+const BACKFILL_PREFIX = "backfill:intro-junho-2026:"
+const DONE_MARKER = "backfill:intro-junho-2026:DONE"
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
@@ -68,53 +67,96 @@ async function findBooking(location: string, consultantHint: string) {
   return booking
 }
 
-async function addToInvoice(consultantId: string, month: string, dueDate: Date) {
+// Recalcula a fatura do consultor para o mês do zero:
+// marcações FLAT_FEE do mês + intros regulares do mês + intros de backfill cobrados nesse mês.
+// Nunca toca em faturas PAID.
+async function recomputeInvoice(consultantId: string, month: string): Promise<"updated" | "created" | "skipped-paid"> {
+  const [year, m] = month.split("-").map(Number)
+  const monthStart = new Date(year, m - 1, 1)
+  const monthEnd = new Date(year, m, 0, 23, 59, 59)
+  const dueDate = new Date(year, m, 0, 23, 59, 59)
+
+  const bookings = await prisma.booking.findMany({
+    where: {
+      consultantId,
+      paymentType: "FLAT_FEE",
+      status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] },
+      scheduledAt: { gte: monthStart, lte: monthEnd },
+    },
+    include: { services: true },
+  })
+  const bookingSubtotal = bookings.reduce((sum, b) => {
+    const services = b.services.reduce((s, svc) => s + svc.price, 0)
+    const travel = b.hasTravelFee ? b.travelFeeAmount : 0
+    const extraIntros = b.additionalIntros * INTRO_PRICE_NET
+    return sum + services + travel + extraIntros
+  }, 0)
+
+  // Intros regulares criados dentro do mês (excluindo os de backfill, que têm mês próprio)
+  const regularIntros = await prisma.deliverable.findMany({
+    where: {
+      OR: [
+        { targetConsultantId: consultantId },
+        { secondConsultantId: consultantId },
+        { thirdConsultantId: consultantId },
+        { fourthConsultantId: consultantId },
+      ],
+      createdAt: { gte: monthStart, lte: monthEnd },
+      NOT: { fileUrl: { startsWith: BACKFILL_PREFIX } },
+    },
+    select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
+  })
+  const regularIntroSubtotal = regularIntros.reduce((sum, d) => {
+    const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    return sum + round2(INTRO_PRICE_NET / split)
+  }, 0)
+
+  // Intros de backfill cobrados neste mês (marcados via mimeType)
+  const backfillCount = await prisma.deliverable.count({
+    where: {
+      fileUrl: { startsWith: BACKFILL_PREFIX },
+      targetConsultantId: consultantId,
+      mimeType: `backfill-charged:${month}`,
+    },
+  })
+  const backfillSubtotal = backfillCount * INTRO_PRICE_NET
+
+  const subtotal = round2(bookingSubtotal + regularIntroSubtotal + backfillSubtotal)
+  const total = round2(subtotal * (1 + IVA_RATE))
+
   const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })
   if (existing) {
+    if (existing.status === "PAID") return "skipped-paid"
     await prisma.monthlyInvoice.update({
       where: { id: existing.id },
-      data: { subtotal: round2(existing.subtotal + INTRO_PRICE_NET), total: round2(existing.total + INTRO_WITH_IVA) },
+      data: { subtotal, total },
     })
-  } else {
+    return "updated"
+  }
+  if (subtotal > 0) {
     await prisma.monthlyInvoice.create({
-      data: { consultantId, month, subtotal: INTRO_PRICE_NET, total: INTRO_WITH_IVA, dueDate, status: "PENDING" },
+      data: { consultantId, month, subtotal, total, dueDate, status: "PENDING" },
     })
+    return "created"
   }
+  return "updated"
 }
 
-async function chargeJuneInvoice(consultantId: string) {
-  const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month: TARGET_MONTH } })
-  // Se junho já está pago, cobrar em julho
-  if (june?.status === "PAID") {
-    await addToInvoice(consultantId, JULY_MONTH, JULY_DUE_DATE)
-  } else {
-    await addToInvoice(consultantId, TARGET_MONTH, JUNE_DUE_DATE)
-  }
-}
-
-export async function POST() {
-  const session = await auth()
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  // Idempotency: marker written at end of a successful run
-  const marker = await prisma.availabilityBlock.findFirst({
-    where: { reason: "backfill:intro-junho-2026:DONE" },
+// Cria os 15 deliverables com descrição legível e recalcula as faturas afetadas.
+// Assume que não existem deliverables de backfill (POST valida; DELETE apaga antes).
+async function rebuild() {
+  // Âncora de último recurso: qualquer marcação do sistema (bookingId é obrigatório;
+  // a descrição e o consultor vêm dos próprios campos do deliverable)
+  const anyBooking = await prisma.booking.findFirst({
+    select: { id: true, videographerId: true },
+    orderBy: { scheduledAt: "desc" },
   })
-  if (marker) {
-    return NextResponse.json({ error: "Os intros de junho já foram adicionados anteriormente." }, { status: 409 })
-  }
-  // Belt-and-suspenders: also check deliverables (in case marker was manually deleted)
-  const deliverableCheck = await prisma.deliverable.findFirst({
-    where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
-  })
-  if (deliverableCheck) {
-    return NextResponse.json({ error: "Os intros de junho já foram adicionados anteriormente." }, { status: 409 })
-  }
 
   const results: { consultant: string; charged: boolean; deliverable: boolean; error?: string }[] = []
   const notFound: string[] = []
+  const names = new Map<string, string>()
+  const monthsToRecompute = new Map<string, Set<string>>()
+  let deliverablesCreated = 0
 
   for (const row of INTROS) {
     const user = await findUser(row.consultant)
@@ -124,50 +166,92 @@ export async function POST() {
       continue
     }
 
-    const booking = await findBooking(row.location, row.bookingConsultant)
+    // Junho já pago → cobrar em julho
+    const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
+    const chargeMonth = june?.status === "PAID" ? JULY_MONTH : TARGET_MONTH
 
-    // Fallback: use any of the consultant's own bookings as the anchor (bookingId is required)
-    const anchorBooking = booking ?? await prisma.booking.findFirst({
-      where: { consultantId: user.id },
-      select: { id: true, videographerId: true },
-      orderBy: { scheduledAt: "desc" },
-    })
+    const booking = await findBooking(row.location, row.bookingConsultant)
+    const anchorBooking =
+      booking
+      ?? (await prisma.booking.findFirst({
+        where: { consultantId: user.id },
+        select: { id: true, videographerId: true },
+        orderBy: { scheduledAt: "desc" },
+      }))
+      ?? anyBooking
 
     if (anchorBooking) {
       await prisma.deliverable.create({
         data: {
           bookingId: anchorBooking.id,
           fileName: `intro-jun26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
-          fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
+          fileUrl: `${BACKFILL_PREFIX}${row.location}:${user.id}`,
+          mimeType: `backfill-charged:${chargeMonth}`,
           uploadedBy: anchorBooking.videographerId,
           description: row.label,
           targetConsultantId: user.id,
           videographerFee: 10,
         },
       })
+      deliverablesCreated++
     }
 
-    await chargeJuneInvoice(user.id)
-    results.push({ consultant: user.name ?? row.consultant, charged: true, deliverable: !!anchorBooking })
+    names.set(user.id, user.name ?? row.consultant)
+    const months = monthsToRecompute.get(user.id) ?? new Set<string>()
+    months.add(chargeMonth)
+    monthsToRecompute.set(user.id, months)
+    results.push({ consultant: user.name ?? row.consultant, charged: !!anchorBooking, deliverable: !!anchorBooking })
   }
 
-  // Write idempotency marker (videographerId has no FK constraint — safe to use as sentinel)
+  const skippedPaid: string[] = []
+  for (const [userId, months] of monthsToRecompute) {
+    for (const month of months) {
+      const outcome = await recomputeInvoice(userId, month)
+      if (outcome === "skipped-paid") skippedPaid.push(`${names.get(userId)} (${month})`)
+    }
+  }
+
+  // Marcador de idempotência (videographerId não tem FK — seguro como sentinela)
   await prisma.availabilityBlock.create({
     data: {
       videographerId: "system:backfill-junho-2026",
       startAt: new Date(2026, 5, 1),
       endAt: new Date(2026, 5, 30),
-      reason: "backfill:intro-junho-2026:DONE",
+      reason: DONE_MARKER,
     },
   })
 
-  return NextResponse.json({
-    ok: true,
+  return {
     total: INTROS.length,
     charged: results.filter((r) => r.charged).length,
+    deliverables: deliverablesCreated,
+    repaired: [...names.values()],
     notFound,
+    skippedPaid,
     results,
+  }
+}
+
+// POST: primeira execução — cria deliverables e recalcula faturas
+export async function POST() {
+  const session = await auth()
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const marker = await prisma.availabilityBlock.findFirst({ where: { reason: DONE_MARKER } })
+  if (marker) {
+    return NextResponse.json({ error: "Os intros de junho já foram adicionados anteriormente. Use «Repor triplicados» para repor tudo de novo." }, { status: 409 })
+  }
+  const deliverableCheck = await prisma.deliverable.findFirst({
+    where: { fileUrl: { startsWith: BACKFILL_PREFIX } },
   })
+  if (deliverableCheck) {
+    return NextResponse.json({ error: "Os intros de junho já foram adicionados anteriormente. Use «Repor triplicados» para repor tudo de novo." }, { status: 409 })
+  }
+
+  const result = await rebuild()
+  return NextResponse.json({ ok: true, ...result })
 }
 
 // PUT: actualiza as descrições dos deliverables já criados para labels legíveis
@@ -183,7 +267,7 @@ export async function PUT() {
     if (!user) continue
     const result = await prisma.deliverable.updateMany({
       where: {
-        fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
+        fileUrl: `${BACKFILL_PREFIX}${row.location}:${user.id}`,
       },
       data: { description: row.label },
     })
@@ -193,9 +277,8 @@ export async function PUT() {
   return NextResponse.json({ ok: true, updated })
 }
 
-// PATCH: para cada linha do Excel, se a fatura de junho do consultor está PAID,
-// subtrai esse intro de junho e adiciona a julho.
-// Processa linha a linha — consultores com múltiplos intros são tratados N vezes.
+// PATCH: para consultores com junho PAID, move o intro de junho para julho
+// (recalcula ambos os meses a partir do marcador de mês nos deliverables)
 export async function PATCH() {
   const session = await auth()
   if (!session?.user || (session.user as any).role !== "ADMIN") {
@@ -204,32 +287,26 @@ export async function PATCH() {
 
   const moved: string[] = []
   const skipped: string[] = []
+  const processed = new Set<string>()
 
   for (const row of INTROS) {
     const user = await findUser(row.consultant)
     if (!user) { skipped.push(row.consultant); continue }
+    if (processed.has(user.id)) continue
+    processed.add(user.id)
 
-    const juneInvoice = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId: user.id, month: TARGET_MONTH },
-    })
-
-    if (!juneInvoice || juneInvoice.status !== "PAID") {
+    const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
+    if (!june || june.status !== "PAID") {
       skipped.push(user.name ?? row.consultant)
       continue
     }
 
-    // Subtrair este intro de junho (refrescar o registo para evitar race conditions)
-    const fresh = await prisma.monthlyInvoice.findUniqueOrThrow({ where: { id: juneInvoice.id } })
-    await prisma.monthlyInvoice.update({
-      where: { id: juneInvoice.id },
-      data: {
-        subtotal: round2(fresh.subtotal - INTRO_PRICE_NET),
-        total: round2(fresh.total - INTRO_WITH_IVA),
-      },
+    // Re-marcar os deliverables deste consultor como cobrados em julho e recalcular
+    await prisma.deliverable.updateMany({
+      where: { fileUrl: { startsWith: BACKFILL_PREFIX }, targetConsultantId: user.id },
+      data: { mimeType: `backfill-charged:${JULY_MONTH}` },
     })
-
-    // Adicionar a julho
-    await addToInvoice(user.id, JULY_MONTH, JULY_DUE_DATE)
+    await recomputeInvoice(user.id, JULY_MONTH)
 
     moved.push(user.name ?? row.consultant)
   }
@@ -237,70 +314,20 @@ export async function PATCH() {
   return NextResponse.json({ ok: true, moved, skipped })
 }
 
-// DELETE: repair triplication — subtracts ALL 3× charges (so POST can add the correct 1×).
-// Called by runRepair() in june-intros-button.tsx which then calls POST to re-add 1×.
-// Determines where charges landed by checking current June status:
-//   June NOT PAID → charges are in June → subtract there
-//   June PAID     → charges are in July → subtract there
+// DELETE: reparação total — apaga tudo o que o backfill criou e reconstrói do zero.
+// Idempotente: recalcula as faturas a partir das marcações + deliverables reais,
+// por isso corrige triplicações, duplicações ou qualquer estado intermédio.
 export async function DELETE() {
   const session = await auth()
   if (!session?.user || (session.user as any).role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Count expected appearances per user
-  const userCounts = new Map<string, { id: string; name: string | null; count: number }>()
-  for (const row of INTROS) {
-    const user = await findUser(row.consultant)
-    if (!user) continue
-    const prev = userCounts.get(user.id)
-    userCounts.set(user.id, { id: user.id, name: user.name, count: (prev?.count ?? 0) + 1 })
-  }
-
-  const repaired: string[] = []
-  const skipped: string[] = []
-
-  for (const { id: userId, name, count } of userCounts.values()) {
-    const excessNet   = round2(3 * count * INTRO_PRICE_NET)
-    const excessTotal = round2(3 * count * INTRO_WITH_IVA)
-
-    const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: userId, month: TARGET_MONTH } })
-
-    if (june?.status === "PAID") {
-      // All (excess) charges went to July
-      const july = await prisma.monthlyInvoice.findFirst({ where: { consultantId: userId, month: JULY_MONTH } })
-      if (!july) { skipped.push(name ?? userId); continue }
-      await prisma.monthlyInvoice.update({
-        where: { id: july.id },
-        data: {
-          subtotal: round2(Math.max(0, july.subtotal - excessNet)),
-          total:    round2(Math.max(0, july.total    - excessTotal)),
-        },
-      })
-    } else {
-      // Charges went to June (or June doesn't exist yet)
-      if (!june) { skipped.push(name ?? userId); continue }
-      await prisma.monthlyInvoice.update({
-        where: { id: june.id },
-        data: {
-          subtotal: round2(Math.max(0, june.subtotal - excessNet)),
-          total:    round2(Math.max(0, june.total    - excessTotal)),
-        },
-      })
-    }
-
-    repaired.push(name ?? userId)
-  }
-
-  // Delete all backfill deliverables (if any were created)
   const deleted = await prisma.deliverable.deleteMany({
-    where: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
+    where: { fileUrl: { startsWith: BACKFILL_PREFIX } },
   })
+  await prisma.availabilityBlock.deleteMany({ where: { reason: DONE_MARKER } })
 
-  // Remove idempotency marker so POST can be re-run if needed
-  await prisma.availabilityBlock.deleteMany({
-    where: { reason: "backfill:intro-junho-2026:DONE" },
-  })
-
-  return NextResponse.json({ ok: true, repaired, skipped, deletedDeliverables: deleted.count })
+  const result = await rebuild()
+  return NextResponse.json({ ok: true, deletedDeliverables: deleted.count, ...result })
 }
