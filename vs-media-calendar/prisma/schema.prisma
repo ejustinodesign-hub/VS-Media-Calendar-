@@ -303,7 +303,7 @@ model Payment {
 
 model Deliverable {
   id                 String   @id @default(cuid())
-  bookingId          String?
+  bookingId          String
   fileName           String
   fileUrl            String
   fileSize           Int?
@@ -318,7 +318,7 @@ model Deliverable {
   ctaBonus            Float?
   createdAt           DateTime @default(now())
 
-  booking           Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  booking           Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   targetConsultant  User?   @relation("TargetConsultantDeliverables", fields: [targetConsultantId], references: [id], onDelete: SetNull)
   secondConsultant  User?   @relation("SecondConsultantDeliverables", fields: [secondConsultantId], references: [id], onDelete: SetNull)
   thirdConsultant   User?   @relation("ThirdConsultantDeliverables", fields: [thirdConsultantId], references: [id], onDelete: SetNull)

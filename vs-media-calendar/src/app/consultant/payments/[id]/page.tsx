@@ -286,7 +286,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
                 const count = introSplitCount(d)
                 const net = introNet(d)
                 const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
-                const label = d.description || d.booking.propertyAddress || d.fileName
+                const label = d.description || d.booking?.propertyAddress || d.fileName
                 return (
                   <div key={d.id} className="flex items-start justify-between text-sm py-2 border-b border-slate-50 last:border-0 gap-3">
                     <div className="flex items-start gap-2 min-w-0">

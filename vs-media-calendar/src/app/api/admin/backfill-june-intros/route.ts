@@ -126,17 +126,26 @@ export async function POST() {
 
     const booking = await findBooking(row.location, row.bookingConsultant)
 
-    await prisma.deliverable.create({
-      data: {
-        bookingId: booking?.id,
-        fileName: `intro-jun26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
-        fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
-        uploadedBy: booking?.videographerId ?? (session.user as any).id,
-        description: row.label,
-        targetConsultantId: user.id,
-        videographerFee: 10,
-      },
+    // Fallback: use any of the consultant's own bookings as the anchor (bookingId is required)
+    const anchorBooking = booking ?? await prisma.booking.findFirst({
+      where: { consultantId: user.id },
+      select: { id: true, videographerId: true },
+      orderBy: { scheduledAt: "desc" },
     })
+
+    if (anchorBooking) {
+      await prisma.deliverable.create({
+        data: {
+          bookingId: anchorBooking.id,
+          fileName: `intro-jun26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
+          fileUrl: `backfill:intro-junho-2026:${row.location}:${user.id}`,
+          uploadedBy: anchorBooking.videographerId,
+          description: row.label,
+          targetConsultantId: user.id,
+          videographerFee: 10,
+        },
+      })
+    }
 
     await chargeJuneInvoice(user.id)
     results.push({ consultant: user.name ?? row.consultant, charged: true, deliverable: !!booking })
