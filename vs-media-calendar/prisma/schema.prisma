@@ -76,6 +76,7 @@ enum ServiceType {
   PHOTO_T1_T2
   PHOTO_T3_T4
   PHOTO_T5_PLUS
+  INTRO
 }
 
 enum PropertyType {

@@ -9,6 +9,7 @@ export const DEFAULT_PRICES: Record<ServiceType, number> = {
   PHOTO_T1_T2: 25,
   PHOTO_T3_T4: 35,
   PHOTO_T5_PLUS: 45,
+  INTRO: 0,
 }
 
 export const ADDITIONAL_INTRO_PRICE = 25
@@ -26,6 +27,7 @@ export const SERVICE_LABELS: Record<ServiceType, string> = {
   PHOTO_T1_T2: "Fotografia T1/T2",
   PHOTO_T3_T4: "Fotografia T3/T4",
   PHOTO_T5_PLUS: "Fotografia T5+",
+  INTRO: "Sessão de Intros",
 }
 
 export const VIDEO_SERVICES: ServiceType[] = ["VIDEO_STANDARD", "VIDEO_DRONE", "VIDEO_AI"]
@@ -35,6 +37,7 @@ export const PHOTO_SERVICES: ServiceType[] = [
   "PHOTO_T3_T4",
   "PHOTO_T5_PLUS",
 ]
+export const INTRO_SERVICES: ServiceType[] = ["INTRO"]
 
 export interface PriceCalculation {
   services: { type: ServiceType; label: string; price: number }[]

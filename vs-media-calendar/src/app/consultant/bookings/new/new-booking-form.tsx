@@ -10,6 +10,7 @@ import {
   SERVICE_LABELS,
   VIDEO_SERVICES,
   PHOTO_SERVICES,
+  INTRO_SERVICES,
   ADDITIONAL_INTRO_PRICE,
   TRAVEL_FEE_AMOUNT,
   IVA_RATE,
@@ -33,6 +34,7 @@ import {
   Minus,
   CreditCard,
   Percent,
+  Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -142,6 +144,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
   }, [selectedServices, travelEstimate, consultantTeamType, activePrices])
 
   const hasVideoService = selectedServices.some((s) => VIDEO_SERVICES.includes(s))
+  const isIntroOnly = selectedServices.length > 0 && selectedServices.every((s) => INTRO_SERVICES.includes(s))
 
   const canProceed = () => {
     if (step === 1) return !!selectedVideographerId
@@ -336,7 +339,33 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             </CardContent>
           </Card>
 
-          {pricing && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-violet-600" />
+                Intros
+              </CardTitle>
+              <p className="text-sm text-slate-500 mt-1">
+                Gratuito para o consultor que marca. Os consultores que aparecem nos clips são cobrados quando o videógrafo carrega o vídeo.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2">
+                {INTRO_SERVICES.map((service) => (
+                  <ServiceOption
+                    key={service}
+                    service={service}
+                    selected={selectedServices.includes(service)}
+                    onToggle={toggleService}
+                    price={0}
+                    isFree
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {pricing && !isIntroOnly && (
             <div className="bg-[#0f3460] text-white rounded-xl p-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-300">Total estimado (c/ IVA)</p>
@@ -599,64 +628,78 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
 
             <hr className="border-slate-100" />
 
-            {/* Payment type selection */}
-            <div>
-              <p className="text-sm font-semibold text-slate-800 mb-3">Tipo de Pagamento</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => !forceCommission && setPaymentType("FLAT_FEE")}
-                  disabled={forceCommission}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
-                    forceCommission
-                      ? "border-slate-100 bg-slate-50 opacity-40 cursor-not-allowed"
-                      : paymentType === "FLAT_FEE"
-                      ? "border-[#0f3460] bg-[#0f3460]/5"
-                      : "border-slate-200 hover:border-slate-300"
-                  )}
-                >
-                  <CreditCard className={cn("w-6 h-6", paymentType === "FLAT_FEE" && !forceCommission ? "text-[#0f3460]" : "text-slate-400")} />
-                  <div>
-                    <p className={cn("text-sm font-semibold", paymentType === "FLAT_FEE" && !forceCommission ? "text-[#0f3460]" : "text-slate-700")}>
-                      Taxa Fixa
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {forceCommission ? "Indisponível com fatura em atraso" : pricing ? formatPrice(pricing.total) + " + IVA faturado no final do mês" : "—"}
-                    </p>
-                  </div>
-                  {paymentType === "FLAT_FEE" && !forceCommission && (
-                    <CheckCircle2 className="w-4 h-4 text-[#0f3460] self-end" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentType("COMMISSION")}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
-                    paymentType === "COMMISSION"
-                      ? "border-[#e94560] bg-[#e94560]/5"
-                      : "border-slate-200 hover:border-slate-300"
-                  )}
-                >
-                  <Percent className={cn("w-6 h-6", paymentType === "COMMISSION" ? "text-[#e94560]" : "text-slate-400")} />
-                  <div>
-                    <p className={cn("text-sm font-semibold", paymentType === "COMMISSION" ? "text-[#e94560]" : "text-slate-700")}>
-                      Comissão de Venda
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      0,15% do valor de venda
-                    </p>
-                  </div>
-                  {paymentType === "COMMISSION" && (
-                    <CheckCircle2 className="w-4 h-4 text-[#e94560] self-end" />
-                  )}
-                </button>
+            {isIntroOnly ? (
+              /* Intro-only: no payment, just show a free badge */
+              <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl flex items-start gap-3">
+                <Users className="w-5 h-5 text-violet-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-violet-800">Sessão de Intros — gratuita para si</p>
+                  <p className="text-xs text-violet-600 mt-1">
+                    Não existe custo para o consultor que marca. Os consultores que aparecem nos clips são
+                    cobrados individualmente quando o videógrafo carregar os vídeos.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Normal payment type selection */
+              <div>
+                <p className="text-sm font-semibold text-slate-800 mb-3">Tipo de Pagamento</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => !forceCommission && setPaymentType("FLAT_FEE")}
+                    disabled={forceCommission}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
+                      forceCommission
+                        ? "border-slate-100 bg-slate-50 opacity-40 cursor-not-allowed"
+                        : paymentType === "FLAT_FEE"
+                        ? "border-[#0f3460] bg-[#0f3460]/5"
+                        : "border-slate-200 hover:border-slate-300"
+                    )}
+                  >
+                    <CreditCard className={cn("w-6 h-6", paymentType === "FLAT_FEE" && !forceCommission ? "text-[#0f3460]" : "text-slate-400")} />
+                    <div>
+                      <p className={cn("text-sm font-semibold", paymentType === "FLAT_FEE" && !forceCommission ? "text-[#0f3460]" : "text-slate-700")}>
+                        Taxa Fixa
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {forceCommission ? "Indisponível com fatura em atraso" : pricing ? formatPrice(pricing.total) + " + IVA faturado no final do mês" : "—"}
+                      </p>
+                    </div>
+                    {paymentType === "FLAT_FEE" && !forceCommission && (
+                      <CheckCircle2 className="w-4 h-4 text-[#0f3460] self-end" />
+                    )}
+                  </button>
 
-            {paymentType === "FLAT_FEE" && pricing && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentType("COMMISSION")}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
+                      paymentType === "COMMISSION"
+                        ? "border-[#e94560] bg-[#e94560]/5"
+                        : "border-slate-200 hover:border-slate-300"
+                    )}
+                  >
+                    <Percent className={cn("w-6 h-6", paymentType === "COMMISSION" ? "text-[#e94560]" : "text-slate-400")} />
+                    <div>
+                      <p className={cn("text-sm font-semibold", paymentType === "COMMISSION" ? "text-[#e94560]" : "text-slate-700")}>
+                        Comissão de Venda
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        0,15% do valor de venda
+                      </p>
+                    </div>
+                    {paymentType === "COMMISSION" && (
+                      <CheckCircle2 className="w-4 h-4 text-[#e94560] self-end" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!isIntroOnly && paymentType === "FLAT_FEE" && pricing && (
               <div className="space-y-2">
                 {pricing.services.map((s) => (
                   <div key={s.type} className="flex justify-between text-sm">
@@ -687,7 +730,7 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
               </div>
             )}
 
-            {paymentType === "COMMISSION" && (
+            {!isIntroOnly && paymentType === "COMMISSION" && (
               <div className="space-y-3">
                 <div className="p-4 bg-[#e94560]/5 border border-[#e94560]/20 rounded-xl">
                   <div className="flex items-start gap-2">
@@ -711,7 +754,9 @@ export function NewBookingForm({ videographers, consultantId, consultantTeamType
             <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
               <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-700">
-                {paymentType === "FLAT_FEE"
+                {isIntroOnly
+                  ? "A marcação fica pendente de aceitação pelo videógrafo. Não existe custo para si."
+                  : paymentType === "FLAT_FEE"
                   ? "O valor será incluído na sua fatura mensal. A marcação fica imediatamente pendente de aceitação pelo videógrafo."
                   : "A marcação fica pendente de aceitação pelo videógrafo. Não existe pagamento imediato."}
               </p>
@@ -768,12 +813,14 @@ function ServiceOption({
   onToggle,
   price,
   originalPrice,
+  isFree,
 }: {
   service: ServiceType
   selected: boolean
   onToggle: (s: ServiceType) => void
   price: number
   originalPrice?: number
+  isFree?: boolean
 }) {
   const hasDiscount = originalPrice !== undefined && originalPrice !== price
 
@@ -783,7 +830,7 @@ function ServiceOption({
       className={cn(
         "flex items-center justify-between p-3.5 rounded-lg border-2 text-left transition-all",
         selected
-          ? "border-[#0f3460] bg-[#0f3460]/5"
+          ? isFree ? "border-violet-500 bg-violet-50" : "border-[#0f3460] bg-[#0f3460]/5"
           : "border-slate-200 bg-white hover:border-slate-300"
       )}
     >
@@ -792,7 +839,7 @@ function ServiceOption({
           className={cn(
             "w-5 h-5 rounded flex items-center justify-center border-2 transition-all",
             selected
-              ? "border-[#0f3460] bg-[#0f3460]"
+              ? isFree ? "border-violet-500 bg-violet-500" : "border-[#0f3460] bg-[#0f3460]"
               : "border-slate-300"
           )}
         >
@@ -803,7 +850,7 @@ function ServiceOption({
           )}
         </div>
         <div>
-          <span className={cn("text-sm font-medium", selected ? "text-[#0f3460]" : "text-slate-700")}>
+          <span className={cn("text-sm font-medium", selected ? isFree ? "text-violet-700" : "text-[#0f3460]" : "text-slate-700")}>
             {SERVICE_LABELS[service]}
           </span>
           {hasDiscount && (
@@ -817,8 +864,8 @@ function ServiceOption({
         {hasDiscount && (
           <span className="block text-xs text-slate-400 line-through">{formatPrice(originalPrice)}</span>
         )}
-        <span className={cn("text-sm font-bold", hasDiscount ? "text-emerald-600" : selected ? "text-[#0f3460]" : "text-slate-600")}>
-          {hasDiscount ? "Grátis" : <>{formatPrice(price)} <span className="text-xs font-normal opacity-70">+ IVA</span></>}
+        <span className={cn("text-sm font-bold", isFree ? "text-violet-600" : hasDiscount ? "text-emerald-600" : selected ? "text-[#0f3460]" : "text-slate-600")}>
+          {isFree ? "Gratuito" : hasDiscount ? "Grátis" : <>{formatPrice(price)} <span className="text-xs font-normal opacity-70">+ IVA</span></>}
         </span>
       </div>
     </button>

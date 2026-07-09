@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { SERVICE_LABELS, VIDEO_SERVICES, PHOTO_SERVICES, DEFAULT_PRICES, COMMISSION_RATE, IVA_RATE } from "@/lib/pricing"
+import { SERVICE_LABELS, VIDEO_SERVICES, PHOTO_SERVICES, INTRO_SERVICES, DEFAULT_PRICES, COMMISSION_RATE, IVA_RATE } from "@/lib/pricing"
 import type { ServiceType } from "@prisma/client"
-import { Percent, CreditCard, Calculator } from "lucide-react"
+import { Percent, CreditCard, Calculator, Users } from "lucide-react"
 
 interface User {
   id: string
@@ -19,6 +19,7 @@ interface Props {
 }
 
 const ALL_SERVICES = [...VIDEO_SERVICES, ...PHOTO_SERVICES]
+const ALL_STANDARD_SERVICES = ALL_SERVICES
 
 function toLocalDatetimeValue(date: Date) {
   const pad = (n: number) => String(n).padStart(2, "0")
@@ -244,7 +245,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-slate-700">Serviços *</label>
         <div className="grid grid-cols-2 gap-2">
-          {ALL_SERVICES.map((svc) => {
+          {ALL_STANDARD_SERVICES.map((svc) => {
             const active = selectedServices.includes(svc)
             const basePrice = activePrices[svc] ?? DEFAULT_PRICES[svc] ?? 0
             const isFree = svc === "PHOTO_DRONE" && hasDroneVideoSelected
@@ -274,6 +275,34 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
               </button>
             )
           })}
+        </div>
+
+        {/* Intro services */}
+        <div className="pt-2 border-t border-slate-100">
+          <p className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-violet-500" />
+            Intros — gratuito para o consultor, cobrado aos consultores que aparecem
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {INTRO_SERVICES.map((svc) => {
+              const active = selectedServices.includes(svc)
+              return (
+                <button
+                  key={svc}
+                  type="button"
+                  onClick={() => toggleService(svc)}
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
+                    active
+                      ? "border-violet-500 bg-violet-50 text-violet-700"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  }`}
+                >
+                  <span>{SERVICE_LABELS[svc]}</span>
+                  <span className="text-xs text-violet-500 font-semibold">Gratuito</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
