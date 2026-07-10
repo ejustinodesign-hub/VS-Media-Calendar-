@@ -66,11 +66,14 @@ export function CalendarView({ bookings, blocks: initialBlocks, month, year }: P
     })
 
   function getBlockForDay(day: number): CalendarBlock | undefined {
-    const dayStart = new Date(year, month, day, 0, 0, 0)
-    const dayEnd   = new Date(year, month, day, 23, 59, 59)
+    // Blocks are stored as full UTC days (00:00Z–23:59Z). Compare in UTC:
+    // in local time (UTC+1 no verão) 23:59Z is already the next day, which
+    // made a single block paint two days in the calendar.
+    const dayStart = Date.UTC(year, month, day, 0, 0, 0)
+    const dayEnd   = Date.UTC(year, month, day, 23, 59, 59, 999)
     return blocks.find((b) => {
-      const bStart = new Date(b.startAt)
-      const bEnd   = new Date(b.endAt)
+      const bStart = new Date(b.startAt).getTime()
+      const bEnd   = new Date(b.endAt).getTime()
       return bStart <= dayEnd && bEnd >= dayStart
     })
   }
