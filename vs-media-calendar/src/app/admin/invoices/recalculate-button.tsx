@@ -18,7 +18,8 @@ export function RecalculateButton({ month }: { month: string }) {
       if (!res.ok) {
         setResult(`Erro: ${data.error}`)
       } else {
-        setResult(`Recalculado: ${data.updated} atualizada(s), ${data.created} criada(s) — ${data.consultants} consultor(es)`)
+        const paid = data.skippedPaid ? ` · ${data.skippedPaid} paga(s) não alterada(s)` : ""
+        setResult(`Recalculado: ${data.updated} atualizada(s), ${data.created} criada(s)${paid} — ${data.consultants} consultor(es)`)
         router.refresh()
       }
     } finally {

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
+import { recomputeMonthlyInvoice, BACKFILL_PREFIX } from "@/lib/invoices"
 
 // POST /api/admin/invoices/recalculate?month=2026-06
-// Recomputes subtotal/total for all FLAT_FEE bookings in the given month,
-// even those already linked to an invoice. Safe to run multiple times.
+// Recalcula do zero as faturas do mês (marcações + intros partilhadas + backfill)
+// para todos os consultores com atividade ou fatura nesse mês.
+// Faturas PAID nunca são alteradas. Seguro correr múltiplas vezes.
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user || (session?.user as any)?.role !== "ADMIN") {
@@ -21,111 +22,62 @@ export async function POST(req: NextRequest) {
   const [year, m] = month.split("-").map(Number)
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
-  const dueDate = new Date(year, m, 0, 23, 59, 59) // last day of the month
 
-  // All FLAT_FEE bookings for the month with a countable status
-  const bookings = await prisma.booking.findMany({
-    where: {
-      paymentType: "FLAT_FEE",
-      status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] },
-      scheduledAt: { gte: monthStart, lte: monthEnd },
-    },
-    include: { services: true },
-  })
+  // Todos os consultores com atividade ou fatura no mês
+  const [bookingConsultants, introDeliverables, backfillDeliverables, existingInvoices] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        paymentType: "FLAT_FEE",
+        status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] },
+        scheduledAt: { gte: monthStart, lte: monthEnd },
+      },
+      select: { consultantId: true },
+      distinct: ["consultantId"],
+    }),
+    prisma.deliverable.findMany({
+      where: {
+        createdAt: { gte: monthStart, lte: monthEnd },
+        NOT: { fileUrl: { startsWith: BACKFILL_PREFIX } },
+      },
+      select: {
+        targetConsultantId: true,
+        secondConsultantId: true,
+        thirdConsultantId: true,
+        fourthConsultantId: true,
+      },
+    }),
+    prisma.deliverable.findMany({
+      where: { fileUrl: { startsWith: BACKFILL_PREFIX }, mimeType: `backfill-charged:${month}` },
+      select: { targetConsultantId: true },
+    }),
+    prisma.monthlyInvoice.findMany({
+      where: { month },
+      select: { consultantId: true },
+    }),
+  ])
 
-  const byConsultant = new Map<string, typeof bookings>()
-  for (const b of bookings) {
-    const arr = byConsultant.get(b.consultantId) ?? []
-    arr.push(b)
-    byConsultant.set(b.consultantId, arr)
+  const consultantIds = new Set<string>()
+  for (const b of bookingConsultants) consultantIds.add(b.consultantId)
+  for (const d of introDeliverables) {
+    for (const cid of [d.targetConsultantId, d.secondConsultantId, d.thirdConsultantId, d.fourthConsultantId]) {
+      if (cid) consultantIds.add(cid)
+    }
   }
+  for (const d of backfillDeliverables) {
+    if (d.targetConsultantId) consultantIds.add(d.targetConsultantId)
+  }
+  for (const inv of existingInvoices) consultantIds.add(inv.consultantId)
 
   let updated = 0
   let created = 0
+  let skippedPaid = 0
 
-  for (const [consultantId, consultantBookings] of byConsultant) {
-    if (consultantBookings.length === 0) continue
-
-    // Recompute correct subtotal from scratch
-    const bookingSubtotal = consultantBookings.reduce((sum, b) => {
-      const servicesTotal = b.services.reduce((s, svc) => s + svc.price, 0)
-      const travelTotal = b.hasTravelFee ? b.travelFeeAmount : 0
-      const introsTotal = b.additionalIntros * ADDITIONAL_INTRO_PRICE
-      return sum + servicesTotal + travelTotal + introsTotal
-    }, 0)
-
-    const bookingTotal = Math.round(bookingSubtotal * (1 + IVA_RATE) * 100) / 100
-
-    const existing = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId, month },
-    })
-
-    let invoiceId: string
-
-    if (existing) {
-      // Keep any real-time intro charges on the invoice (shared intros billed separately)
-      // by preserving the delta that isn't accounted for by these bookings.
-      // Strategy: set subtotal = bookingSubtotal + (existing.subtotal - previousBookingSubtotal)
-      // Since we can't know the previous booking subtotal easily, we just set the
-      // booking portion explicitly. The shared intro portion was added by chargeConsultantInvoice
-      // and can be read from deliverables for this month.
-      const sharedIntroDeliverables = await prisma.deliverable.findMany({
-        where: {
-          OR: [
-            { targetConsultantId: consultantId },
-            { secondConsultantId: consultantId },
-            { thirdConsultantId: consultantId },
-            { fourthConsultantId: consultantId },
-          ],
-          createdAt: { gte: monthStart, lte: monthEnd },
-        },
-        select: {
-          secondConsultantId: true,
-          thirdConsultantId: true,
-          fourthConsultantId: true,
-        },
-      })
-      // Use the actual split price per deliverable
-      function splitCount(d: { secondConsultantId: string | null; thirdConsultantId: string | null; fourthConsultantId: string | null }) {
-        return 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
-      }
-      const sharedIntroSubtotal = sharedIntroDeliverables.reduce(
-        (sum, d) => sum + Math.round((ADDITIONAL_INTRO_PRICE / splitCount(d)) * 100) / 100,
-        0
-      )
-      const sharedIntroTotal = Math.round(sharedIntroSubtotal * (1 + IVA_RATE) * 100) / 100
-
-      await prisma.monthlyInvoice.update({
-        where: { id: existing.id },
-        data: {
-          subtotal: bookingSubtotal + sharedIntroSubtotal,
-          total: bookingTotal + sharedIntroTotal,
-          dueDate,
-        },
-      })
-      invoiceId = existing.id
-      updated++
-    } else {
-      const invoice = await prisma.monthlyInvoice.create({
-        data: {
-          consultantId,
-          month,
-          subtotal: bookingSubtotal,
-          total: bookingTotal,
-          dueDate,
-          status: "PENDING",
-        },
-      })
-      invoiceId = invoice.id
-      created++
-    }
-
-    // Re-link all bookings to this invoice
-    await prisma.booking.updateMany({
-      where: { id: { in: consultantBookings.map((b) => b.id) } },
-      data: { invoiceId },
-    })
+  for (const consultantId of consultantIds) {
+    const outcome = await recomputeMonthlyInvoice(consultantId, month)
+    if (outcome === "updated") updated++
+    else if (outcome === "created") created++
+    else if (outcome === "skipped-paid") skippedPaid++
   }
 
-  return NextResponse.json({ month, updated, created, consultants: byConsultant.size })
+  return NextResponse.json({ month, updated, created, skippedPaid, consultants: consultantIds.size })
 }

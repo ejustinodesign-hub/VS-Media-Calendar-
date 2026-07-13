@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { recomputeMonthlyInvoice, BACKFILL_PREFIX } from "@/lib/invoices"
 
-const INTRO_PRICE_NET = 25
-const IVA_RATE = 0.23
 const TARGET_MONTH = "2026-06"
 const JULY_MONTH = "2026-07"
-const BACKFILL_PREFIX = "backfill:intro-junho-2026:"
 const DONE_MARKER = "backfill:intro-junho-2026:DONE"
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100
-}
 
 // Cada linha = um intro individual de junho 2026, copiado do Excel "para_plataforma_edu.xlsx"
 // (colunas: Consultor | Imóvel de | Localização — o label usa o texto literal do Excel)
@@ -65,81 +59,6 @@ async function findBooking(location: string, consultantHint: string) {
   })
   bookingCache.set(key, booking)
   return booking
-}
-
-// Recalcula a fatura do consultor para o mês do zero:
-// marcações FLAT_FEE do mês + intros regulares do mês + intros de backfill cobrados nesse mês.
-// Nunca toca em faturas PAID.
-async function recomputeInvoice(consultantId: string, month: string): Promise<"updated" | "created" | "skipped-paid"> {
-  const [year, m] = month.split("-").map(Number)
-  const monthStart = new Date(year, m - 1, 1)
-  const monthEnd = new Date(year, m, 0, 23, 59, 59)
-  const dueDate = new Date(year, m, 0, 23, 59, 59)
-
-  const bookings = await prisma.booking.findMany({
-    where: {
-      consultantId,
-      paymentType: "FLAT_FEE",
-      status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] },
-      scheduledAt: { gte: monthStart, lte: monthEnd },
-    },
-    include: { services: true },
-  })
-  const bookingSubtotal = bookings.reduce((sum, b) => {
-    const services = b.services.reduce((s, svc) => s + svc.price, 0)
-    const travel = b.hasTravelFee ? b.travelFeeAmount : 0
-    const extraIntros = b.additionalIntros * INTRO_PRICE_NET
-    return sum + services + travel + extraIntros
-  }, 0)
-
-  // Intros regulares criados dentro do mês (excluindo os de backfill, que têm mês próprio)
-  const regularIntros = await prisma.deliverable.findMany({
-    where: {
-      OR: [
-        { targetConsultantId: consultantId },
-        { secondConsultantId: consultantId },
-        { thirdConsultantId: consultantId },
-        { fourthConsultantId: consultantId },
-      ],
-      createdAt: { gte: monthStart, lte: monthEnd },
-      NOT: { fileUrl: { startsWith: BACKFILL_PREFIX } },
-    },
-    select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
-  })
-  const regularIntroSubtotal = regularIntros.reduce((sum, d) => {
-    const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
-    return sum + round2(INTRO_PRICE_NET / split)
-  }, 0)
-
-  // Intros de backfill cobrados neste mês (marcados via mimeType)
-  const backfillCount = await prisma.deliverable.count({
-    where: {
-      fileUrl: { startsWith: BACKFILL_PREFIX },
-      targetConsultantId: consultantId,
-      mimeType: `backfill-charged:${month}`,
-    },
-  })
-  const backfillSubtotal = backfillCount * INTRO_PRICE_NET
-
-  const subtotal = round2(bookingSubtotal + regularIntroSubtotal + backfillSubtotal)
-  const total = round2(subtotal * (1 + IVA_RATE))
-
-  const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })
-  if (existing) {
-    if (existing.status === "PAID") return "skipped-paid"
-    await prisma.monthlyInvoice.update({
-      where: { id: existing.id },
-      data: { subtotal, total },
-    })
-    return "updated"
-  }
-  if (subtotal > 0) {
-    await prisma.monthlyInvoice.create({
-      data: { consultantId, month, subtotal, total, dueDate, status: "PENDING" },
-    })
-    return "created"
-  }
-  return "updated"
 }
 
 // Cria os 15 deliverables com descrição legível e recalcula as faturas afetadas.
@@ -206,7 +125,7 @@ async function rebuild() {
   const skippedPaid: string[] = []
   for (const [userId, months] of monthsToRecompute) {
     for (const month of months) {
-      const outcome = await recomputeInvoice(userId, month)
+      const outcome = await recomputeMonthlyInvoice(userId, month)
       if (outcome === "skipped-paid") skippedPaid.push(`${names.get(userId)} (${month})`)
     }
   }
@@ -306,7 +225,7 @@ export async function PATCH() {
       where: { fileUrl: { startsWith: BACKFILL_PREFIX }, targetConsultantId: user.id },
       data: { mimeType: `backfill-charged:${JULY_MONTH}` },
     })
-    await recomputeInvoice(user.id, JULY_MONTH)
+    await recomputeMonthlyInvoice(user.id, JULY_MONTH)
 
     moved.push(user.name ?? row.consultant)
   }
