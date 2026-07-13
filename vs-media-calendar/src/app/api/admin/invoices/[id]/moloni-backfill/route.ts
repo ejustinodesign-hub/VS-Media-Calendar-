@@ -50,7 +50,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const regularSharedIntros = await prisma.deliverable.findMany({
     where: {
-      targetConsultantId: invoice.consultantId,
+      OR: [
+        { targetConsultantId: invoice.consultantId },
+        { secondConsultantId: invoice.consultantId },
+        { thirdConsultantId: invoice.consultantId },
+        { fourthConsultantId: invoice.consultantId },
+      ],
       createdAt: { gte: monthStart, lte: monthEnd },
       NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
     },
@@ -91,11 +96,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return items
   })
 
-  const sharedIntroLines = sharedIntros.map((d) => ({
-    description: d.description ?? `Intro partilhada — ${d.booking?.propertyAddress ?? d.fileName}`,
-    qty: 1,
-    unitPrice: ADDITIONAL_INTRO_PRICE,
-  }))
+  const sharedIntroLines = sharedIntros.map((d) => {
+    // Preço dividido pelos consultores que partilham a intro (igual à fatura)
+    const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    const net = Math.round((ADDITIONAL_INTRO_PRICE / split) * 100) / 100
+    return {
+      description:
+        (d.description ?? `Intro partilhada — ${d.booking?.propertyAddress ?? d.fileName}`) +
+        (split > 1 ? ` (÷${split})` : ""),
+      qty: 1,
+      unitPrice: net,
+    }
+  })
 
   const lines = [...bookingLines, ...sharedIntroLines]
 
