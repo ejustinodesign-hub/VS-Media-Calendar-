@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { calculateTotal, DEFAULT_PRICES } from "@/lib/pricing"
+import { markOverdueInvoices } from "@/lib/invoices"
 import { sendVideographerRequestEmail, sendBookingConfirmationEmail, sendAdminBookingNotificationEmail } from "@/lib/email"
 import type { ServiceType, PropertyType } from "@prisma/client"
 
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
 
   // Block unpaid invoices only for flat-fee bookings; commission bookings are always allowed
   if (paymentType !== "COMMISSION") {
+    await markOverdueInvoices(consultantId)
     const unpaidInvoice = await prisma.monthlyInvoice.findFirst({
       where: { consultantId, status: "OVERDUE" },
       select: { id: true },

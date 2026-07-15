@@ -9,6 +9,19 @@ function round2(n: number) {
 
 export type RecomputeOutcome = "updated" | "created" | "skipped-paid" | "empty"
 
+// Marca como OVERDUE as faturas PENDING cujo vencimento já passou.
+// Sem isto nada transita PENDING → OVERDUE e o bloqueio de marcações nunca dispara.
+export async function markOverdueInvoices(consultantId?: string) {
+  await prisma.monthlyInvoice.updateMany({
+    where: {
+      ...(consultantId ? { consultantId } : {}),
+      status: "PENDING",
+      dueDate: { lt: new Date() },
+    },
+    data: { status: "OVERDUE" },
+  })
+}
+
 // Recalcula a fatura mensal do consultor a partir dos dados reais:
 //   marcações FLAT_FEE do mês (services + deslocação + intros adicionais)
 // + intros partilhadas criadas no mês (25€ ÷ nº de consultores)

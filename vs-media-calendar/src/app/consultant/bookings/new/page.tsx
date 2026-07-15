@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { NewBookingForm } from "./new-booking-form"
 import { DEFAULT_PRICES } from "@/lib/pricing"
+import { markOverdueInvoices } from "@/lib/invoices"
 import { AlertCircle, Percent, CreditCard } from "lucide-react"
 import Link from "next/link"
 import type { ServiceType } from "@prisma/client"
@@ -19,6 +20,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
   const user = session?.user as any
   const consultantId = user?.id
 
+  if (consultantId) await markOverdueInvoices(consultantId)
   const unpaidInvoice = consultantId
     ? await prisma.monthlyInvoice.findFirst({
         where: { consultantId, status: "OVERDUE" },

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic"
 import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { formatPrice } from "@/lib/pricing"
+import { markOverdueInvoices } from "@/lib/invoices"
 import { MarkPaidButton } from "./mark-paid-button"
 import { RecalculateButton } from "./recalculate-button"
 import { SendRemindersButton } from "./send-reminders-button"
@@ -31,6 +32,8 @@ export default async function AdminInvoicesPage({
   const now = new Date()
   const selectedMonth = month
     ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+
+  await markOverdueInvoices()
 
   const invoices = await prisma.monthlyInvoice.findMany({
     where: { month: selectedMonth },

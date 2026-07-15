@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, IVA_RATE, DEFAULT_PRICES, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE, TRAVEL_FEE_AMOUNT } from "@/lib/pricing"
+import { markOverdueInvoices } from "@/lib/invoices"
 import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator, Plus } from "lucide-react"
 import Link from "next/link"
 import { PayInvoiceButton } from "./pay-invoice-button"
@@ -16,6 +17,8 @@ export default async function ConsultantPaymentsPage({
   const params = await searchParams
   const session = await auth()
   const consultantId = session!.user.id!
+
+  await markOverdueInvoices(consultantId)
 
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
