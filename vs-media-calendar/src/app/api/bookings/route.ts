@@ -31,19 +31,17 @@ export async function POST(req: NextRequest) {
     paymentType = "FLAT_FEE",
   } = body
 
-  // Block unpaid invoices only for flat-fee bookings; commission bookings are always allowed
-  if (paymentType !== "COMMISSION") {
-    await markOverdueInvoices(consultantId)
-    const unpaidInvoice = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId, status: "OVERDUE" },
-      select: { id: true },
-    })
-    if (unpaidInvoice) {
-      return NextResponse.json(
-        { error: "Tem faturas por pagar. Regularize os pagamentos antes de criar novas marcações.", overdueInvoices: true },
-        { status: 402 }
-      )
-    }
+  // Block ALL new bookings (flat-fee and commission) while there are overdue invoices
+  await markOverdueInvoices(consultantId)
+  const unpaidInvoice = await prisma.monthlyInvoice.findFirst({
+    where: { consultantId, status: "OVERDUE" },
+    select: { id: true },
+  })
+  if (unpaidInvoice) {
+    return NextResponse.json(
+      { error: "Tem faturas por pagar. Regularize os pagamentos antes de criar novas marcações.", overdueInvoices: true },
+      { status: 402 }
+    )
   }
 
   if (!videographerId || !scheduledAt || !services?.length || !propertyAddress) {

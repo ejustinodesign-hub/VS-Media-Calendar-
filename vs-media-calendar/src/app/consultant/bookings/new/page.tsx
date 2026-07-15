@@ -4,7 +4,7 @@ import { Header } from "@/components/layout/header"
 import { NewBookingForm } from "./new-booking-form"
 import { DEFAULT_PRICES } from "@/lib/pricing"
 import { markOverdueInvoices } from "@/lib/invoices"
-import { AlertCircle, Percent, CreditCard } from "lucide-react"
+import { AlertCircle, CreditCard } from "lucide-react"
 import Link from "next/link"
 import type { ServiceType } from "@prisma/client"
 
@@ -28,8 +28,8 @@ export default async function NewBookingPage({ searchParams }: Props) {
       })
     : null
 
-  // Block if unpaid invoice AND not opting into commission mode
-  if (unpaidInvoice && !forceCommission) {
+  // Block all new bookings (flat-fee and commission) while there are overdue invoices
+  if (unpaidInvoice) {
     return (
       <>
         <Header title="Nova Marcação" subtitle="Agende um novo serviço de vídeo ou fotografia" />
@@ -42,7 +42,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
               <div>
                 <h2 className="text-base font-bold text-slate-800">Tem faturas em atraso</h2>
                 <p className="text-sm text-slate-600 mt-1">
-                  Para criar novas marcações em taxa fixa, regularize primeiro as faturas vencidas.
+                  Para criar novas marcações, regularize primeiro as faturas vencidas.
                 </p>
               </div>
               <Link
@@ -51,25 +51,6 @@ export default async function NewBookingPage({ searchParams }: Props) {
               >
                 <CreditCard className="w-4 h-4" />
                 Regularizar pagamento
-              </Link>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center space-y-4">
-              <div className="w-12 h-12 bg-violet-100 rounded-full flex items-center justify-center mx-auto">
-                <Percent className="w-6 h-6 text-violet-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Alternativa: Modo Comissão</h2>
-                <p className="text-sm text-slate-600 mt-1">
-                  Continue a marcar vídeos sem pagamento imediato. Paga apenas 0,15% do valor de venda do imóvel, quando vender.
-                </p>
-              </div>
-              <Link
-                href="/consultant/bookings/new?mode=commission"
-                className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700 transition-colors"
-              >
-                <Percent className="w-4 h-4" />
-                Criar marcação em modo comissão
               </Link>
             </div>
           </div>
@@ -107,14 +88,6 @@ export default async function NewBookingPage({ searchParams }: Props) {
     <>
       <Header title="Nova Marcação" subtitle="Agende um novo serviço de vídeo ou fotografia" />
       <div className="flex-1 p-6">
-        {forceCommission && unpaidInvoice && (
-          <div className="max-w-3xl mb-4 flex items-start gap-3 p-3 bg-violet-50 border border-violet-200 rounded-xl">
-            <Percent className="w-4 h-4 text-violet-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-violet-800">
-              <span className="font-semibold">Modo comissão activo.</span> Esta marcação não será incluída na fatura mensal — paga apenas 0,15% do valor de venda quando o imóvel for vendido.
-            </p>
-          </div>
-        )}
         <NewBookingForm
           videographers={videographers}
           consultantId={user?.id || ""}
