@@ -26,7 +26,7 @@ export default async function ConsultantPaymentsPage({
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
   const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  const [invoices, pendingCommissionBookings, sharedIntros, currentMonthBookings] = await Promise.all([
+  const [invoices, pendingCommissionBookings, rawSharedIntros, currentMonthBookings] = await Promise.all([
     prisma.monthlyInvoice.findMany({
       where: { consultantId },
       include: { bookings: { include: { services: true } } },
@@ -75,6 +75,12 @@ export default async function ConsultantPaymentsPage({
       orderBy: { scheduledAt: "asc" },
     }),
   ])
+
+  // Intros de backfill existem em cópias (uma por consultor da partilha) —
+  // mostrar apenas a cópia do próprio consultor para não duplicar
+  const sharedIntros = rawSharedIntros.filter(
+    (d) => !d.fileUrl.startsWith("backfill:intro-junho-2026:") || d.targetConsultantId === consultantId
+  )
 
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length
   const pendingCount = invoices.filter((i) => i.status === "PENDING").length

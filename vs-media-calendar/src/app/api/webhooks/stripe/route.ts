@@ -90,12 +90,7 @@ export async function POST(req: NextRequest) {
             ? await prisma.deliverable.findMany({
                 where: {
                   fileUrl: { startsWith: "backfill:intro-junho-2026:" },
-                  OR: [
-                    { targetConsultantId: invoice.consultantId },
-                    { secondConsultantId: invoice.consultantId },
-                    { thirdConsultantId: invoice.consultantId },
-                    { fourthConsultantId: invoice.consultantId },
-                  ],
+                  targetConsultantId: invoice.consultantId,
                   mimeType: `backfill-charged:${invoice.month}`,
                 },
                 include: { booking: { select: { propertyAddress: true } } },

@@ -68,18 +68,14 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
     return sum + round2(ADDITIONAL_INTRO_PRICE / split)
   }, 0)
 
-  // Intros de backfill podem ser partilhadas — o consultor pode estar em qualquer
-  // das 4 posições e paga 25€ ÷ nº de consultores da partilha
+  // Intros de backfill: existe UMA cópia por consultor (targetConsultantId = dono da cópia),
+  // com os restantes consultores da partilha nos outros slots. Cada cópia vale
+  // 25€ ÷ nº de consultores e tem o seu próprio mês de cobrança em mimeType.
   const backfillIntros = await prisma.deliverable.findMany({
     where: {
       fileUrl: { startsWith: BACKFILL_PREFIX },
       mimeType: `backfill-charged:${month}`,
-      OR: [
-        { targetConsultantId: consultantId },
-        { secondConsultantId: consultantId },
-        { thirdConsultantId: consultantId },
-        { fourthConsultantId: consultantId },
-      ],
+      targetConsultantId: consultantId,
     },
     select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
   })

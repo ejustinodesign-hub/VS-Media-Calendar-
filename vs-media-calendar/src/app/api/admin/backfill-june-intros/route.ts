@@ -91,46 +91,46 @@ async function rebuild() {
     }
     if (users.length === 0) continue
 
-    // Junho por pagar para qualquer um dos consultores → cobrar em junho; senão julho
-    let chargeMonth = JULY_MONTH
+    const booking = await findBooking(row.location, row.bookingConsultant)
+
+    // Uma cópia do deliverable por consultor: cada um paga 25€ ÷ nº de consultores
+    // no SEU mês (junho, ou julho se o junho dele já está pago). Os outros
+    // consultores da partilha vão nos slots seguintes para o cálculo do ÷N.
     for (const user of users) {
       const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
-      if (june?.status !== "PAID") {
-        chargeMonth = TARGET_MONTH
-        break
+      const chargeMonth = june?.status === "PAID" ? JULY_MONTH : TARGET_MONTH
+
+      const others = users.filter((u) => u.id !== user.id)
+
+      const anchorBooking =
+        booking
+        ?? (await prisma.booking.findFirst({
+          where: { consultantId: user.id },
+          select: { id: true, videographerId: true },
+          orderBy: { scheduledAt: "desc" },
+        }))
+        ?? anyBooking
+
+      if (anchorBooking) {
+        await prisma.deliverable.create({
+          data: {
+            bookingId: anchorBooking.id,
+            fileName: `intro-jun26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
+            fileUrl: `${BACKFILL_PREFIX}${row.location}:${user.id}`,
+            mimeType: `backfill-charged:${chargeMonth}`,
+            uploadedBy: anchorBooking.videographerId,
+            description: row.label,
+            targetConsultantId: user.id,
+            secondConsultantId: others[0]?.id ?? null,
+            thirdConsultantId: others[1]?.id ?? null,
+            fourthConsultantId: others[2]?.id ?? null,
+            // fee do videógrafo dividido pelas cópias para somar 10€ por vídeo
+            videographerFee: Math.round((10 / users.length) * 100) / 100,
+          },
+        })
+        deliverablesCreated++
       }
-    }
 
-    const booking = await findBooking(row.location, row.bookingConsultant)
-    const anchorBooking =
-      booking
-      ?? (await prisma.booking.findFirst({
-        where: { consultantId: users[0].id },
-        select: { id: true, videographerId: true },
-        orderBy: { scheduledAt: "desc" },
-      }))
-      ?? anyBooking
-
-    if (anchorBooking) {
-      await prisma.deliverable.create({
-        data: {
-          bookingId: anchorBooking.id,
-          fileName: `intro-jun26-${(users[0].name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
-          fileUrl: `${BACKFILL_PREFIX}${row.location}:${users[0].id}`,
-          mimeType: `backfill-charged:${chargeMonth}`,
-          uploadedBy: anchorBooking.videographerId,
-          description: row.label,
-          targetConsultantId: users[0].id,
-          secondConsultantId: users[1]?.id ?? null,
-          thirdConsultantId: users[2]?.id ?? null,
-          fourthConsultantId: users[3]?.id ?? null,
-          videographerFee: 10,
-        },
-      })
-      deliverablesCreated++
-    }
-
-    for (const user of users) {
       names.set(user.id, user.name ?? row.consultants[0])
       const months = monthsToRecompute.get(user.id) ?? new Set<string>()
       months.add(chargeMonth)
@@ -199,15 +199,17 @@ export async function PUT() {
 
   let updated = 0
   for (const row of INTROS) {
-    const user = await findUser(row.consultants[0])
-    if (!user) continue
-    const result = await prisma.deliverable.updateMany({
-      where: {
-        fileUrl: `${BACKFILL_PREFIX}${row.location}:${user.id}`,
-      },
-      data: { description: row.label },
-    })
-    updated += result.count
+    for (const consultantName of row.consultants) {
+      const user = await findUser(consultantName)
+      if (!user) continue
+      const result = await prisma.deliverable.updateMany({
+        where: {
+          fileUrl: `${BACKFILL_PREFIX}${row.location}:${user.id}`,
+        },
+        data: { description: row.label },
+      })
+      updated += result.count
+    }
   }
 
   return NextResponse.json({ ok: true, updated })
