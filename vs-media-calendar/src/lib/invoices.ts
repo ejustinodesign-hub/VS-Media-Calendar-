@@ -68,14 +68,25 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
     return sum + round2(ADDITIONAL_INTRO_PRICE / split)
   }, 0)
 
-  const backfillCount = await prisma.deliverable.count({
+  // Intros de backfill podem ser partilhadas — o consultor pode estar em qualquer
+  // das 4 posições e paga 25€ ÷ nº de consultores da partilha
+  const backfillIntros = await prisma.deliverable.findMany({
     where: {
       fileUrl: { startsWith: BACKFILL_PREFIX },
-      targetConsultantId: consultantId,
       mimeType: `backfill-charged:${month}`,
+      OR: [
+        { targetConsultantId: consultantId },
+        { secondConsultantId: consultantId },
+        { thirdConsultantId: consultantId },
+        { fourthConsultantId: consultantId },
+      ],
     },
+    select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
   })
-  const backfillSubtotal = backfillCount * ADDITIONAL_INTRO_PRICE
+  const backfillSubtotal = backfillIntros.reduce((sum, d) => {
+    const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    return sum + round2(ADDITIONAL_INTRO_PRICE / split)
+  }, 0)
 
   const subtotal = round2(bookingSubtotal + regularIntroSubtotal + backfillSubtotal)
   const total = round2(subtotal * (1 + IVA_RATE))

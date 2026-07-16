@@ -7,24 +7,24 @@ const TARGET_MONTH = "2026-06"
 const JULY_MONTH = "2026-07"
 const DONE_MARKER = "backfill:intro-junho-2026:DONE"
 
-// Cada linha = um intro individual de junho 2026, copiado do Excel "para_plataforma_edu.xlsx"
+// Cada linha = um intro de junho 2026, copiado do Excel "para_plataforma_edu.xlsx"
 // (colunas: Consultor | Imóvel de | Localização — o label usa o texto literal do Excel)
+// consultants com mais de um nome = intro partilhada (25€ ÷ nº de consultores)
 const INTROS = [
-  { consultant: "evandro almeida", bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
-  { consultant: "diogo antunes",   bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
-  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
-  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — arrendamento escritorios av liberdade (imóvel de Lucas)" },
-  { consultant: "sofia andrade",   bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — arrendamento escritorios av liberdade (imóvel de Lucas)" },
-  { consultant: "joao mendes",     bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
-  { consultant: "evandro",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
-  { consultant: "diogo antunes",   bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
-  { consultant: "gabriel",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
-  { consultant: "batista",         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
-  { consultant: "joao mendes",     bookingConsultant: "Rúben", location: "benfica",          label: "Intro — s domingos benfica (imóvel de Rúben)" },
-  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "benfica",          label: "Intro — s domingos benfica (imóvel de Rúben)" },
-  { consultant: "evandro",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
-  { consultant: "gabriel",         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
-  { consultant: "filipe silva",    bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
+  { consultants: ["evandro almeida", "diogo antunes"], bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
+  { consultants: ["joao mendes"],     bookingConsultant: "Rúben", location: "estudio podcast",  label: "Intro — estudio podcast (imóvel de Rúben)" },
+  { consultants: ["joao mendes"],     bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — arrendamento escritorios av liberdade (imóvel de Lucas)" },
+  { consultants: ["sofia andrade"],   bookingConsultant: "Lucas", location: "liberdade",        label: "Intro — arrendamento escritorios av liberdade (imóvel de Lucas)" },
+  { consultants: ["joao mendes"],     bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultants: ["evandro"],         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultants: ["diogo antunes"],   bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultants: ["gabriel"],         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultants: ["batista"],         bookingConsultant: "Lucas", location: "riverside",        label: "Intro — prata riverside (imóvel de Lucas)" },
+  { consultants: ["joao mendes"],     bookingConsultant: "Rúben", location: "benfica",          label: "Intro — s domingos benfica (imóvel de Rúben)" },
+  { consultants: ["filipe silva"],    bookingConsultant: "Rúben", location: "benfica",          label: "Intro — s domingos benfica (imóvel de Rúben)" },
+  { consultants: ["evandro"],         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
+  { consultants: ["gabriel"],         bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
+  { consultants: ["filipe silva"],    bookingConsultant: "Rúben", location: "ramada",           label: "Intro — t3 ramada (imóvel de Rúben)" },
 ]
 
 async function findUser(nameHint: string) {
@@ -78,22 +78,34 @@ async function rebuild() {
   let deliverablesCreated = 0
 
   for (const row of INTROS) {
-    const user = await findUser(row.consultant)
-    if (!user) {
-      notFound.push(row.consultant)
-      results.push({ consultant: row.consultant, charged: false, deliverable: false, error: "Consultor não encontrado" })
-      continue
+    // Resolver todos os consultores da linha (1 = individual, 2+ = partilhada)
+    const users: { id: string; name: string | null }[] = []
+    for (const consultantName of row.consultants) {
+      const user = await findUser(consultantName)
+      if (!user) {
+        notFound.push(consultantName)
+        results.push({ consultant: consultantName, charged: false, deliverable: false, error: "Consultor não encontrado" })
+        continue
+      }
+      users.push(user)
     }
+    if (users.length === 0) continue
 
-    // Junho já pago → cobrar em julho
-    const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
-    const chargeMonth = june?.status === "PAID" ? JULY_MONTH : TARGET_MONTH
+    // Junho por pagar para qualquer um dos consultores → cobrar em junho; senão julho
+    let chargeMonth = JULY_MONTH
+    for (const user of users) {
+      const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
+      if (june?.status !== "PAID") {
+        chargeMonth = TARGET_MONTH
+        break
+      }
+    }
 
     const booking = await findBooking(row.location, row.bookingConsultant)
     const anchorBooking =
       booking
       ?? (await prisma.booking.findFirst({
-        where: { consultantId: user.id },
+        where: { consultantId: users[0].id },
         select: { id: true, videographerId: true },
         orderBy: { scheduledAt: "desc" },
       }))
@@ -103,23 +115,28 @@ async function rebuild() {
       await prisma.deliverable.create({
         data: {
           bookingId: anchorBooking.id,
-          fileName: `intro-jun26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
-          fileUrl: `${BACKFILL_PREFIX}${row.location}:${user.id}`,
+          fileName: `intro-jun26-${(users[0].name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}-${row.location.replace(/\s+/g, "-")}.mp4`,
+          fileUrl: `${BACKFILL_PREFIX}${row.location}:${users[0].id}`,
           mimeType: `backfill-charged:${chargeMonth}`,
           uploadedBy: anchorBooking.videographerId,
           description: row.label,
-          targetConsultantId: user.id,
+          targetConsultantId: users[0].id,
+          secondConsultantId: users[1]?.id ?? null,
+          thirdConsultantId: users[2]?.id ?? null,
+          fourthConsultantId: users[3]?.id ?? null,
           videographerFee: 10,
         },
       })
       deliverablesCreated++
     }
 
-    names.set(user.id, user.name ?? row.consultant)
-    const months = monthsToRecompute.get(user.id) ?? new Set<string>()
-    months.add(chargeMonth)
-    monthsToRecompute.set(user.id, months)
-    results.push({ consultant: user.name ?? row.consultant, charged: !!anchorBooking, deliverable: !!anchorBooking })
+    for (const user of users) {
+      names.set(user.id, user.name ?? row.consultants[0])
+      const months = monthsToRecompute.get(user.id) ?? new Set<string>()
+      months.add(chargeMonth)
+      monthsToRecompute.set(user.id, months)
+      results.push({ consultant: user.name ?? row.consultants[0], charged: !!anchorBooking, deliverable: !!anchorBooking })
+    }
   }
 
   const skippedPaid: string[] = []
@@ -182,7 +199,7 @@ export async function PUT() {
 
   let updated = 0
   for (const row of INTROS) {
-    const user = await findUser(row.consultant)
+    const user = await findUser(row.consultants[0])
     if (!user) continue
     const result = await prisma.deliverable.updateMany({
       where: {
@@ -208,15 +225,15 @@ export async function PATCH() {
   const skipped: string[] = []
   const processed = new Set<string>()
 
-  for (const row of INTROS) {
-    const user = await findUser(row.consultant)
-    if (!user) { skipped.push(row.consultant); continue }
+  for (const consultantName of INTROS.flatMap((row) => row.consultants)) {
+    const user = await findUser(consultantName)
+    if (!user) { skipped.push(consultantName); continue }
     if (processed.has(user.id)) continue
     processed.add(user.id)
 
     const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
     if (!june || june.status !== "PAID") {
-      skipped.push(user.name ?? row.consultant)
+      skipped.push(user.name ?? consultantName)
       continue
     }
 
@@ -227,7 +244,7 @@ export async function PATCH() {
     })
     await recomputeMonthlyInvoice(user.id, JULY_MONTH)
 
-    moved.push(user.name ?? row.consultant)
+    moved.push(user.name ?? consultantName)
   }
 
   return NextResponse.json({ ok: true, moved, skipped })

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { MarkPaidButton } from "../mark-paid-button"
 import { MoloniBackfillButton } from "../moloni-backfill-button"
+import { EditIntroShare } from "./edit-intro-share"
 import {
   CheckCircle2, Clock, AlertCircle, ArrowLeft,
   Car, MapPin, Package, FileText,
@@ -87,7 +88,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
     ? await prisma.deliverable.findMany({
         where: {
           fileUrl: { startsWith: "backfill:intro-junho-2026:" },
-          targetConsultantId: invoice.consultantId,
+          OR: [...consultantFilter],
           mimeType: `backfill-charged:${invoice.month}`,
         },
         select: introSelect,
@@ -334,6 +335,12 @@ export default async function InvoiceDetailPage({ params }: Props) {
                           <p className="text-[11px] text-violet-500 mt-0.5">
                             Partilhada com {count} consultores — {formatPrice(ADDITIONAL_INTRO_PRICE)} ÷ {count}
                           </p>
+                        )}
+                        {!isBackfill && (
+                          <EditIntroShare
+                            deliverableId={d.id}
+                            current={[d.targetConsultantId, d.secondConsultantId, d.thirdConsultantId, d.fourthConsultantId].filter(Boolean) as string[]}
+                          />
                         )}
                       </div>
                     </div>

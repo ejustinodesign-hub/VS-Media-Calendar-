@@ -88,7 +88,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
     ? await prisma.deliverable.findMany({
         where: {
           fileUrl: { startsWith: "backfill:intro-junho-2026:" },
-          targetConsultantId: consultantId,
+          OR: [...consultantFilter],
           mimeType: `backfill-charged:${invoice.month}`,
         },
         select: introSelect,

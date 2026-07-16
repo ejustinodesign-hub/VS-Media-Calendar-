@@ -48,7 +48,12 @@ export async function POST(req: NextRequest) {
     }),
     prisma.deliverable.findMany({
       where: { fileUrl: { startsWith: BACKFILL_PREFIX }, mimeType: `backfill-charged:${month}` },
-      select: { targetConsultantId: true },
+      select: {
+        targetConsultantId: true,
+        secondConsultantId: true,
+        thirdConsultantId: true,
+        fourthConsultantId: true,
+      },
     }),
     prisma.monthlyInvoice.findMany({
       where: { month },
@@ -64,7 +69,9 @@ export async function POST(req: NextRequest) {
     }
   }
   for (const d of backfillDeliverables) {
-    if (d.targetConsultantId) consultantIds.add(d.targetConsultantId)
+    for (const cid of [d.targetConsultantId, d.secondConsultantId, d.thirdConsultantId, d.fourthConsultantId]) {
+      if (cid) consultantIds.add(cid)
+    }
   }
   for (const inv of existingInvoices) consultantIds.add(inv.consultantId)
 
