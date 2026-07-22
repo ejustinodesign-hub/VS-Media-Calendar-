@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { recomputeMonthlyInvoice, BACKFILL_PREFIX } from "@/lib/invoices"
+import { recomputeMonthlyInvoice, computeMonthBase, BACKFILL_PREFIX } from "@/lib/invoices"
 
 const TARGET_MONTH = "2026-06"
 const JULY_MONTH = "2026-07"
@@ -74,11 +74,11 @@ async function rebuild() {
   const results: { consultant: string; charged: boolean; deliverable: boolean; error?: string }[] = []
   const notFound: string[] = []
   const names = new Map<string, string>()
-  const monthsToRecompute = new Map<string, Set<string>>()
   let deliverablesCreated = 0
 
+  // Passo 1: resolver os consultores de cada linha (1 = individual, 2+ = partilhada)
+  const rowsResolved: { row: (typeof INTROS)[number]; users: { id: string; name: string | null }[] }[] = []
   for (const row of INTROS) {
-    // Resolver todos os consultores da linha (1 = individual, 2+ = partilhada)
     const users: { id: string; name: string | null }[] = []
     for (const consultantName of row.consultants) {
       const user = await findUser(consultantName)
@@ -88,18 +88,48 @@ async function rebuild() {
         continue
       }
       users.push(user)
+      names.set(user.id, user.name ?? consultantName)
     }
-    if (users.length === 0) continue
+    if (users.length > 0) rowsResolved.push({ row, users })
+  }
 
+  // Total de intros (em €, s/ IVA) por consultor — para detetar se já foram pagas
+  const shareTotals = new Map<string, number>()
+  for (const { users } of rowsResolved) {
+    const share = Math.round((25 / users.length) * 100) / 100
+    for (const u of users) {
+      shareTotals.set(u.id, Math.round(((shareTotals.get(u.id) ?? 0) + share) * 100) / 100)
+    }
+  }
+
+  // Passo 2: decidir o mês de cobrança por consultor.
+  //   junho por pagar                     → junho
+  //   junho PAGO já COM as intros         → junho (não recobrar em julho!)
+  //   junho PAGO antes de haver intros    → julho
+  const chargeMonthByUser = new Map<string, string>()
+  const paidInJune = new Set<string>()
+  for (const [userId, shareTotal] of shareTotals) {
+    let chargeMonth = TARGET_MONTH
+    const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: userId, month: TARGET_MONTH } })
+    if (june?.status === "PAID") {
+      const { baseSubtotal } = await computeMonthBase(userId, TARGET_MONTH)
+      const paidIncludesIntros = june.subtotal >= baseSubtotal + shareTotal - 0.05
+      if (paidIncludesIntros) {
+        paidInJune.add(userId)
+      } else {
+        chargeMonth = JULY_MONTH
+      }
+    }
+    chargeMonthByUser.set(userId, chargeMonth)
+  }
+
+  // Passo 3: uma cópia do deliverable por consultor, no mês dele. Os outros
+  // consultores da partilha vão nos slots seguintes para o cálculo do ÷N.
+  for (const { row, users } of rowsResolved) {
     const booking = await findBooking(row.location, row.bookingConsultant)
 
-    // Uma cópia do deliverable por consultor: cada um paga 25€ ÷ nº de consultores
-    // no SEU mês (junho, ou julho se o junho dele já está pago). Os outros
-    // consultores da partilha vão nos slots seguintes para o cálculo do ÷N.
     for (const user of users) {
-      const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
-      const chargeMonth = june?.status === "PAID" ? JULY_MONTH : TARGET_MONTH
-
+      const chargeMonth = chargeMonthByUser.get(user.id)!
       const others = users.filter((u) => u.id !== user.id)
 
       const anchorBooking =
@@ -131,19 +161,23 @@ async function rebuild() {
         deliverablesCreated++
       }
 
-      names.set(user.id, user.name ?? row.consultants[0])
-      const months = monthsToRecompute.get(user.id) ?? new Set<string>()
-      months.add(chargeMonth)
-      monthsToRecompute.set(user.id, months)
       results.push({ consultant: user.name ?? row.consultants[0], charged: !!anchorBooking, deliverable: !!anchorBooking })
     }
   }
 
+  // Passo 4: recalcular junho E julho de todos os afetados — junho pago é
+  // ignorado pelo recompute; julho é limpo de cobranças que lá tenham ficado.
   const skippedPaid: string[] = []
-  for (const [userId, months] of monthsToRecompute) {
-    for (const month of months) {
+  for (const userId of shareTotals.keys()) {
+    for (const month of [TARGET_MONTH, JULY_MONTH]) {
       const outcome = await recomputeMonthlyInvoice(userId, month)
-      if (outcome === "skipped-paid") skippedPaid.push(`${names.get(userId)} (${month})`)
+      if (
+        outcome === "skipped-paid" &&
+        month === chargeMonthByUser.get(userId) &&
+        !paidInJune.has(userId)
+      ) {
+        skippedPaid.push(`${names.get(userId)} (${month})`)
+      }
     }
   }
 
@@ -236,6 +270,21 @@ export async function PATCH() {
     const june = await prisma.monthlyInvoice.findFirst({ where: { consultantId: user.id, month: TARGET_MONTH } })
     if (!june || june.status !== "PAID") {
       skipped.push(user.name ?? consultantName)
+      continue
+    }
+
+    // Se o pagamento de junho JÁ incluiu as intros, não mover para julho
+    const copies = await prisma.deliverable.findMany({
+      where: { fileUrl: { startsWith: BACKFILL_PREFIX }, targetConsultantId: user.id },
+      select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
+    })
+    const shareTotal = copies.reduce((sum, d) => {
+      const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+      return sum + Math.round((25 / split) * 100) / 100
+    }, 0)
+    const { baseSubtotal } = await computeMonthBase(user.id, TARGET_MONTH)
+    if (june.subtotal >= baseSubtotal + shareTotal - 0.05) {
+      skipped.push(`${user.name ?? consultantName} (intros já pagas em junho)`)
       continue
     }
 

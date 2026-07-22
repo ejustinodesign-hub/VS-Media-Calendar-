@@ -22,17 +22,13 @@ export async function markOverdueInvoices(consultantId?: string) {
   })
 }
 
-// Recalcula a fatura mensal do consultor a partir dos dados reais:
-//   marcações FLAT_FEE do mês (services + deslocação + intros adicionais)
-// + intros partilhadas criadas no mês (25€ ÷ nº de consultores)
-// + intros de backfill junho-2026 marcadas para este mês (25€ cada)
-// Nunca altera faturas PAID. Liga as marcações contadas à fatura para o
-// cron de fim de mês não as voltar a somar.
-export async function recomputeMonthlyInvoice(consultantId: string, month: string): Promise<RecomputeOutcome> {
+// Subtotal "base" do mês (sem intros de backfill): marcações FLAT_FEE +
+// intros partilhadas regulares criadas no mês. Também devolve as marcações
+// para poderem ser ligadas à fatura.
+export async function computeMonthBase(consultantId: string, month: string) {
   const [year, m] = month.split("-").map(Number)
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
-  const dueDate = new Date(year, m, 0, 23, 59, 59)
 
   const bookings = await prisma.booking.findMany({
     where: {
@@ -68,6 +64,21 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
     return sum + round2(ADDITIONAL_INTRO_PRICE / split)
   }, 0)
 
+  return { bookings, baseSubtotal: round2(bookingSubtotal + regularIntroSubtotal) }
+}
+
+// Recalcula a fatura mensal do consultor a partir dos dados reais:
+//   marcações FLAT_FEE do mês (services + deslocação + intros adicionais)
+// + intros partilhadas criadas no mês (25€ ÷ nº de consultores)
+// + intros de backfill junho-2026 marcadas para este mês (25€ ÷ partilha)
+// Nunca altera faturas PAID. Liga as marcações contadas à fatura para o
+// cron de fim de mês não as voltar a somar.
+export async function recomputeMonthlyInvoice(consultantId: string, month: string): Promise<RecomputeOutcome> {
+  const [year, m] = month.split("-").map(Number)
+  const dueDate = new Date(year, m, 0, 23, 59, 59)
+
+  const { bookings, baseSubtotal } = await computeMonthBase(consultantId, month)
+
   // Intros de backfill: existe UMA cópia por consultor (targetConsultantId = dono da cópia),
   // com os restantes consultores da partilha nos outros slots. Cada cópia vale
   // 25€ ÷ nº de consultores e tem o seu próprio mês de cobrança em mimeType.
@@ -84,7 +95,7 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
     return sum + round2(ADDITIONAL_INTRO_PRICE / split)
   }, 0)
 
-  const subtotal = round2(bookingSubtotal + regularIntroSubtotal + backfillSubtotal)
+  const subtotal = round2(baseSubtotal + backfillSubtotal)
   const total = round2(subtotal * (1 + IVA_RATE))
 
   const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })
