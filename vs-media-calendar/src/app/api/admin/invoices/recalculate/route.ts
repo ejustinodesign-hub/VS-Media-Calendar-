@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     prisma.booking.findMany({
       where: {
         paymentType: "FLAT_FEE",
-        status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] },
+        status: { in: ["FILE_DELIVERED", "COMPLETED"] },
         scheduledAt: { gte: monthStart, lte: monthEnd },
       },
       select: { consultantId: true },

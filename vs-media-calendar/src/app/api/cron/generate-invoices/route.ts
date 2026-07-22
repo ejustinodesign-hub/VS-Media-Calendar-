@@ -18,10 +18,11 @@ export async function GET(req: NextRequest) {
   const monthEnd = new Date(prevMonth.getFullYear(), prevMonth.getMonth() + 1, 0, 23, 59, 59)
   const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
+  // Só marcações com vídeo já entregue são faturadas
   const bookings = await prisma.booking.findMany({
     where: {
       paymentType: "FLAT_FEE",
-      status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] },
+      status: { in: ["FILE_DELIVERED", "COMPLETED"] },
       scheduledAt: { gte: monthStart, lte: monthEnd },
       invoiceId: null,
     },

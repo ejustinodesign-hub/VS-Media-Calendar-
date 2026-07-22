@@ -17,6 +17,7 @@ export async function markOverdueInvoices(consultantId?: string) {
       ...(consultantId ? { consultantId } : {}),
       status: "PENDING",
       dueDate: { lt: new Date() },
+      total: { gt: 0 },
     },
     data: { status: "OVERDUE" },
   })
@@ -30,11 +31,12 @@ export async function computeMonthBase(consultantId: string, month: string) {
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
 
+  // Só marcações com vídeo já entregue entram na fatura
   const bookings = await prisma.booking.findMany({
     where: {
       consultantId,
       paymentType: "FLAT_FEE",
-      status: { in: ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] },
+      status: { in: ["FILE_DELIVERED", "COMPLETED"] },
       scheduledAt: { gte: monthStart, lte: monthEnd },
     },
     include: { services: true },
@@ -95,14 +97,35 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
     return sum + round2(ADDITIONAL_INTRO_PRICE / split)
   }, 0)
 
-  const subtotal = round2(baseSubtotal + backfillSubtotal)
-  const total = round2(subtotal * (1 + IVA_RATE))
-
   const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })
   if (existing?.status === "PAID") return "skipped-paid"
 
+  // Comissões já registadas nesta fatura (adicionadas em tempo real
+  // pelo registo do valor de venda) — preservar no recálculo
+  let commissionSubtotal = 0
+  if (existing) {
+    const commissionBookings = await prisma.booking.findMany({
+      where: { invoiceId: existing.id, paymentType: "COMMISSION" },
+      select: { commissionAmount: true },
+    })
+    commissionSubtotal = round2(commissionBookings.reduce((sum, b) => sum + (b.commissionAmount ?? 0), 0))
+  }
+
+  const subtotal = round2(baseSubtotal + backfillSubtotal + commissionSubtotal)
+  const total = round2(subtotal * (1 + IVA_RATE))
+
   let invoiceId: string
   if (existing) {
+    // Fatura sem qualquer valor: apagar em vez de manter a 0€
+    // (mantém-se se já tiver documento Moloni emitido)
+    if (subtotal <= 0 && !existing.moloniDocumentId) {
+      await prisma.booking.updateMany({
+        where: { invoiceId: existing.id },
+        data: { invoiceId: null },
+      })
+      await prisma.monthlyInvoice.delete({ where: { id: existing.id } })
+      return "empty"
+    }
     await prisma.monthlyInvoice.update({
       where: { id: existing.id },
       data: { subtotal, total },
@@ -117,12 +140,22 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
     return "empty"
   }
 
+  // Ligar as marcações entregues a esta fatura e desligar as que já não contam
+  // (ex.: vídeo ainda não entregue) para a página bater certo com o total
   if (bookings.length > 0) {
     await prisma.booking.updateMany({
       where: { id: { in: bookings.map((b) => b.id) } },
       data: { invoiceId },
     })
   }
+  await prisma.booking.updateMany({
+    where: {
+      invoiceId,
+      paymentType: "FLAT_FEE",
+      id: { notIn: bookings.map((b) => b.id) },
+    },
+    data: { invoiceId: null },
+  })
 
   return existing ? "updated" : "created"
 }
