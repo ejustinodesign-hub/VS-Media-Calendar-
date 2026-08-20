@@ -293,7 +293,10 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
                 const count = introSplitCount(d)
                 const net = introNet(d)
                 const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
-                const isBackfill = d.fileUrl.startsWith("backfill:intro-junho-2026:")
+                const isBackfill = d.fileUrl.startsWith("backfill:")
+                const backfillLabel = d.fileUrl.startsWith("backfill:intro-junho-2026:")
+                  ? "Intro de junho 2026"
+                  : "Intro de julho 2026"
                 const label = d.description || d.booking?.propertyAddress || d.fileName
                 return (
                   <div key={d.id} className="flex items-start justify-between text-sm py-2 border-b border-slate-50 last:border-0 gap-3">
@@ -302,7 +305,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
                       <div className="min-w-0">
                         <p className="text-slate-800 font-medium truncate">{label}</p>
                         {isBackfill && (
-                          <p className="text-xs text-slate-400">Intro de junho 2026</p>
+                          <p className="text-xs text-slate-400">{backfillLabel}</p>
                         )}
                         {!isBackfill && d.description && d.booking?.propertyAddress && (
                           <p className="text-xs text-slate-400 truncate">{d.booking.propertyAddress}</p>

@@ -79,7 +79,7 @@ export default async function ConsultantPaymentsPage({
   // Intros de backfill existem em cópias (uma por consultor da partilha) —
   // mostrar apenas a cópia do próprio consultor para não duplicar
   const sharedIntros = rawSharedIntros.filter(
-    (d) => !d.fileUrl.startsWith("backfill:intro-junho-2026:") || d.targetConsultantId === consultantId
+    (d) => !d.fileUrl.startsWith("backfill:") || d.targetConsultantId === consultantId
   )
 
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length
@@ -215,7 +215,7 @@ export default async function ConsultantPaymentsPage({
                 Vídeos filmados por outros consultores que incluem uma introdução personalizada sua. O custo de 25€ é dividido por todos os consultores que partilham a intro.
               </p>
               {sharedIntros.map((d) => {
-                const isBackfill = d.fileUrl.startsWith("backfill:intro-junho-2026:")
+                const isBackfill = d.fileUrl.startsWith("backfill:")
                 const expiry = new Date(d.createdAt)
                 expiry.setDate(expiry.getDate() + 30)
                 const isExpired = expiry < new Date()
@@ -232,7 +232,9 @@ export default async function ConsultantPaymentsPage({
                         {d.description || d.fileName}
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        {isBackfill ? "Intro de junho 2026" : d.booking?.propertyAddress ?? d.fileName}
+                        {isBackfill
+                          ? d.fileUrl.startsWith("backfill:intro-junho-2026:") ? "Intro de junho 2026" : "Intro de julho 2026"
+                          : d.booking?.propertyAddress ?? d.fileName}
                       </p>
                       {!isBackfill && (
                         <p className={`text-xs mt-0.5 ${isExpired ? "text-red-500" : "text-amber-600"}`}>
