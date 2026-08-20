@@ -12,15 +12,16 @@ const DONE_MARKER = "backfill:videos-julho-2026:DONE"
 const VIDEO_PRICE = 100
 const INTRO_LABEL = "Intro — Rua Professor Dias Valente 320, Estoril (imóvel de Maiara)"
 
+// hints: variantes do nome a tentar por ordem (ex. Maiara/Mayara)
 const VIDEOS = [
-  { consultant: "isabel salgado", day: 8,  address: "Rua Br. de Moçamedes 110, Carcavelos" },
-  { consultant: "carolina gomes", day: 10, address: "La Serena Brunch and Coffee — Estrada de Sassoeiros 4, 2775-530 Carcavelos" },
-  { consultant: "pedro bengui",   day: 30, address: "Rua do Casal 29, 2735-521 Agualva-Cacém" },
-  { consultant: "maiara",         day: 30, address: "Rua Professor Dias Valente 320, Estoril" },
+  { hints: ["isabel salgado"],    day: 8,  address: "Rua Br. de Moçamedes 110, Carcavelos" },
+  { hints: ["carolina gomes"],    day: 10, address: "La Serena Brunch and Coffee — Estrada de Sassoeiros 4, 2775-530 Carcavelos" },
+  { hints: ["pedro bengui"],      day: 30, address: "Rua do Casal 29, 2735-521 Agualva-Cacém" },
+  { hints: ["mayara", "maiara"],  day: 30, address: "Rua Professor Dias Valente 320, Estoril" },
 ]
 
 // Intros no vídeo da Maiara (dia 30) — cobradas a quem aparece, 25€ cada
-const INTROS = ["isabel salgado", "pedro bengui", "gabriel", "ana paula"]
+const INTROS = [["isabel salgado"], ["pedro bengui"], ["gabriel"], ["ana paula"]]
 
 async function findUser(nameHint: string) {
   const name = nameHint.trim()
@@ -64,6 +65,14 @@ async function findUser(nameHint: string) {
   return byFirst.length === 1 ? byFirst[0] : null
 }
 
+async function findUserAny(hints: string[]) {
+  for (const hint of hints) {
+    const user = await findUser(hint)
+    if (user) return user
+  }
+  return null
+}
+
 async function rebuild() {
   // Estes vídeos foram todos filmados pelo Pavão
   const videographer =
@@ -84,32 +93,37 @@ async function rebuild() {
   }
 
   const notFound: string[] = []
+  const errors: string[] = []
   const affected = new Map<string, string>()
   let bookingsCreated = 0
   let introsCreated = 0
   let maiaraBookingId: string | null = null
 
   for (const v of VIDEOS) {
-    const user = await findUser(v.consultant)
+    const user = await findUserAny(v.hints)
     if (!user) {
-      notFound.push(v.consultant)
+      notFound.push(v.hints[0])
       continue
     }
-    const booking = await prisma.booking.create({
-      data: {
-        consultantId: user.id,
-        videographerId: videographer.id,
-        status: "FILE_DELIVERED",
-        scheduledAt: new Date(Date.UTC(2026, 6, v.day, 10, 0, 0)),
-        propertyAddress: v.address,
-        paymentType: "FLAT_FEE",
-        notes: NOTES_MARKER,
-        services: { create: [{ serviceType: "VIDEO_STANDARD", price: VIDEO_PRICE }] },
-      },
-    })
-    bookingsCreated++
-    if (v.consultant === "maiara") maiaraBookingId = booking.id
-    affected.set(user.id, user.name ?? v.consultant)
+    try {
+      const booking = await prisma.booking.create({
+        data: {
+          consultantId: user.id,
+          videographerId: videographer.id,
+          status: "FILE_DELIVERED",
+          scheduledAt: new Date(Date.UTC(2026, 6, v.day, 10, 0, 0)),
+          propertyAddress: v.address,
+          paymentType: "FLAT_FEE",
+          notes: NOTES_MARKER,
+          services: { create: [{ serviceType: "VIDEO_STANDARD", price: VIDEO_PRICE }] },
+        },
+      })
+      bookingsCreated++
+      if (v.hints.includes("maiara") || v.hints.includes("mayara")) maiaraBookingId = booking.id
+      affected.set(user.id, user.name ?? v.hints[0])
+    } catch (e: any) {
+      errors.push(`vídeo ${v.hints[0]}: ${e?.message ?? String(e)}`)
+    }
   }
 
   // Intros ancoradas ao vídeo da Maiara. createdAt em julho para contarem
@@ -119,27 +133,33 @@ async function rebuild() {
     ?? (await prisma.booking.findFirst({ where: { notes: NOTES_MARKER }, select: { id: true } }))?.id
     ?? null
 
-  if (anchorBookingId) {
-    for (const name of INTROS) {
-      const user = await findUser(name)
+  if (!anchorBookingId) {
+    errors.push("intros: sem marcação âncora — nenhum vídeo foi criado")
+  } else {
+    for (const hints of INTROS) {
+      const user = await findUserAny(hints)
       if (!user) {
-        notFound.push(name)
+        notFound.push(hints[0])
         continue
       }
-      await prisma.deliverable.create({
-        data: {
-          bookingId: anchorBookingId,
-          fileName: `intro-jul26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}.mp4`,
-          fileUrl: `${INTRO_PREFIX}estoril:${user.id}`,
-          uploadedBy: videographer.id,
-          description: INTRO_LABEL,
-          targetConsultantId: user.id,
-          videographerFee: 10,
-          createdAt: new Date(Date.UTC(2026, 6, 30, 12, 0, 0)),
-        },
-      })
-      introsCreated++
-      affected.set(user.id, user.name ?? name)
+      try {
+        await prisma.deliverable.create({
+          data: {
+            bookingId: anchorBookingId,
+            fileName: `intro-jul26-${(user.name ?? "consultor").replace(/\s+/g, "-").toLowerCase()}.mp4`,
+            fileUrl: `${INTRO_PREFIX}estoril:${user.id}`,
+            uploadedBy: videographer.id,
+            description: INTRO_LABEL,
+            targetConsultantId: user.id,
+            videographerFee: 10,
+            createdAt: new Date(Date.UTC(2026, 6, 30, 12, 0, 0)),
+          },
+        })
+        introsCreated++
+        affected.set(user.id, user.name ?? hints[0])
+      } catch (e: any) {
+        errors.push(`intro ${hints[0]}: ${e?.message ?? String(e)}`)
+      }
     }
   }
 
@@ -164,6 +184,7 @@ async function rebuild() {
     intros: introsCreated,
     consultants: [...affected.values()],
     notFound,
+    errors,
     skippedPaid,
   }
 }

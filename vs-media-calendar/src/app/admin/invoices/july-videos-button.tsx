@@ -23,8 +23,9 @@ export function JulyVideosButton() {
         return
       }
       const extraNotFound = data.notFound?.length ? ` · não encontrado(s): ${data.notFound.join(", ")}` : ""
+      const extraErrors = data.errors?.length ? ` · erros: ${data.errors.join(" | ")}` : ""
       const extraPaid = data.skippedPaid?.length ? ` · faturas pagas não alteradas: ${data.skippedPaid.join(", ")}` : ""
-      setMessage(`${data.bookings} vídeos e ${data.intros} intros adicionados a julho (${data.consultants.length} consultores).${extraNotFound}${extraPaid}`)
+      setMessage(`${data.bookings} vídeos e ${data.intros} intros adicionados a julho (${data.consultants.length} consultores).${extraNotFound}${extraErrors}${extraPaid}`)
       setState(method === "POST" ? "done" : "repair-done")
       router.refresh()
     } catch {
