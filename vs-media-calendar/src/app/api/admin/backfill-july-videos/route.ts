@@ -24,27 +24,61 @@ const INTROS = ["isabel salgado", "pedro bengui", "gabriel", "ana paula"]
 
 async function findUser(nameHint: string) {
   const name = nameHint.trim()
+  const baseWhere = { role: { in: ["CONSULTANT", "ADMIN"] as ("CONSULTANT" | "ADMIN")[] }, active: true }
+
+  // 1) Nome completo
   let user = await prisma.user.findFirst({
-    where: { role: { in: ["CONSULTANT", "ADMIN"] }, active: true, name: { contains: name, mode: "insensitive" } },
+    where: { ...baseWhere, name: { contains: name, mode: "insensitive" } },
     select: { id: true, name: true },
   })
-  if (!user && name.includes(" ")) {
-    // Fallback pelo apelido (mais distintivo que o primeiro nome —
-    // "carolina" apanharia a Carolina errada)
-    const words = name.split(" ")
-    user = await prisma.user.findFirst({
-      where: { role: { in: ["CONSULTANT", "ADMIN"] }, active: true, name: { contains: words[words.length - 1], mode: "insensitive" } },
+  if (user || !name.includes(" ")) return user
+
+  const words = name.split(/\s+/)
+
+  // 2) Apelido (mais distintivo que o primeiro nome)
+  user = await prisma.user.findFirst({
+    where: { ...baseWhere, name: { contains: words[words.length - 1], mode: "insensitive" } },
+    select: { id: true, name: true },
+  })
+  if (user) return user
+
+  // 3) Início do apelido (tolera variações de grafia, ex. "Bengi"/"Bengui") —
+  //    só se corresponder a exatamente UM utilizador
+  const lastWord = words[words.length - 1]
+  if (lastWord.length >= 5) {
+    const byPrefix = await prisma.user.findMany({
+      where: { ...baseWhere, name: { contains: lastWord.slice(0, 4), mode: "insensitive" } },
       select: { id: true, name: true },
+      take: 2,
     })
+    if (byPrefix.length === 1) return byPrefix[0]
   }
-  return user
+
+  // 4) Primeiro nome — só se corresponder a exatamente UM utilizador
+  //    (evita apanhar o homónimo errado)
+  const byFirst = await prisma.user.findMany({
+    where: { ...baseWhere, name: { contains: words[0], mode: "insensitive" } },
+    select: { id: true, name: true },
+    take: 2,
+  })
+  return byFirst.length === 1 ? byFirst[0] : null
 }
 
 async function rebuild() {
-  const videographer = await prisma.user.findFirst({
-    where: { role: "VIDEOGRAPHER", active: true },
-    select: { id: true },
-  })
+  // Estes vídeos foram todos filmados pelo Pavão
+  const videographer =
+    (await prisma.user.findFirst({
+      where: { role: "VIDEOGRAPHER", active: true, name: { contains: "pavão", mode: "insensitive" } },
+      select: { id: true },
+    }))
+    ?? (await prisma.user.findFirst({
+      where: { role: "VIDEOGRAPHER", active: true, name: { contains: "pavao", mode: "insensitive" } },
+      select: { id: true },
+    }))
+    ?? (await prisma.user.findFirst({
+      where: { role: "VIDEOGRAPHER", active: true },
+      select: { id: true },
+    }))
   if (!videographer) {
     return { error: "Nenhum videógrafo ativo encontrado para associar às marcações." }
   }
