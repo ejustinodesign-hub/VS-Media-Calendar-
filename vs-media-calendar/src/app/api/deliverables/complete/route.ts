@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { sendStatusUpdateEmail } from "@/lib/email"
 import { SERVICE_LABELS, IVA_RATE } from "@/lib/pricing"
+import { recomputeMonthlyInvoice } from "@/lib/invoices"
 
 const INTRO_PRICE_NET = 25
 const VIDEOGRAPHER_FEE = 10
@@ -152,6 +153,21 @@ export async function POST(req: NextRequest) {
     where: { id: bookingId },
     data: { status: "FILE_DELIVERED" },
   })
+
+  // Só vídeos entregues são faturados. Se a marcação é de um mês que o cron
+  // já fechou, recalcular a fatura desse mês agora — senão a entrega tardia
+  // nunca chegaria a ser cobrada.
+  const scheduled = new Date(booking.scheduledAt)
+  const bookingMonth = `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}`
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  if (bookingMonth < currentMonth) {
+    try {
+      await recomputeMonthlyInvoice(booking.consultantId, bookingMonth)
+    } catch (e) {
+      console.error("[deliverables/complete] recompute failed:", e)
+    }
+  }
 
   await prisma.notification.create({
     data: {

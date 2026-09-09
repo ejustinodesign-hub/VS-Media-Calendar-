@@ -94,7 +94,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   const deliverable = await prisma.deliverable.findFirst({
     where,
-    include: { booking: { select: { id: true } } },
+    include: { booking: { select: { id: true, consultantId: true, scheduledAt: true } } },
   })
 
   if (!deliverable) {
@@ -155,6 +155,19 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
         where: { id: deliverable.booking.id },
         data: { status: "ACCEPTED" },
       })
+      // Marcação deixou de estar entregue — se o mês já fechou, tirar a
+      // cobrança da fatura (só vídeos entregues são faturados)
+      const scheduled = new Date(deliverable.booking.scheduledAt)
+      const bookingMonth = `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}`
+      const now = new Date()
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+      if (bookingMonth < currentMonth) {
+        try {
+          await recomputeMonthlyInvoice(deliverable.booking.consultantId, bookingMonth)
+        } catch (e) {
+          console.error("[deliverables/delete] recompute failed:", e)
+        }
+      }
     }
   }
 
