@@ -10,6 +10,7 @@ import {
   User, Calendar, MapPin, Clock, ArrowLeft, Percent,
 } from "lucide-react"
 import { TravelFeeToggle } from "./travel-fee-toggle"
+import { PaymentTypeToggle } from "./payment-type-toggle"
 import { EditServices } from "./edit-services"
 import { DeliverablesList } from "./deliverables-list"
 import { RemaxWatch } from "./remax-watch"
@@ -43,6 +44,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
   for (const r of pricingRules) activePrices[r.serviceType] = r.basePrice
 
   const scheduledDate = new Date(booking.scheduledAt)
+  const bookingMonthLabel = scheduledDate.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
   const net = booking.services.reduce((s, svc) => s + svc.price, 0)
     + (booking.hasTravelFee ? booking.travelFeeAmount : 0)
     + booking.additionalIntros * 25
@@ -136,9 +138,17 @@ export default async function AdminBookingDetailPage({ params }: Props) {
 
         {/* Services & pricing */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
             <CardTitle>Serviços e Valor</CardTitle>
-            <TravelFeeToggle bookingId={booking.id} hasTravelFee={booking.hasTravelFee} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <PaymentTypeToggle
+                bookingId={booking.id}
+                paymentType={booking.paymentType as "FLAT_FEE" | "COMMISSION"}
+                commissionRate={booking.commissionRate ?? 0.0015}
+                monthLabel={bookingMonthLabel}
+              />
+              <TravelFeeToggle bookingId={booking.id} hasTravelFee={booking.hasTravelFee} />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 mb-4">
