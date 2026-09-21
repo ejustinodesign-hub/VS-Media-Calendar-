@@ -55,6 +55,30 @@ export default async function AdminInvoicesPage({
   const totalPaid    = paid.reduce((s, i) => s + i.total, 0)
   const totalPending = [...pending, ...overdue].reduce((s, i) => s + i.total, 0)
 
+  // Dívida acumulada por consultor (todos os meses por pagar, não só o selecionado)
+  const unpaidAll = await prisma.monthlyInvoice.findMany({
+    where: { status: { in: ["PENDING", "OVERDUE"] } },
+    include: { consultant: { select: { id: true, name: true, email: true } } },
+    orderBy: { month: "asc" },
+  })
+  const debtorMap = new Map<string, {
+    name: string
+    invoices: { id: string; month: string; total: number; status: "PENDING" | "OVERDUE" }[]
+    total: number
+  }>()
+  for (const inv of unpaidAll) {
+    const entry = debtorMap.get(inv.consultantId) ?? {
+      name: inv.consultant.name || inv.consultant.email || "—",
+      invoices: [],
+      total: 0,
+    }
+    entry.invoices.push({ id: inv.id, month: inv.month, total: inv.total, status: inv.status as "PENDING" | "OVERDUE" })
+    entry.total = Math.round((entry.total + inv.total) * 100) / 100
+    debtorMap.set(inv.consultantId, entry)
+  }
+  const debtors = [...debtorMap.values()].sort((a, b) => b.total - a.total)
+  const totalDebt = debtors.reduce((s, d) => s + d.total, 0)
+
   // Build month list for selector (last 6 months)
   const months: string[] = []
   for (let i = 0; i < 6; i++) {
@@ -122,6 +146,43 @@ export default async function AdminInvoicesPage({
             <p className="text-xs text-slate-400 mt-1">{formatPrice(overdue.reduce((s,i)=>s+i.total,0))} em dívida</p>
           </div>
         </div>
+
+        {/* Dívida acumulada por consultor (todos os meses) */}
+        {debtors.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <h3 className="font-bold text-slate-900 text-sm">Em dívida por consultor (todos os meses)</h3>
+              </div>
+              <p className="text-sm font-bold text-red-600">{formatPrice(totalDebt)}</p>
+            </div>
+            <div className="divide-y divide-slate-50">
+              {debtors.map((d) => (
+                <div key={d.name} className="px-6 py-3 flex items-center gap-3 flex-wrap">
+                  <p className="font-semibold text-slate-800 text-sm flex-1 min-w-[140px]">{d.name}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {d.invoices.map((inv) => (
+                      <Link
+                        key={inv.id}
+                        href={`/admin/invoices/${inv.id}`}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold border capitalize ${
+                          inv.status === "OVERDUE"
+                            ? "bg-red-50 text-red-600 border-red-100 hover:bg-red-100"
+                            : "bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-100"
+                        }`}
+                        title={inv.status === "OVERDUE" ? "Em atraso" : "Pendente"}
+                      >
+                        {monthLabel(inv.month)} · {formatPrice(inv.total)}
+                      </Link>
+                    ))}
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 w-24 text-right">{formatPrice(d.total)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Invoice list */}
         {invoices.length === 0 ? (
