@@ -22,6 +22,7 @@ import {
   Wallet,
   Receipt,
   Award,
+  Percent,
 } from "lucide-react"
 import { useSidebar } from "./sidebar-context"
 
@@ -54,6 +55,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/pricing", label: "Preços", icon: DollarSign },
   { href: "/admin/remuneration", label: "Remuneração", icon: Wallet },
   { href: "/admin/invoices", label: "Faturas", icon: Receipt },
+  { href: "/admin/commissions", label: "Comissões", icon: Percent },
   { href: "/admin/diplomas", label: "Diplomas", icon: Award },
   { href: "/admin/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/admin/settings", label: "Configurações", icon: Settings },
