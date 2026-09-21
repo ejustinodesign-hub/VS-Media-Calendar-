@@ -320,6 +320,87 @@ export async function sendInvoicePaidConfirmationEmail({
   return result
 }
 
+export async function sendPaymentTypeChangedEmail({
+  consultantName,
+  consultantEmail,
+  bookingId,
+  propertyAddress,
+  scheduledAt,
+  paymentType,
+  commissionRate,
+  flatFeeAmount,
+  invoiceWasPaid,
+}: {
+  consultantName: string
+  consultantEmail: string
+  bookingId: string
+  propertyAddress: string
+  scheduledAt: Date
+  paymentType: "FLAT_FEE" | "COMMISSION"
+  commissionRate: number
+  flatFeeAmount: number
+  invoiceWasPaid: boolean
+}) {
+  const toCommission = paymentType === "COMMISSION"
+  const commissionPct = (commissionRate * 100).toFixed(2)
+  const monthLabel = scheduledAt.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+
+  const explanation = toCommission
+    ? `Este vídeo deixa de ser cobrado na fatura de ${monthLabel}. Passa a pagar apenas <strong>${commissionPct}% do valor de venda</strong> do imóvel, quando este for vendido.`
+    : `Este vídeo passa a ser cobrado na fatura de ${monthLabel} pelo valor dos serviços (${formatAmount(flatFeeAmount)} s/ IVA), deixando de estar em modo comissão.`
+
+  const paidWarning = invoiceWasPaid
+    ? `<p style="color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:13px;margin:0 0 24px;">
+         A fatura de ${monthLabel} já se encontra paga, pelo que o valor não foi alterado. Entraremos em contacto para regularizar o acerto.
+       </p>`
+    : ""
+
+  const box = toCommission
+    ? { bg: "#faf5ff", border: "#e9d5ff", accent: "#7c3aed" }
+    : { bg: "#f0f9ff", border: "#bae6fd", accent: "#0f3460" }
+
+  const content = `
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">${toCommission ? "Vídeo alterado para modo comissão" : "Vídeo alterado para taxa fixa"}</h2>
+    <p style="color:#666;margin:0 0 24px;">Olá ${consultantName}, o modo de pagamento de um dos seus vídeos foi alterado.</p>
+
+    ${paidWarning}
+
+    <div style="background:${box.bg};border:1px solid ${box.border};border-radius:8px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Imóvel</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${propertyAddress}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Data do serviço</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${formatDate(scheduledAt)}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Novo modo</td><td style="color:${box.accent};padding:6px 0;font-size:14px;font-weight:700;">${toCommission ? `Comissão — ${commissionPct}% da venda` : "Taxa fixa"}</td></tr>
+      </table>
+    </div>
+
+    <p style="color:#666;font-size:14px;margin:0 0 24px;">${explanation}</p>
+
+    ${toCommission ? `<p style="color:#666;font-size:14px;margin:0 0 24px;">Quando vender o imóvel, registe o valor de venda na plataforma para que a comissão seja calculada.</p>` : ""}
+
+    <a href="${APP_URL}/consultant/bookings/${bookingId}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Marcação</a>
+  `
+
+  const html = emailBase(content)
+  const subject = toCommission
+    ? `Vídeo em modo comissão — ${propertyAddress}`
+    : `Vídeo em taxa fixa — ${propertyAddress}`
+
+  const recipients: string[] = []
+  if (consultantEmail) recipients.push(consultantEmail)
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+  if (adminEmail) recipients.push(adminEmail)
+  if (recipients.length === 0) return
+
+  const result = await getResend().emails.send({
+    from: FROM,
+    to: recipients,
+    subject,
+    html,
+  })
+  console.log(`[email] sendPaymentTypeChangedEmail → ${recipients.join(", ")}`, result)
+  return result
+}
+
 export async function sendInvoicePaidEmail({
   consultantName,
   consultantEmail,

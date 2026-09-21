@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { COMMISSION_RATE } from "@/lib/pricing"
 import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { sendPaymentTypeChangedEmail } from "@/lib/email"
 
 // PATCH: alterna uma marcação entre taxa fixa e modo comissão.
 // A fatura do mês da marcação é recalculada, pelo que a cobrança da taxa
@@ -24,8 +25,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const booking = await prisma.booking.findUnique({
     where: { id },
     select: {
-      id: true, consultantId: true, scheduledAt: true,
+      id: true, consultantId: true, scheduledAt: true, propertyAddress: true,
       paymentType: true, salePrice: true, commissionRate: true,
+      hasTravelFee: true, travelFeeAmount: true, additionalIntros: true,
+      consultant: { select: { name: true, email: true } },
+      services: { select: { price: true } },
     },
   })
   if (!booking) return NextResponse.json({ error: "Marcação não encontrada" }, { status: 404 })
@@ -67,12 +71,52 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   })
 
   const outcome = await recomputeMonthlyInvoice(booking.consultantId, month)
+  const invoiceWasPaid = invoiceBefore?.status === "PAID" || outcome === "skipped-paid"
+  const rate = booking.commissionRate ?? COMMISSION_RATE
+  const flatFeeAmount =
+    booking.services.reduce((s, svc) => s + svc.price, 0)
+    + (booking.hasTravelFee ? booking.travelFeeAmount : 0)
+    + booking.additionalIntros * 25
+
+  // Notificar o consultor (plataforma + email). Falhas não revertem a alteração.
+  try {
+    await prisma.notification.create({
+      data: {
+        userId: booking.consultantId,
+        bookingId: booking.id,
+        type: "SERVICE_ACCEPTED",
+        title: paymentType === "COMMISSION" ? "Vídeo alterado para modo comissão" : "Vídeo alterado para taxa fixa",
+        message:
+          paymentType === "COMMISSION"
+            ? `O vídeo de ${booking.propertyAddress} deixa de ser cobrado na fatura mensal — passa a pagar ${(rate * 100).toFixed(2)}% do valor de venda.`
+            : `O vídeo de ${booking.propertyAddress} passa a ser cobrado na fatura mensal por ${flatFeeAmount.toFixed(2)}€ s/ IVA.`,
+      },
+    })
+  } catch (e) {
+    console.error("[payment-type] notification failed:", e)
+  }
+
+  try {
+    await sendPaymentTypeChangedEmail({
+      consultantName: booking.consultant.name || "",
+      consultantEmail: booking.consultant.email || "",
+      bookingId: booking.id,
+      propertyAddress: booking.propertyAddress,
+      scheduledAt: scheduled,
+      paymentType,
+      commissionRate: rate,
+      flatFeeAmount,
+      invoiceWasPaid,
+    })
+  } catch (e) {
+    console.error("[payment-type] email failed:", e)
+  }
 
   return NextResponse.json({
     success: true,
     paymentType,
     month,
     // fatura paga não é recalculada — é preciso regularizar manualmente
-    invoiceWasPaid: invoiceBefore?.status === "PAID" || outcome === "skipped-paid",
+    invoiceWasPaid,
   })
 }
