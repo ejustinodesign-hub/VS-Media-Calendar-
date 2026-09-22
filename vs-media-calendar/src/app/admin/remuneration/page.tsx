@@ -55,9 +55,26 @@ export default async function AdminRemunerationPage() {
 
   const COUNTED_STATUSES = ["ACCEPTED", "IN_PROGRESS", "FILE_DELIVERED", "COMPLETED"] as const
 
+  // Videógrafos ativos + desativados que ainda têm trabalho este mês por pagar
+  const workedThisMonth = await prisma.booking.findMany({
+    where: {
+      scheduledAt: { gte: monthStart, lte: monthEnd },
+      status: { in: [...COUNTED_STATUSES] },
+      videographer: { role: "VIDEOGRAPHER", active: false },
+    },
+    select: { videographerId: true },
+    distinct: ["videographerId"],
+  })
+
   const videographers = await prisma.user.findMany({
-    where: { role: "VIDEOGRAPHER", active: true },
-    select: { id: true, name: true, email: true, image: true },
+    where: {
+      role: "VIDEOGRAPHER",
+      OR: [
+        { active: true },
+        { id: { in: workedThisMonth.map((b) => b.videographerId) } },
+      ],
+    },
+    select: { id: true, name: true, email: true, image: true, active: true },
     orderBy: { name: "asc" },
   })
 
@@ -127,6 +144,7 @@ export default async function AdminRemunerationPage() {
       name: v.name,
       email: v.email,
       image: v.image,
+      active: v.active,
       hasCta: ctaMap[v.id] ?? false,
       bookingCount: bookings.length,
       standardTotal,

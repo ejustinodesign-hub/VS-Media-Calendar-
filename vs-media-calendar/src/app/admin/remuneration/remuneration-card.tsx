@@ -11,6 +11,7 @@ interface Videographer {
   name: string | null
   email: string | null
   image: string | null
+  active: boolean
   hasCta: boolean
   bookingCount: number
   standardTotal: number
@@ -63,7 +64,14 @@ export function RemunerationCard({ videographer: v, rates }: { videographer: Vid
             </div>
           )}
           <div className="flex-1">
-            <CardTitle className="text-base">{v.name || v.email}</CardTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              <CardTitle className="text-base">{v.name || v.email}</CardTitle>
+              {!v.active && (
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold border border-slate-200">
+                  Desativado
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 mt-0.5">{v.bookingCount} marcação(ões) este mês</p>
           </div>
           <div className="text-right">

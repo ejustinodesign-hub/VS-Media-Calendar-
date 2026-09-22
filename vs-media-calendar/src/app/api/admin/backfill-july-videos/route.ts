@@ -74,22 +74,20 @@ async function findUserAny(hints: string[]) {
 }
 
 async function rebuild() {
-  // Estes vídeos foram todos filmados pelo Pavão
+  // Estes vídeos foram todos filmados pelo Pavão. Procurado mesmo que a conta
+  // esteja desativada — as marcações históricas têm de ficar com o autor certo.
+  // Sem fallback para outro videógrafo: era reatribuição silenciosa.
   const videographer =
     (await prisma.user.findFirst({
-      where: { role: "VIDEOGRAPHER", active: true, name: { contains: "pavão", mode: "insensitive" } },
+      where: { role: "VIDEOGRAPHER", name: { contains: "pavão", mode: "insensitive" } },
       select: { id: true },
     }))
     ?? (await prisma.user.findFirst({
-      where: { role: "VIDEOGRAPHER", active: true, name: { contains: "pavao", mode: "insensitive" } },
-      select: { id: true },
-    }))
-    ?? (await prisma.user.findFirst({
-      where: { role: "VIDEOGRAPHER", active: true },
+      where: { role: "VIDEOGRAPHER", name: { contains: "pavao", mode: "insensitive" } },
       select: { id: true },
     }))
   if (!videographer) {
-    return { error: "Nenhum videógrafo ativo encontrado para associar às marcações." }
+    return { error: "Videógrafo «Pavão» não encontrado — os vídeos de julho não podem ser recriados sem ele." }
   }
 
   const notFound: string[] = []
