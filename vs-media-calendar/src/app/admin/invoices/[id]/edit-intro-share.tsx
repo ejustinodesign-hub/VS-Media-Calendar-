@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Pencil, Loader2, Trash2 } from "lucide-react"
+import { MAX_INTRO_CONSULTANTS } from "@/lib/intros"
 
 interface Consultant {
   id: string
@@ -35,7 +36,7 @@ export function EditIntroShare({ deliverableId, current }: { deliverableId: stri
   function toggle(id: string) {
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id)
-      if (prev.length >= 4) return prev
+      if (prev.length >= MAX_INTRO_CONSULTANTS) return prev
       return [...prev, id]
     })
   }
@@ -102,7 +103,7 @@ export function EditIntroShare({ deliverableId, current }: { deliverableId: stri
 
   return (
     <div className="mt-2 p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2 max-w-sm">
-      <p className="text-xs font-semibold text-slate-600">Partilhada por (máx. 4):</p>
+      <p className="text-xs font-semibold text-slate-600">Partilhada por (máx. {MAX_INTRO_CONSULTANTS}):</p>
       {consultants.length === 0 ? (
         <p className="text-xs text-slate-400">A carregar consultores…</p>
       ) : (
@@ -113,7 +114,7 @@ export function EditIntroShare({ deliverableId, current }: { deliverableId: stri
                 type="checkbox"
                 checked={selected.includes(c.id)}
                 onChange={() => toggle(c.id)}
-                disabled={!selected.includes(c.id) && selected.length >= 4}
+                disabled={!selected.includes(c.id) && selected.length >= MAX_INTRO_CONSULTANTS}
                 className="rounded border-slate-300"
               />
               <span className="truncate">{c.name || c.email}</span>

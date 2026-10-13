@@ -6,6 +6,9 @@ import { upload } from "@vercel/blob/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, FileVideo, Trash2, Download, UserPlus, X, Users } from "lucide-react"
+import { MAX_INTRO_CONSULTANTS, INTRO_CONSULTANT_FIELDS, introConsultantData } from "@/lib/intros"
+
+const INTRO_COUNT_OPTIONS = Array.from({ length: MAX_INTRO_CONSULTANTS }, (_, i) => i + 1)
 
 const INTRO_PRICE_NET = 25
 const IVA = 0.23
@@ -26,6 +29,8 @@ interface DeliverableFile {
   secondConsultantId?: string | null
   thirdConsultantId?: string | null
   fourthConsultantId?: string | null
+  fifthConsultantId?: string | null
+  sixthConsultantId?: string | null
 }
 
 interface Consultant {
@@ -36,7 +41,7 @@ interface Consultant {
 
 interface IntroEntry {
   key: string
-  count: 1 | 2 | 3 | 4
+  count: number
   consultantIds: string[]
   hasCta: boolean
   file: File | null
@@ -112,7 +117,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
   const updateEntry = (key: string, patch: Partial<IntroEntry>) =>
     setIntroEntries(prev => prev.map(e => e.key === key ? { ...e, ...patch } : e))
 
-  const setCount = (key: string, count: 1 | 2 | 3 | 4) => {
+  const setCount = (key: string, count: number) => {
     setIntroEntries(prev => prev.map(e => {
       if (e.key !== key) return e
       const ids = [...e.consultantIds]
@@ -211,10 +216,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         fileUrl: blobUrl,
         mimeType: entry.file!.type,
         createdAt: new Date(),
-        targetConsultantId: validIds[0] || null,
-        secondConsultantId: validIds[1] || null,
-        thirdConsultantId: validIds[2] || null,
-        fourthConsultantId: validIds[3] || null,
+        ...introConsultantData(validIds),
       }])
       removeIntroEntry(entry.key)
       router.refresh()
@@ -322,7 +324,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-slate-500">Número de consultores</p>
                   <div className="flex gap-1.5">
-                    {([1, 2, 3, 4] as const).map(n => {
+                    {INTRO_COUNT_OPTIONS.map(n => {
                       const { gross: g } = pricePerConsultant(n)
                       return (
                         <button key={n} onClick={() => setCount(entry.key, n)}
@@ -441,7 +443,7 @@ function FileRow({
   showConsultantBadge?: boolean
   consultants?: Consultant[]
 }) {
-  const ids = [f.targetConsultantId, f.secondConsultantId, f.thirdConsultantId, f.fourthConsultantId].filter(Boolean) as string[]
+  const ids = INTRO_CONSULTANT_FIELDS.map((k) => f[k]).filter(Boolean) as string[]
   const names = showConsultantBadge
     ? ids.map(id => consultants.find(c => c.id === id)?.name || "Consultor")
     : []

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { createMoloniInvoice } from "@/lib/moloni"
 import { SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import type { ServiceType } from "@prisma/client"
+import { introConsultantFilter, introSplitCount } from "@/lib/intros"
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -50,12 +51,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const regularSharedIntros = await prisma.deliverable.findMany({
     where: {
-      OR: [
-        { targetConsultantId: invoice.consultantId },
-        { secondConsultantId: invoice.consultantId },
-        { thirdConsultantId: invoice.consultantId },
-        { fourthConsultantId: invoice.consultantId },
-      ],
+      OR: introConsultantFilter(invoice.consultantId),
       createdAt: { gte: monthStart, lte: monthEnd },
       NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
     },
@@ -98,7 +94,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const sharedIntroLines = sharedIntros.map((d) => {
     // Preço dividido pelos consultores que partilham a intro (igual à fatura)
-    const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    const split = introSplitCount(d)
     const net = Math.round((ADDITIONAL_INTRO_PRICE / split) * 100) / 100
     return {
       description:

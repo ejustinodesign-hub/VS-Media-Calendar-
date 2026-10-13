@@ -5,6 +5,7 @@ import { sendBookingConfirmationEmail, sendVideographerRequestEmail, sendInvoice
 import { SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { createMoloniInvoice } from "@/lib/moloni"
 import type { ServiceType } from "@prisma/client"
+import { introConsultantFilter, introSplitCount } from "@/lib/intros"
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-03-25.dahlia" })
@@ -75,12 +76,7 @@ export async function POST(req: NextRequest) {
 
           const regularSharedIntros = await prisma.deliverable.findMany({
             where: {
-              OR: [
-                { targetConsultantId: invoice.consultantId },
-                { secondConsultantId: invoice.consultantId },
-                { thirdConsultantId: invoice.consultantId },
-                { fourthConsultantId: invoice.consultantId },
-              ],
+              OR: introConsultantFilter(invoice.consultantId),
               createdAt: { gte: monthStart, lte: monthEnd },
               NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
             },
@@ -123,7 +119,7 @@ export async function POST(req: NextRequest) {
 
           const sharedIntroLines = sharedIntros.map((d) => {
             // Preço dividido pelos consultores que partilham a intro (igual à fatura)
-            const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+            const split = introSplitCount(d)
             const net = Math.round((ADDITIONAL_INTRO_PRICE / split) * 100) / 100
             return {
               description:

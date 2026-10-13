@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, IVA_RATE, DEFAULT_PRICES, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE, TRAVEL_FEE_AMOUNT } from "@/lib/pricing"
-import { isPlaceholderIntro } from "@/lib/intros"
+import { introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
 import { markOverdueInvoices } from "@/lib/invoices"
 import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator } from "lucide-react"
 import Link from "next/link"
@@ -44,12 +44,7 @@ export default async function ConsultantPaymentsPage({
     }),
     prisma.deliverable.findMany({
       where: {
-        OR: [
-          { targetConsultantId: consultantId },
-          { secondConsultantId: consultantId },
-          { thirdConsultantId: consultantId },
-          { fourthConsultantId: consultantId },
-        ],
+        OR: introConsultantFilter(consultantId),
       },
       select: {
         id: true,
@@ -57,10 +52,7 @@ export default async function ConsultantPaymentsPage({
         fileUrl: true,
         description: true,
         createdAt: true,
-        targetConsultantId: true,
-        secondConsultantId: true,
-        thirdConsultantId: true,
-        fourthConsultantId: true,
+        ...introConsultantSelect,
         booking: { select: { propertyAddress: true, scheduledAt: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -100,7 +92,7 @@ export default async function ConsultantPaymentsPage({
     const travel = b.hasTravelFee ? TRAVEL_FEE_AMOUNT : 0
     return sum + servicesNet + travel
   }, 0) + currentMonthIntros.reduce((sum, d) => {
-    const count = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    const count = introSplitCount(d)
     return sum + Math.round((ADDITIONAL_INTRO_PRICE / count) * 100) / 100
   }, 0)
   const summaryIva = Math.round(summaryNet * IVA_RATE * 100) / 100

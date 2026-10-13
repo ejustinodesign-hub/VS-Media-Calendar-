@@ -148,6 +148,8 @@ model User {
   sharedDeliverables2    Deliverable[] @relation("SecondConsultantDeliverables")
   sharedDeliverables3    Deliverable[] @relation("ThirdConsultantDeliverables")
   sharedDeliverables4    Deliverable[] @relation("FourthConsultantDeliverables")
+  sharedDeliverables5    Deliverable[] @relation("FifthConsultantDeliverables")
+  sharedDeliverables6    Deliverable[] @relation("SixthConsultantDeliverables")
 
   weeklyCapacity      Int?    @default(10)
   googleCalendarId    String?
@@ -314,6 +316,8 @@ model Deliverable {
   secondConsultantId  String?
   thirdConsultantId   String?
   fourthConsultantId  String?
+  fifthConsultantId   String?
+  sixthConsultantId   String?
   videographerFee     Float?
   ctaBonus            Float?
   createdAt           DateTime @default(now())
@@ -323,6 +327,8 @@ model Deliverable {
   secondConsultant  User?   @relation("SecondConsultantDeliverables", fields: [secondConsultantId], references: [id], onDelete: SetNull)
   thirdConsultant   User?   @relation("ThirdConsultantDeliverables", fields: [thirdConsultantId], references: [id], onDelete: SetNull)
   fourthConsultant  User?   @relation("FourthConsultantDeliverables", fields: [fourthConsultantId], references: [id], onDelete: SetNull)
+  fifthConsultant   User?   @relation("FifthConsultantDeliverables", fields: [fifthConsultantId], references: [id], onDelete: SetNull)
+  sixthConsultant   User?   @relation("SixthConsultantDeliverables", fields: [sixthConsultantId], references: [id], onDelete: SetNull)
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────

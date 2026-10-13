@@ -6,7 +6,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { isPlaceholderIntro } from "@/lib/intros"
+import { introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
 import { PayInvoiceButton } from "../pay-invoice-button"
 import {
   CheckCircle2, Clock, AlertCircle, ArrowLeft,
@@ -53,12 +53,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
 
-  const consultantFilter = [
-    { targetConsultantId: consultantId },
-    { secondConsultantId: consultantId },
-    { thirdConsultantId: consultantId },
-    { fourthConsultantId: consultantId },
-  ] as const
+  const consultantFilter = introConsultantFilter(consultantId)
 
   const introSelect = {
     id: true,
@@ -66,10 +61,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
     fileUrl: true,
     description: true,
     createdAt: true,
-    targetConsultantId: true,
-    secondConsultantId: true,
-    thirdConsultantId: true,
-    fourthConsultantId: true,
+    ...introConsultantSelect,
     booking: { select: { propertyAddress: true, videographer: { select: { name: true } } } },
   } as const
 
@@ -110,7 +102,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
   }, 0)
 
   function introSplitCount(d: typeof sharedIntros[0]) {
-    return 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    return introSplitCount(d)
   }
   function introNet(d: typeof sharedIntros[0]) {
     return Math.round((ADDITIONAL_INTRO_PRICE / introSplitCount(d)) * 100) / 100

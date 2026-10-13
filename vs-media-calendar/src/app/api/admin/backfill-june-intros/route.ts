@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { recomputeMonthlyInvoice, computeMonthBase, BACKFILL_PREFIX } from "@/lib/invoices"
+import { introConsultantData, introConsultantSelect, introNetPrice } from "@/lib/intros"
 
 const TARGET_MONTH = "2026-06"
 const JULY_MONTH = "2026-07"
@@ -150,10 +151,7 @@ async function rebuild() {
             mimeType: `backfill-charged:${chargeMonth}`,
             uploadedBy: anchorBooking.videographerId,
             description: row.label,
-            targetConsultantId: user.id,
-            secondConsultantId: others[0]?.id ?? null,
-            thirdConsultantId: others[1]?.id ?? null,
-            fourthConsultantId: others[2]?.id ?? null,
+            ...introConsultantData([user.id, ...others.map((o) => o.id)]),
             // fee do videógrafo dividido pelas cópias para somar 10€ por vídeo
             videographerFee: Math.round((10 / users.length) * 100) / 100,
           },
@@ -276,11 +274,10 @@ export async function PATCH() {
     // Se o pagamento de junho JÁ incluiu as intros, não mover para julho
     const copies = await prisma.deliverable.findMany({
       where: { fileUrl: { startsWith: BACKFILL_PREFIX }, targetConsultantId: user.id },
-      select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
+      select: introConsultantSelect,
     })
     const shareTotal = copies.reduce((sum, d) => {
-      const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
-      return sum + Math.round((25 / split) * 100) / 100
+      return sum + introNetPrice(d, 25)
     }, 0)
     const { baseSubtotal } = await computeMonthBase(user.id, TARGET_MONTH)
     if (june.subtotal >= baseSubtotal + shareTotal - 0.05) {

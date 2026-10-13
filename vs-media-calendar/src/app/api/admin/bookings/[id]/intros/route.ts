@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { recomputeMonthlyInvoice } from "@/lib/invoices"
-import { MANUAL_INTRO_PREFIX } from "@/lib/intros"
+import { MANUAL_INTRO_PREFIX, MAX_INTRO_CONSULTANTS, introConsultantData, introConsultantFilter } from "@/lib/intros"
 import { ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 
 const VIDEOGRAPHER_FEE = 10
@@ -22,8 +22,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!Array.isArray(consultantIds) || consultantIds.length === 0) {
     return NextResponse.json({ error: "Escolha pelo menos um consultor." }, { status: 400 })
   }
-  if (consultantIds.length > 4) {
-    return NextResponse.json({ error: "Máximo de 4 consultores por intro." }, { status: 400 })
+  if (consultantIds.length > MAX_INTRO_CONSULTANTS) {
+    return NextResponse.json({ error: `Máximo de ${MAX_INTRO_CONSULTANTS} consultores por intro.` }, { status: 400 })
   }
   const ids = [...new Set(consultantIds.filter(Boolean))]
   if (ids.length !== consultantIds.length) {
@@ -51,12 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const already = await prisma.deliverable.findFirst({
     where: {
       bookingId: id,
-      OR: ids.flatMap((cid) => [
-        { targetConsultantId: cid },
-        { secondConsultantId: cid },
-        { thirdConsultantId: cid },
-        { fourthConsultantId: cid },
-      ]),
+      OR: ids.flatMap((cid) => introConsultantFilter(cid)),
     },
     select: { id: true },
   })
@@ -76,10 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       fileUrl: `${MANUAL_INTRO_PREFIX}${booking.id}:${Date.now()}`,
       uploadedBy: booking.videographerId,
       description: `Intro — ${booking.propertyAddress}${booking.consultant.name ? ` (imóvel de ${booking.consultant.name})` : ""}`,
-      targetConsultantId: ordered[0].id,
-      secondConsultantId: ordered[1]?.id ?? null,
-      thirdConsultantId: ordered[2]?.id ?? null,
-      fourthConsultantId: ordered[3]?.id ?? null,
+      ...introConsultantData(ordered.map((c) => c.id)),
       videographerFee: VIDEOGRAPHER_FEE,
       // data do vídeo → cobrada no mês do vídeo
       createdAt: scheduled,

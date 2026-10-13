@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Loader2, AlertCircle, Trash2, Package, X } from "lucide-react"
+import { MAX_INTRO_CONSULTANTS } from "@/lib/intros"
 
 interface Consultant { id: string; name: string | null; email: string | null }
 
@@ -45,7 +46,7 @@ export function BookingIntros({ bookingId, intros, monthLabel, introPrice }: Pro
 
   function toggle(id: string) {
     setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= 4 ? prev : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= MAX_INTRO_CONSULTANTS ? prev : [...prev, id]
     )
   }
 
@@ -141,7 +142,7 @@ export function BookingIntros({ bookingId, intros, monthLabel, introPrice }: Pro
       {adding ? (
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-600">Consultores na intro (máx. 4):</p>
+            <p className="text-xs font-semibold text-slate-600">Consultores na intro (máx. {MAX_INTRO_CONSULTANTS}):</p>
             <button onClick={() => setAdding(false)} className="text-slate-400 hover:text-slate-600">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -156,7 +157,7 @@ export function BookingIntros({ bookingId, intros, monthLabel, introPrice }: Pro
                     type="checkbox"
                     checked={selected.includes(c.id)}
                     onChange={() => toggle(c.id)}
-                    disabled={!selected.includes(c.id) && selected.length >= 4}
+                    disabled={!selected.includes(c.id) && selected.length >= MAX_INTRO_CONSULTANTS}
                     className="rounded border-slate-300"
                   />
                   <span className="truncate">{c.name || c.email}</span>

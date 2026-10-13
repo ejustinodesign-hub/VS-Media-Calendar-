@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { sendStatusUpdateEmail } from "@/lib/email"
 import { SERVICE_LABELS, IVA_RATE } from "@/lib/pricing"
 import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { introConsultantData, MAX_INTRO_CONSULTANTS } from "@/lib/intros"
 
 const INTRO_PRICE_NET = 25
 const VIDEOGRAPHER_FEE = 10
@@ -71,8 +72,8 @@ export async function POST(req: NextRequest) {
 
   // Extra intro(s) for other consultant(s)
   if (rawIds.length > 0) {
-    if (rawIds.length > 4) {
-      return NextResponse.json({ error: "Máximo de 4 consultores" }, { status: 400 })
+    if (rawIds.length > MAX_INTRO_CONSULTANTS) {
+      return NextResponse.json({ error: `Máximo de ${MAX_INTRO_CONSULTANTS} consultores` }, { status: 400 })
     }
 
     // Validate all consultants
@@ -91,8 +92,6 @@ export async function POST(req: NextRequest) {
 
     const { net, withIva } = splitPrice(rawIds.length)
 
-    const [id1, id2, id3, id4] = rawIds
-
     await prisma.deliverable.create({
       data: {
         bookingId,
@@ -101,10 +100,7 @@ export async function POST(req: NextRequest) {
         mimeType: mimeType || null,
         uploadedBy: session.user.id,
         description: description || null,
-        targetConsultantId: id1,
-        secondConsultantId: id2 || null,
-        thirdConsultantId: id3 || null,
-        fourthConsultantId: id4 || null,
+        ...introConsultantData(rawIds),
         videographerFee: VIDEOGRAPHER_FEE,
         ctaBonus: hasCta ? 5 : null,
       },

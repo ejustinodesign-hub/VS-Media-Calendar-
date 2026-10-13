@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { del } from "@vercel/blob"
 import { IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { INTRO_CONSULTANT_FIELDS, introConsultantData, MAX_INTRO_CONSULTANTS } from "@/lib/intros"
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
@@ -24,8 +25,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   const { consultantIds } = await req.json()
-  if (!Array.isArray(consultantIds) || consultantIds.length < 1 || consultantIds.length > 4) {
-    return NextResponse.json({ error: "Indique entre 1 e 4 consultores." }, { status: 400 })
+  if (!Array.isArray(consultantIds) || consultantIds.length < 1 || consultantIds.length > MAX_INTRO_CONSULTANTS) {
+    return NextResponse.json({ error: `Indique entre 1 e ${MAX_INTRO_CONSULTANTS} consultores.` }, { status: 400 })
   }
   const unique = [...new Set(consultantIds.filter(Boolean))] as string[]
   if (unique.length !== consultantIds.length) {
@@ -51,19 +52,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   const before = [
-    deliverable.targetConsultantId,
-    deliverable.secondConsultantId,
-    deliverable.thirdConsultantId,
-    deliverable.fourthConsultantId,
+    ...INTRO_CONSULTANT_FIELDS.map((f) => deliverable[f]),
   ].filter(Boolean) as string[]
 
   await prisma.deliverable.update({
     where: { id },
     data: {
-      targetConsultantId: unique[0],
-      secondConsultantId: unique[1] ?? null,
-      thirdConsultantId: unique[2] ?? null,
-      fourthConsultantId: unique[3] ?? null,
+      ...introConsultantData(unique),
     },
   })
 
@@ -118,10 +113,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   // (Deliverables de backfill junho-2026 são geridos pelo próprio backfill.)
   if (!deliverable.fileUrl.startsWith("backfill:")) {
     const chargedIds = [
-      deliverable.targetConsultantId,
-      deliverable.secondConsultantId,
-      deliverable.thirdConsultantId,
-      deliverable.fourthConsultantId,
+      ...INTRO_CONSULTANT_FIELDS.map((f) => deliverable[f]),
     ].filter(Boolean) as string[]
 
     if (chargedIds.length > 0) {

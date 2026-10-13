@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { recomputeMonthlyInvoice, BACKFILL_PREFIX } from "@/lib/invoices"
+import { introConsultantSelect, INTRO_CONSULTANT_FIELDS } from "@/lib/intros"
 
 // POST /api/admin/invoices/recalculate?month=2026-06
 // Recalcula do zero as faturas do mês (marcações + intros partilhadas + backfill)
@@ -39,21 +40,11 @@ export async function POST(req: NextRequest) {
         createdAt: { gte: monthStart, lte: monthEnd },
         NOT: { fileUrl: { startsWith: BACKFILL_PREFIX } },
       },
-      select: {
-        targetConsultantId: true,
-        secondConsultantId: true,
-        thirdConsultantId: true,
-        fourthConsultantId: true,
-      },
+      select: introConsultantSelect,
     }),
     prisma.deliverable.findMany({
       where: { fileUrl: { startsWith: BACKFILL_PREFIX }, mimeType: `backfill-charged:${month}` },
-      select: {
-        targetConsultantId: true,
-        secondConsultantId: true,
-        thirdConsultantId: true,
-        fourthConsultantId: true,
-      },
+      select: introConsultantSelect,
     }),
     prisma.monthlyInvoice.findMany({
       where: { month },
@@ -64,12 +55,12 @@ export async function POST(req: NextRequest) {
   const consultantIds = new Set<string>()
   for (const b of bookingConsultants) consultantIds.add(b.consultantId)
   for (const d of introDeliverables) {
-    for (const cid of [d.targetConsultantId, d.secondConsultantId, d.thirdConsultantId, d.fourthConsultantId]) {
+    for (const cid of INTRO_CONSULTANT_FIELDS.map((f) => d[f])) {
       if (cid) consultantIds.add(cid)
     }
   }
   for (const d of backfillDeliverables) {
-    for (const cid of [d.targetConsultantId, d.secondConsultantId, d.thirdConsultantId, d.fourthConsultantId]) {
+    for (const cid of INTRO_CONSULTANT_FIELDS.map((f) => d[f])) {
       if (cid) consultantIds.add(cid)
     }
   }

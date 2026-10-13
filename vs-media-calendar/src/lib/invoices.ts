@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
+import { introConsultantFilter, introConsultantSelect, introNetPrice } from "@/lib/intros"
 
 export const BACKFILL_PREFIX = "backfill:intro-junho-2026:"
 
@@ -50,20 +51,14 @@ export async function computeMonthBase(consultantId: string, month: string) {
 
   const regularIntros = await prisma.deliverable.findMany({
     where: {
-      OR: [
-        { targetConsultantId: consultantId },
-        { secondConsultantId: consultantId },
-        { thirdConsultantId: consultantId },
-        { fourthConsultantId: consultantId },
-      ],
+      OR: introConsultantFilter(consultantId),
       createdAt: { gte: monthStart, lte: monthEnd },
       NOT: { fileUrl: { startsWith: BACKFILL_PREFIX } },
     },
-    select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
+    select: introConsultantSelect,
   })
   const regularIntroSubtotal = regularIntros.reduce((sum, d) => {
-    const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
-    return sum + round2(ADDITIONAL_INTRO_PRICE / split)
+    return sum + introNetPrice(d, ADDITIONAL_INTRO_PRICE)
   }, 0)
 
   return { bookings, baseSubtotal: round2(bookingSubtotal + regularIntroSubtotal) }
@@ -90,11 +85,10 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
       mimeType: `backfill-charged:${month}`,
       targetConsultantId: consultantId,
     },
-    select: { secondConsultantId: true, thirdConsultantId: true, fourthConsultantId: true },
+    select: introConsultantSelect,
   })
   const backfillSubtotal = backfillIntros.reduce((sum, d) => {
-    const split = 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
-    return sum + round2(ADDITIONAL_INTRO_PRICE / split)
+    return sum + introNetPrice(d, ADDITIONAL_INTRO_PRICE)
   }, 0)
 
   const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })

@@ -5,7 +5,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { isPlaceholderIntro } from "@/lib/intros"
+import { INTRO_CONSULTANT_FIELDS, introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
 import { MarkPaidButton } from "../mark-paid-button"
 import { MoloniBackfillButton } from "../moloni-backfill-button"
 import { EditIntroShare } from "./edit-intro-share"
@@ -54,12 +54,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
   const monthStart = new Date(year, m - 1, 1)
   const monthEnd = new Date(year, m, 0, 23, 59, 59)
 
-  const consultantFilter = [
-    { targetConsultantId: invoice.consultantId },
-    { secondConsultantId: invoice.consultantId },
-    { thirdConsultantId: invoice.consultantId },
-    { fourthConsultantId: invoice.consultantId },
-  ] as const
+  const consultantFilter = introConsultantFilter(invoice.consultantId)
 
   const introSelect = {
     id: true,
@@ -67,10 +62,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
     fileUrl: true,
     description: true,
     createdAt: true,
-    targetConsultantId: true,
-    secondConsultantId: true,
-    thirdConsultantId: true,
-    fourthConsultantId: true,
+    ...introConsultantSelect,
     booking: { select: { propertyAddress: true, videographer: { select: { name: true } } } },
   } as const
 
@@ -111,7 +103,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
   }, 0)
 
   function introSplitCount(d: typeof sharedIntros[0]) {
-    return 1 + (d.secondConsultantId ? 1 : 0) + (d.thirdConsultantId ? 1 : 0) + (d.fourthConsultantId ? 1 : 0)
+    return introSplitCount(d)
   }
   function introNet(d: typeof sharedIntros[0]) {
     return Math.round((ADDITIONAL_INTRO_PRICE / introSplitCount(d)) * 100) / 100
@@ -341,7 +333,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
                         {!isBackfill && (
                           <EditIntroShare
                             deliverableId={d.id}
-                            current={[d.targetConsultantId, d.secondConsultantId, d.thirdConsultantId, d.fourthConsultantId].filter(Boolean) as string[]}
+                            current={INTRO_CONSULTANT_FIELDS.map((k) => d[k]).filter(Boolean) as string[]}
                           />
                         )}
                       </div>
