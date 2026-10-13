@@ -7,6 +7,7 @@ import { markOverdueInvoices } from "@/lib/invoices"
 import { MarkPaidButton } from "./mark-paid-button"
 import { RecalculateButton } from "./recalculate-button"
 import { SendRemindersButton } from "./send-reminders-button"
+import { SendOutstandingRemindersButton } from "./send-outstanding-reminders-button"
 import { JuneIntrosButton } from "./june-intros-button"
 import { JulyVideosButton } from "./july-videos-button"
 import { CheckCircle2, Clock, AlertCircle, Receipt, ChevronRight } from "lucide-react"
@@ -150,12 +151,15 @@ export default async function AdminInvoicesPage({
         {/* Dívida acumulada por consultor (todos os meses) */}
         {debtors.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-500" />
                 <h3 className="font-bold text-slate-900 text-sm">Em dívida por consultor (todos os meses)</h3>
               </div>
-              <p className="text-sm font-bold text-red-600">{formatPrice(totalDebt)}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <SendOutstandingRemindersButton debtorCount={debtors.length} totalDebt={totalDebt} />
+                <p className="text-sm font-bold text-red-600">{formatPrice(totalDebt)}</p>
+              </div>
             </div>
             <div className="divide-y divide-slate-50">
               {debtors.map((d) => (

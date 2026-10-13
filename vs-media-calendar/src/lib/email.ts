@@ -446,6 +446,78 @@ export async function sendInvoicePaidEmail({
   return result
 }
 
+export async function sendOutstandingBalanceEmail({
+  consultantName,
+  consultantEmail,
+  invoices,
+  total,
+}: {
+  consultantName: string
+  consultantEmail: string
+  invoices: { id: string; month: string; total: number; dueDate: Date; overdue: boolean }[]
+  total: number
+}) {
+  if (!consultantEmail || invoices.length === 0) return
+
+  const plural = invoices.length > 1
+
+  const rows = invoices
+    .map((i) => {
+      const [year, m] = i.month.split("-")
+      const label = new Date(Number(year), Number(m) - 1, 1)
+        .toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+      return `
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+            <p style="margin:0;color:#1a1a2e;font-size:14px;font-weight:600;text-transform:capitalize;">${label}</p>
+            <p style="margin:2px 0 0;color:${i.overdue ? "#dc2626" : "#666"};font-size:12px;">
+              ${i.overdue ? "Em atraso desde" : "Vence a"} ${new Date(i.dueDate).toLocaleDateString("pt-PT")}
+            </p>
+          </td>
+          <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;vertical-align:top;">
+            <span style="color:#1a1a2e;font-size:14px;font-weight:700;">${formatAmount(i.total)}</span>
+          </td>
+        </tr>`
+    })
+    .join("")
+
+  const content = `
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">${plural ? "Faturas por regularizar" : "Fatura por regularizar"}</h2>
+    <p style="color:#666;margin:0 0 24px;">
+      Olá ${consultantName}, ${plural
+        ? `tem ${invoices.length} faturas por pagar na plataforma.`
+        : "tem uma fatura por pagar na plataforma."}
+    </p>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 20px;margin-bottom:8px;">
+      <table style="width:100%;border-collapse:collapse;">
+        ${rows}
+        <tr>
+          <td style="padding:12px 0 4px;color:#1a1a2e;font-size:14px;font-weight:700;">Total em dívida</td>
+          <td style="padding:12px 0 4px;text-align:right;color:#dc2626;font-size:18px;font-weight:700;">${formatAmount(total)}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="color:#666;font-size:14px;margin:16px 0 24px;">
+      Pode pagar directamente na plataforma. Enquanto houver faturas em atraso, não é possível criar novas marcações.
+    </p>
+
+    <a href="${APP_URL}/consultant/payments" style="display:inline-block;background:#0f3460;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;">Regularizar Pagamento</a>
+  `
+
+  const result = await getResend().emails.send({
+    from: FROM,
+    to: consultantEmail,
+    subject: plural
+      ? `${invoices.length} faturas por regularizar — ${formatAmount(total)}`
+      : `Fatura por regularizar — ${formatAmount(total)}`,
+    html: emailBase(content),
+  })
+  console.log(`[email] sendOutstandingBalanceEmail → ${consultantEmail} (${invoices.length})`, result)
+  return result
+}
+
 export async function sendPaymentReminderEmail({
   consultantName,
   consultantEmail,
