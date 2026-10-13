@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, IVA_RATE, DEFAULT_PRICES, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE, TRAVEL_FEE_AMOUNT } from "@/lib/pricing"
+import { isPlaceholderIntro } from "@/lib/intros"
 import { markOverdueInvoices } from "@/lib/invoices"
 import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator } from "lucide-react"
 import Link from "next/link"
@@ -215,7 +216,7 @@ export default async function ConsultantPaymentsPage({
                 Vídeos filmados por outros consultores que incluem uma introdução personalizada sua. O custo de 25€ é dividido por todos os consultores que partilham a intro.
               </p>
               {sharedIntros.map((d) => {
-                const isBackfill = d.fileUrl.startsWith("backfill:")
+                const isBackfill = isPlaceholderIntro(d.fileUrl)
                 const expiry = new Date(d.createdAt)
                 expiry.setDate(expiry.getDate() + 30)
                 const isExpired = expiry < new Date()
@@ -233,7 +234,7 @@ export default async function ConsultantPaymentsPage({
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {isBackfill
-                          ? d.fileUrl.startsWith("backfill:intro-junho-2026:") ? "Intro de junho 2026" : "Intro de julho 2026"
+                          ? d.description || d.booking?.propertyAddress || "Intro registada"
                           : d.booking?.propertyAddress ?? d.fileName}
                       </p>
                       {!isBackfill && (

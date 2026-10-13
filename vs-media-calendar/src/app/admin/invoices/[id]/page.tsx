@@ -5,6 +5,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
+import { isPlaceholderIntro } from "@/lib/intros"
 import { MarkPaidButton } from "../mark-paid-button"
 import { MoloniBackfillButton } from "../moloni-backfill-button"
 import { EditIntroShare } from "./edit-intro-share"
@@ -314,10 +315,8 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 const count = introSplitCount(d)
                 const net = introNet(d)
                 const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
-                const isBackfill = d.fileUrl.startsWith("backfill:")
-                const backfillLabel = d.fileUrl.startsWith("backfill:intro-junho-2026:")
-                  ? "Intro de junho 2026"
-                  : "Intro de julho 2026"
+                const isBackfill = isPlaceholderIntro(d.fileUrl)
+                const backfillLabel = d.booking?.propertyAddress ?? "Intro registada manualmente"
                 const label = d.description || d.booking?.propertyAddress || d.fileName
                 return (
                   <div key={d.id} className="flex items-start justify-between text-sm py-1 gap-3">

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
-import { formatPrice, IVA_RATE, SERVICE_LABELS, DEFAULT_PRICES } from "@/lib/pricing"
+import { formatPrice, IVA_RATE, SERVICE_LABELS, DEFAULT_PRICES, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
 import {
@@ -12,6 +12,9 @@ import {
 import { TravelFeeToggle } from "./travel-fee-toggle"
 import { PaymentTypeToggle } from "./payment-type-toggle"
 import { CompleteBookingButton } from "./complete-booking-button"
+import { EditBookingDetails } from "./edit-booking-details"
+import { BookingIntros } from "./booking-intros"
+import { introSplitCount, introNetPrice } from "@/lib/intros"
 import { EditServices } from "./edit-services"
 import { DeliverablesList } from "./deliverables-list"
 import { RemaxWatch } from "./remax-watch"
@@ -32,7 +35,14 @@ export default async function AdminBookingDetailPage({ params }: Props) {
         videographer: { select: { name: true, email: true, image: true } },
         services:     true,
         payment:      true,
-        deliverables: true,
+        deliverables: {
+          include: {
+            targetConsultant: { select: { name: true, email: true } },
+            secondConsultant: { select: { name: true, email: true } },
+            thirdConsultant:  { select: { name: true, email: true } },
+            fourthConsultant: { select: { name: true, email: true } },
+          },
+        },
       },
       // salePrice is a scalar field, included automatically
     }),
@@ -51,6 +61,18 @@ export default async function AdminBookingDetailPage({ params }: Props) {
     + booking.additionalIntros * 25
   const iva   = Math.round(net * IVA_RATE * 100) / 100
   const gross = Math.round(net * (1 + IVA_RATE) * 100) / 100
+
+  // Intros de outros consultores neste vídeo (deliverables com consultor alvo)
+  const consultantIntros = booking.deliverables
+    .filter((d) => d.targetConsultantId)
+    .map((d) => ({
+      id: d.id,
+      description: d.description,
+      consultantNames: [d.targetConsultant, d.secondConsultant, d.thirdConsultant, d.fourthConsultant]
+        .filter(Boolean)
+        .map((c) => c!.name || c!.email || "—"),
+      netEach: introNetPrice(d, ADDITIONAL_INTRO_PRICE),
+    }))
 
   return (
     <>
@@ -138,7 +160,17 @@ export default async function AdminBookingDetailPage({ params }: Props) {
 
         {/* Booking details */}
         <Card>
-          <CardHeader><CardTitle>Informações do Serviço</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
+            <CardTitle>Informações do Serviço</CardTitle>
+            <EditBookingDetails
+              bookingId={booking.id}
+              propertyAddress={booking.propertyAddress}
+              scheduledAt={booking.scheduledAt.toISOString()}
+              propertyType={booking.propertyType}
+              notes={booking.notes}
+              additionalIntros={booking.additionalIntros}
+            />
+          </CardHeader>
           <CardContent className="space-y-4">
             <DetailRow icon={<Calendar className="w-4 h-4" />} label="Data e Hora"
               value={scheduledDate.toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
@@ -250,6 +282,23 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Intros de consultores */}
+        <Card>
+          <CardHeader><CardTitle>Intros de Consultores</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xs text-slate-500 mb-3">
+              Intros de outros consultores incluídas neste vídeo. Cada uma custa {formatPrice(ADDITIONAL_INTRO_PRICE)} s/ IVA,
+              dividido pelos consultores que a partilham, e é cobrada na fatura de {bookingMonthLabel}.
+            </p>
+            <BookingIntros
+              bookingId={booking.id}
+              intros={consultantIntros}
+              monthLabel={bookingMonthLabel}
+              introPrice={ADDITIONAL_INTRO_PRICE}
+            />
           </CardContent>
         </Card>
 
