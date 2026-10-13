@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { TravelFeeToggle } from "./travel-fee-toggle"
 import { PaymentTypeToggle } from "./payment-type-toggle"
+import { CompleteBookingButton } from "./complete-booking-button"
 import { EditServices } from "./edit-services"
 import { DeliverablesList } from "./deliverables-list"
 import { RemaxWatch } from "./remax-watch"
@@ -70,23 +71,38 @@ export default async function AdminBookingDetailPage({ params }: Props) {
 
         {/* Status */}
         <Card>
-          <CardContent className="flex items-center justify-between py-5">
-            <div className="flex items-center gap-3">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Estado</p>
-                <BookingStatusBadge status={booking.status} />
-              </div>
-              {booking.paymentType === "COMMISSION" && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-xs font-semibold text-violet-700">
-                  <Percent className="w-3.5 h-3.5" />
-                  Comissão
+          <CardContent className="py-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Estado</p>
+                  <BookingStatusBadge status={booking.status} />
                 </div>
-              )}
+                {booking.paymentType === "COMMISSION" && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-xs font-semibold text-violet-700">
+                    <Percent className="w-3.5 h-3.5" />
+                    Comissão
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500">Criada em</p>
+                <p className="text-sm font-medium text-slate-700">{formatDateTime(booking.createdAt)}</p>
+                {booking.completedAt && (
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Concluída a {formatDateTime(booking.completedAt)}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Criada em</p>
-              <p className="text-sm font-medium text-slate-700">{formatDateTime(booking.createdAt)}</p>
-            </div>
+            <CompleteBookingButton
+              bookingId={booking.id}
+              status={booking.status}
+              hasDeliverables={booking.deliverables.length > 0}
+              isCommission={booking.paymentType === "COMMISSION"}
+              flatFeeAmount={net}
+              monthLabel={bookingMonthLabel}
+            />
           </CardContent>
         </Card>
 
