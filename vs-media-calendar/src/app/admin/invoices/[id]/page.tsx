@@ -5,7 +5,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { INTRO_CONSULTANT_FIELDS, introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
+import { INTRO_CONSULTANT_FIELDS, introConsultantFilter, introConsultantSelect, introNetPrice, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
 import { MarkPaidButton } from "../mark-paid-button"
 import { MoloniBackfillButton } from "../moloni-backfill-button"
 import { EditIntroShare } from "./edit-intro-share"
@@ -102,12 +102,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
     return sum + svcTotal + travel + intros
   }, 0)
 
-  function introSplitCount(d: typeof sharedIntros[0]) {
-    return introSplitCount(d)
-  }
-  function introNet(d: typeof sharedIntros[0]) {
-    return Math.round((ADDITIONAL_INTRO_PRICE / introSplitCount(d)) * 100) / 100
-  }
+  const introNet = (d: typeof sharedIntros[0]) => introNetPrice(d, ADDITIONAL_INTRO_PRICE)
   const sharedIntrosSubtotal = sharedIntros.reduce((sum, d) => sum + introNet(d), 0)
 
   return (

@@ -6,7 +6,7 @@ import { notFound } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, SERVICE_LABELS, IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
+import { introConsultantFilter, introConsultantSelect, introNetPrice, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
 import { PayInvoiceButton } from "../pay-invoice-button"
 import {
   CheckCircle2, Clock, AlertCircle, ArrowLeft,
@@ -101,12 +101,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
     return sum + svcTotal + travel + intros
   }, 0)
 
-  function introSplitCount(d: typeof sharedIntros[0]) {
-    return introSplitCount(d)
-  }
-  function introNet(d: typeof sharedIntros[0]) {
-    return Math.round((ADDITIONAL_INTRO_PRICE / introSplitCount(d)) * 100) / 100
-  }
+  const introNet = (d: typeof sharedIntros[0]) => introNetPrice(d, ADDITIONAL_INTRO_PRICE)
   const sharedIntrosSubtotal = sharedIntros.reduce((sum, d) => sum + introNet(d), 0)
 
   const [iy, im] = invoice.month.split("-").map(Number)
