@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"
 import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { formatPrice } from "@/lib/pricing"
-import { markOverdueInvoices } from "@/lib/invoices"
+import { markOverdueInvoices, isInvoicePayable } from "@/lib/invoices"
 import { MarkPaidButton } from "./mark-paid-button"
 import { RecalculateButton } from "./recalculate-button"
 import { SendRemindersButton } from "./send-reminders-button"
@@ -58,7 +58,9 @@ export default async function AdminInvoicesPage({
 
   // Dívida acumulada por consultor (todos os meses por pagar, não só o selecionado)
   const unpaidAll = await prisma.monthlyInvoice.findMany({
-    where: { status: { in: ["PENDING", "OVERDUE"] } },
+    // Só faturas já pagáveis contam como dívida — a do mês corrente ainda
+    // está a acumular serviços e o pagamento está bloqueado
+    where: { status: { in: ["PENDING", "OVERDUE"] }, total: { gt: 0 } },
     include: { consultant: { select: { id: true, name: true, email: true } } },
     orderBy: { month: "asc" },
   })
@@ -68,6 +70,7 @@ export default async function AdminInvoicesPage({
     total: number
   }>()
   for (const inv of unpaidAll) {
+    if (!isInvoicePayable(inv.month)) continue
     const entry = debtorMap.get(inv.consultantId) ?? {
       name: inv.consultant.name || inv.consultant.email || "—",
       invoices: [],

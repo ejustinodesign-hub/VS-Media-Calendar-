@@ -12,6 +12,28 @@ export type RecomputeOutcome = "updated" | "created" | "skipped-paid" | "empty"
 
 // Marca como OVERDUE as faturas PENDING cujo vencimento já passou.
 // Sem isto nada transita PENDING → OVERDUE e o bloqueio de marcações nunca dispara.
+/**
+ * A partir de quando uma fatura pode ser paga: o último dia do mês a que diz
+ * respeito. Antes disso ainda está a acumular serviços, por isso o botão de
+ * pagamento está bloqueado (ver PayInvoiceButton).
+ */
+export function invoicePayableFrom(month: string): Date {
+  const [year, m] = month.split("-").map(Number)
+  return new Date(year, m, 0)
+}
+
+/**
+ * Uma fatura só conta como dívida (e só deve gerar lembrete) quando já é
+ * possível pagá-la. A fatura do mês corrente ainda está a ser formada.
+ */
+export function isInvoicePayable(month: string, now: Date = new Date()): boolean {
+  const from = invoicePayableFrom(month)
+  from.setHours(0, 0, 0, 0)
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  return today >= from
+}
+
 export async function markOverdueInvoices(consultantId?: string) {
   await prisma.monthlyInvoice.updateMany({
     where: {

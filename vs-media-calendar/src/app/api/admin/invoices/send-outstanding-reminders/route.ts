@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { sendOutstandingBalanceEmail } from "@/lib/email"
-import { markOverdueInvoices } from "@/lib/invoices"
+import { markOverdueInvoices, isInvoicePayable } from "@/lib/invoices"
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
@@ -37,6 +37,9 @@ export async function POST(req: NextRequest) {
   }>()
 
   for (const inv of unpaid) {
+    // Não pedir pagamento de uma fatura que o consultor ainda não consegue
+    // pagar (mês corrente — o botão está bloqueado até ao fim do mês)
+    if (!isInvoicePayable(inv.month)) continue
     const entry = byConsultant.get(inv.consultantId) ?? {
       name: inv.consultant.name || inv.consultant.email || "Consultor",
       email: inv.consultant.email,
