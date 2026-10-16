@@ -42,7 +42,7 @@ export function DeliverablesList({ deliverables }: { deliverables: Deliverable[]
         <div key={d.id} className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50">
           {d.mimeType?.startsWith("video/") && (
             <video controls preload="none" className="w-full bg-black" style={{ maxHeight: 360 }}>
-              <source src={d.fileUrl} type={d.mimeType} />
+              <source src={`/api/deliverables/${d.id}/file?mode=preview`} type={d.mimeType} />
             </video>
           )}
           <div className="flex items-center gap-3 p-3">
@@ -54,7 +54,7 @@ export function DeliverablesList({ deliverables }: { deliverables: Deliverable[]
               {d.description && <p className="text-xs text-slate-500">{d.description}</p>}
             </div>
             <a
-              href={`/api/download?url=${encodeURIComponent(d.fileUrl)}&filename=${encodeURIComponent(d.fileName)}`}
+              href={`/api/deliverables/${d.id}/file?mode=download`}
               download={d.fileName}
               className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
             >

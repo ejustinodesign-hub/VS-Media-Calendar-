@@ -8,10 +8,12 @@ import { formatPrice, applyIva, IVA_RATE } from "@/lib/pricing"
 import { CancelBookingButton } from "./cancel-button"
 import { SERVICE_LABELS } from "@/lib/pricing"
 import { formatDateTime } from "@/lib/utils"
+import { getDeliverableAccess } from "@/lib/deliverable-access"
 import {
   User, Calendar, MapPin, Clock,
-  Download, FileVideo, CheckCircle2, AlertCircle,
+  Download, FileVideo, CheckCircle2, AlertCircle, Lock,
 } from "lucide-react"
+import Link from "next/link"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -32,6 +34,14 @@ export default async function BookingDetailPage({ params }: Props) {
   })
 
   if (!booking) notFound()
+
+  // O download do ficheiro final exige a fatura do mês paga
+  const deliverablesWithAccess = await Promise.all(
+    booking.deliverables.map(async (deliverable) => ({
+      deliverable,
+      access: await getDeliverableAccess(deliverable.id, { id: session!.user.id!, role: "CONSULTANT" }),
+    }))
+  )
 
   const canCancel = !["CANCELLED", "REJECTED", "COMPLETED"].includes(booking.status)
   const scheduledDate = new Date(booking.scheduledAt)
@@ -214,7 +224,7 @@ export default async function BookingDetailPage({ params }: Props) {
                 <CardTitle>Conteúdo Final</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {booking.deliverables.map((d) => {
+                {deliverablesWithAccess.map(({ deliverable: d, access }) => {
                   const expiresAt = new Date(d.createdAt)
                   expiresAt.setDate(expiresAt.getDate() + 30)
                   const isVideo = d.mimeType?.startsWith("video/")
@@ -228,13 +238,13 @@ export default async function BookingDetailPage({ params }: Props) {
                           className="w-full bg-black"
                           style={{ maxHeight: "360px" }}
                         >
-                          <source src={d.fileUrl} type={d.mimeType ?? undefined} />
+                          <source src={`/api/deliverables/${d.id}/file?mode=preview`} type={d.mimeType ?? undefined} />
                         </video>
                       )}
                       {isImage && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={d.fileUrl}
+                          src={`/api/deliverables/${d.id}/file?mode=preview`}
                           alt={d.fileName}
                           className="w-full object-contain"
                           style={{ maxHeight: "360px" }}
@@ -253,14 +263,26 @@ export default async function BookingDetailPage({ params }: Props) {
                             Disponível até {expiresAt.toLocaleDateString("pt-PT")}
                           </p>
                         </div>
-                        <a
-                          href={`/api/download?url=${encodeURIComponent(d.fileUrl)}&filename=${encodeURIComponent(d.fileName)}`}
-                          download={d.fileName}
-                          className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
-                        >
-                          <Download className="w-4 h-4" />
-                          Download
-                        </a>
+                        {access.canDownload ? (
+                          <a
+                            href={`/api/deliverables/${d.id}/file?mode=download`}
+                            download={d.fileName}
+                            className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex-shrink-0"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download
+                          </a>
+                        ) : (
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-400 text-sm font-semibold rounded-lg cursor-not-allowed select-none">
+                              <Lock className="w-4 h-4" />
+                              Download
+                            </div>
+                            <Link href="/consultant/payments" className="text-[10px] text-[#0f3460] hover:underline text-right">
+                              Disponível após pagamento
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )

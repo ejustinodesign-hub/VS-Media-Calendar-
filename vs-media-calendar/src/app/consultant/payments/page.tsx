@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice, IVA_RATE, DEFAULT_PRICES, SERVICE_LABELS, ADDITIONAL_INTRO_PRICE, TRAVEL_FEE_AMOUNT } from "@/lib/pricing"
 import { introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
 import { markOverdueInvoices } from "@/lib/invoices"
-import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator } from "lucide-react"
+import { getDeliverableAccess } from "@/lib/deliverable-access"
+import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator, Lock } from "lucide-react"
 import Link from "next/link"
 import { PayInvoiceButton } from "./pay-invoice-button"
 import { SalePriceForm } from "./sale-price-form"
@@ -73,6 +74,16 @@ export default async function ConsultantPaymentsPage({
   // mostrar apenas a cópia do próprio consultor para não duplicar
   const sharedIntros = rawSharedIntros.filter(
     (d) => !d.fileUrl.startsWith("backfill:") || d.targetConsultantId === consultantId
+  )
+
+  // Download do ficheiro final só depois de a fatura que o cobre estar paga
+  const introAccess = new Map<string, boolean>(
+    await Promise.all(
+      sharedIntros.map(async (d) => [
+        d.id,
+        (await getDeliverableAccess(d.id, { id: consultantId, role: "CONSULTANT" })).canDownload,
+      ] as [string, boolean])
+    )
   )
 
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length
@@ -238,15 +249,24 @@ export default async function ConsultantPaymentsPage({
                       )}
                     </div>
                     {!isExpired && !isBackfill && (
-                      <a
-                        href={d.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-2 bg-[#0f3460] text-white text-xs font-semibold rounded-lg hover:bg-[#1a4a7a] transition-colors flex-shrink-0"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download
-                      </a>
+                      introAccess.get(d.id) ? (
+                        <a
+                          href={`/api/deliverables/${d.id}/file?mode=download`}
+                          download
+                          className="flex items-center gap-1.5 px-3 py-2 bg-[#0f3460] text-white text-xs font-semibold rounded-lg hover:bg-[#1a4a7a] transition-colors flex-shrink-0"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Download
+                        </a>
+                      ) : (
+                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0" title="Disponível após pagamento da fatura">
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-400 text-xs font-semibold rounded-lg cursor-not-allowed select-none">
+                            <Lock className="w-3.5 h-3.5" />
+                            Download
+                          </div>
+                          <span className="text-[10px] text-slate-400">Após pagamento</span>
+                        </div>
+                      )
                     )}
                   </div>
                 )

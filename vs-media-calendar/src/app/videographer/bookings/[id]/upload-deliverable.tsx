@@ -481,7 +481,7 @@ function FileRow({
           })()}
         </div>
         <a
-          href={`/api/download?url=${encodeURIComponent(f.fileUrl)}&filename=${encodeURIComponent(f.fileName)}`}
+          href={f.id.startsWith("pending-") ? f.fileUrl : `/api/deliverables/${f.id}/file?mode=download`}
           download={f.fileName}
           title="Descarregar"
           className="p-1.5 rounded text-emerald-700 hover:bg-emerald-100 transition-colors"
