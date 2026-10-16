@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { syncIntroCharges } from "@/lib/charges"
 import { MANUAL_INTRO_PREFIX, MAX_INTRO_CONSULTANTS, introConsultantData, introConsultantFilter } from "@/lib/intros"
 import { ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const scheduled = new Date(booking.scheduledAt)
   const ordered = ids.map((cid) => consultants.find((c) => c.id === cid)!)
 
-  await prisma.deliverable.create({
+  const intro = await prisma.deliverable.create({
     data: {
       bookingId: booking.id,
       fileName: `intro-${ordered[0].name?.replace(/\s+/g, "-").toLowerCase() ?? "consultor"}.mp4`,
@@ -78,16 +78,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
   })
 
-  // Recalcular a fatura desse mês para cada consultor cobrado
+  // Cobrança da intro, uma por consultor
   const month = `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}`
+  await syncIntroCharges(intro.id)
   const paidConsultants: string[] = []
   for (const c of ordered) {
-    const before = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId: c.id, month },
-      select: { status: true },
-    })
-    const outcome = await recomputeMonthlyInvoice(c.id, month)
-    if (before?.status === "PAID" || outcome === "skipped-paid") paidConsultants.push(c.name ?? c.id)
 
     try {
       await prisma.notification.create({

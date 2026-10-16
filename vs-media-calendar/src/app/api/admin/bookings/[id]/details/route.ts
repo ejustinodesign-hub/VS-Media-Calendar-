@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { syncBookingCharge } from "@/lib/charges"
 import { updateCalendarEvent } from "@/lib/google-calendar"
 import type { PropertyType } from "@prisma/client"
 
@@ -79,22 +79,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const updated = await prisma.booking.update({ where: { id }, data })
 
-  // Recalcular o(s) mês(es) afetado(s) — a cobrança entra logo no mês certo
-  const monthsToRecompute = new Set<string>()
-  if (booking.paymentType === "FLAT_FEE") {
-    monthsToRecompute.add(monthOf(new Date(booking.scheduledAt)))
-    monthsToRecompute.add(monthOf(new Date(updated.scheduledAt)))
-  }
-
-  const paidMonths: string[] = []
-  for (const month of monthsToRecompute) {
-    const before = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId: booking.consultantId, month },
-      select: { status: true },
-    })
-    const outcome = await recomputeMonthlyInvoice(booking.consultantId, month)
-    if (before?.status === "PAID" || outcome === "skipped-paid") paidMonths.push(month)
-  }
+  // Actualizar a cobrança deste vídeo com os valores novos
+  const charge = await syncBookingCharge(booking.id)
+  const paidMonths: string[] = charge?.status === "PAID" ? [monthOf(new Date(updated.scheduledAt))] : []
 
   // Manter o evento do Google Calendar alinhado
   if (booking.googleCalendarEventId && (data.propertyAddress || data.scheduledAt)) {
@@ -111,7 +98,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   return NextResponse.json({
     success: true,
-    monthsRecomputed: [...monthsToRecompute],
+    chargeUpdated: !!charge,
     paidMonths,
   })
 }

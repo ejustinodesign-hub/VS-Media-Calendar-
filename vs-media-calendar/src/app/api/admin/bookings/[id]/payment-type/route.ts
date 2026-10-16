@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { COMMISSION_RATE } from "@/lib/pricing"
-import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { syncBookingCharge } from "@/lib/charges"
 import { sendPaymentTypeChangedEmail } from "@/lib/email"
 
 // PATCH: alterna uma marcação entre taxa fixa e modo comissão.
@@ -70,8 +70,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           },
   })
 
-  const outcome = await recomputeMonthlyInvoice(booking.consultantId, month)
-  const invoiceWasPaid = invoiceBefore?.status === "PAID" || outcome === "skipped-paid"
+  const charge = await syncBookingCharge(booking.id)
+  const invoiceWasPaid = invoiceBefore?.status === "PAID" || charge?.status === "PAID"
   const rate = booking.commissionRate ?? COMMISSION_RATE
   const flatFeeAmount =
     booking.services.reduce((s, svc) => s + svc.price, 0)

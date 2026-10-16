@@ -6,6 +6,7 @@ import { formatPrice, IVA_RATE, DEFAULT_PRICES, SERVICE_LABELS, ADDITIONAL_INTRO
 import { introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceholderIntro } from "@/lib/intros"
 import { markOverdueInvoices } from "@/lib/invoices"
 import { getDeliverableAccess } from "@/lib/deliverable-access"
+import { PendingChargesList } from "./pending-charges-list"
 import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator, Lock } from "lucide-react"
 import Link from "next/link"
 import { PayInvoiceButton } from "./pay-invoice-button"
@@ -86,11 +87,26 @@ export default async function ConsultantPaymentsPage({
     )
   )
 
+  // Cobrança vídeo a vídeo: o que está por pagar agora
+  const charges = await prisma.charge.findMany({
+    where: { consultantId, status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+  })
+  const pendingCharges = charges.map((c) => ({
+    id: c.id,
+    kind: c.kind as "BOOKING" | "INTRO",
+    description: c.description,
+    netAmount: c.netAmount,
+    totalAmount: c.totalAmount,
+    createdAt: c.createdAt.toISOString(),
+  }))
+  const chargesTotal = Math.round(charges.reduce((s, c) => s + c.totalAmount, 0) * 100) / 100
+
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length
   const pendingCount = invoices.filter((i) => i.status === "PENDING").length
   const totalDue = invoices
     .filter((i) => i.status !== "PAID")
-    .reduce((sum, i) => sum + i.total, 0)
+    .reduce((sum, i) => sum + i.total, 0) + chargesTotal
 
   // Current month billing estimate (only shown if no invoice generated yet for this month)
   const hasCurrentMonthInvoice = invoices.some((i) => i.month === currentMonth)
@@ -119,6 +135,8 @@ export default async function ConsultantPaymentsPage({
             <p className="text-sm font-semibold">Pagamento efectuado com sucesso!</p>
           </div>
         )}
+
+        <PendingChargesList charges={pendingCharges} />
 
         {overdueCount > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4">

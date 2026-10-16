@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { calculateTotal, DEFAULT_PRICES } from "@/lib/pricing"
 import { markOverdueInvoices } from "@/lib/invoices"
+import { overdueChargeCount } from "@/lib/charges"
 import { sendVideographerRequestEmail, sendBookingConfirmationEmail, sendAdminBookingNotificationEmail } from "@/lib/email"
 import type { ServiceType, PropertyType } from "@prisma/client"
 
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
     where: { consultantId, status: "OVERDUE" },
     select: { id: true },
   })
-  if (unpaidInvoice) {
+  const staleCharges = await overdueChargeCount(consultantId)
+  if (unpaidInvoice || staleCharges > 0) {
     return NextResponse.json(
       { error: "Tem faturas por pagar. Regularize os pagamentos antes de criar novas marcações.", overdueInvoices: true },
       { status: 402 }

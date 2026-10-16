@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/header"
 import { NewBookingForm } from "./new-booking-form"
 import { DEFAULT_PRICES } from "@/lib/pricing"
 import { markOverdueInvoices } from "@/lib/invoices"
+import { overdueChargeCount } from "@/lib/charges"
 import { AlertCircle, CreditCard } from "lucide-react"
 import Link from "next/link"
 import type { ServiceType } from "@prisma/client"
@@ -21,12 +22,14 @@ export default async function NewBookingPage({ searchParams }: Props) {
   const consultantId = user?.id
 
   if (consultantId) await markOverdueInvoices(consultantId)
-  const unpaidInvoice = consultantId
+  const legacyOverdue = consultantId
     ? await prisma.monthlyInvoice.findFirst({
         where: { consultantId, status: "OVERDUE" },
         select: { id: true },
       })
     : null
+  const staleCharges = consultantId ? await overdueChargeCount(consultantId) : 0
+  const unpaidInvoice = legacyOverdue || staleCharges > 0
 
   // Block all new bookings (flat-fee and commission) while there are overdue invoices
   if (unpaidInvoice) {

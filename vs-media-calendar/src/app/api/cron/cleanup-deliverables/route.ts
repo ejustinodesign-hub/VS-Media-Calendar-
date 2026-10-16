@@ -17,21 +17,32 @@ export async function GET(req: NextRequest) {
   cutoff.setDate(cutoff.getDate() - EXPIRY_DAYS)
 
   const expired = await prisma.deliverable.findMany({
-    where: { createdAt: { lte: cutoff } },
+    where: {
+      createdAt: { lte: cutoff },
+      // Nunca apagar um ficheiro que ainda não foi pago: o consultor tem
+      // direito a descarregá-lo assim que liquidar a cobrança
+      charges: { none: { status: "PENDING" } },
+      booking: { is: { charges: { none: { status: "PENDING" } } } },
+    },
+    select: { id: true, fileUrl: true },
   })
 
   if (expired.length === 0) {
     return NextResponse.json({ deleted: 0 })
   }
 
-  try {
-    await del(expired.map((d) => d.fileUrl))
-  } catch (e) {
-    console.error("Blob deletion error:", e)
+  // Apagar só os ficheiros reais — registos de backfill não têm blob
+  const blobUrls = expired.map((d) => d.fileUrl).filter((u) => u.startsWith("http"))
+  if (blobUrls.length > 0) {
+    try {
+      await del(blobUrls)
+    } catch (e) {
+      console.error("Blob deletion error:", e)
+    }
   }
 
   await prisma.deliverable.deleteMany({
-    where: { createdAt: { lte: cutoff } },
+    where: { id: { in: expired.map((d) => d.id) } },
   })
 
   console.log(`Cleanup: deleted ${expired.length} expired deliverables`)

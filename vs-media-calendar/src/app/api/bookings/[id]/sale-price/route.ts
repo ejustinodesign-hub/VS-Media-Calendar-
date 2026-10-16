@@ -39,42 +39,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     data: { salePrice, commissionAmount },
   })
 
-  const now = new Date()
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-
-  const existingInvoice = await prisma.monthlyInvoice.findFirst({
-    where: { consultantId: session.user.id!, month },
+  // Comissão passa a ser uma cobrança própria, como qualquer vídeo
+  await prisma.charge.create({
+    data: {
+      consultantId: session.user.id!,
+      kind: "BOOKING",
+      bookingId: id,
+      description: `Comissão ${((booking.commissionRate ?? 0.0015) * 100).toFixed(2)}% — ${booking.propertyAddress}`,
+      netAmount: Math.round(commissionAmount * 100) / 100,
+      totalAmount: commissionWithIva,
+    },
   })
-
-  if (existingInvoice) {
-    await prisma.monthlyInvoice.update({
-      where: { id: existingInvoice.id },
-      data: {
-        subtotal: existingInvoice.subtotal + commissionAmount,
-        total: existingInvoice.total + commissionWithIva,
-      },
-    })
-    await prisma.booking.update({
-      where: { id },
-      data: { invoiceId: existingInvoice.id },
-    })
-  } else {
-    const newInvoice = await prisma.monthlyInvoice.create({
-      data: {
-        consultantId: session.user.id!,
-        month,
-        subtotal: commissionAmount,
-        total: commissionWithIva,
-        dueDate: lastDay,
-        status: "PENDING",
-      },
-    })
-    await prisma.booking.update({
-      where: { id },
-      data: { invoiceId: newInvoice.id },
-    })
-  }
 
   return NextResponse.json({ success: true, commissionAmount, commissionWithIva })
 }

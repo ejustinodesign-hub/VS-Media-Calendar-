@@ -3,7 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { sendStatusUpdateEmail } from "@/lib/email"
 import { SERVICE_LABELS, IVA_RATE } from "@/lib/pricing"
-import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { syncBookingCharge, syncIntroCharges } from "@/lib/charges"
 import { introConsultantData, MAX_INTRO_CONSULTANTS } from "@/lib/intros"
 
 const INTRO_PRICE_NET = 25
@@ -13,24 +13,6 @@ function splitPrice(count: number) {
   const net = Math.round((INTRO_PRICE_NET / count) * 100) / 100
   const withIva = Math.round(net * (1 + IVA_RATE) * 100) / 100
   return { net, withIva }
-}
-
-async function chargeConsultantInvoice(consultantId: string, net: number, withIva: number) {
-  const now = new Date()
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-
-  const existing = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })
-  if (existing) {
-    await prisma.monthlyInvoice.update({
-      where: { id: existing.id },
-      data: { subtotal: existing.subtotal + net, total: existing.total + withIva },
-    })
-  } else {
-    await prisma.monthlyInvoice.create({
-      data: { consultantId, month, subtotal: net, total: withIva, dueDate, status: "PENDING" },
-    })
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -92,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     const { net, withIva } = splitPrice(rawIds.length)
 
-    await prisma.deliverable.create({
+    const introDeliverable = await prisma.deliverable.create({
       data: {
         bookingId,
         fileName,
@@ -112,20 +94,20 @@ export async function POST(req: NextRequest) {
       ? `partilhada (${rawIds.length} consultores, ${withIva.toFixed(2).replace(".", ",")}€ c/ IVA cada)`
       : `(${withIva.toFixed(2).replace(".", ",")}€ c/ IVA adicionados à sua fatura)`
 
-    // Charge & notify each consultant
+    // Cobrança por intro, uma por consultor — paga individualmente
+    await syncIntroCharges(introDeliverable.id)
+
     await Promise.all(
       rawIds.map((cid) =>
-        chargeConsultantInvoice(cid, net, withIva).then(() =>
-          prisma.notification.create({
-            data: {
-              userId: cid,
-              bookingId: booking.id,
-              type: "FILE_UPLOADED",
-              title: "Intro de vídeo disponível",
-              message: `Uma versão de vídeo ${sharedLabel} para o imóvel ${booking.propertyAddress} está disponível.`,
-            },
-          })
-        )
+        prisma.notification.create({
+          data: {
+            userId: cid,
+            bookingId: booking.id,
+            type: "FILE_UPLOADED",
+            title: "Intro de vídeo disponível",
+            message: `Uma versão de vídeo ${sharedLabel} para o imóvel ${booking.propertyAddress} está disponível.`,
+          },
+        })
       )
     )
 
@@ -150,19 +132,12 @@ export async function POST(req: NextRequest) {
     data: { status: "FILE_DELIVERED" },
   })
 
-  // Só vídeos entregues são faturados. Se a marcação é de um mês que o cron
-  // já fechou, recalcular a fatura desse mês agora — senão a entrega tardia
-  // nunca chegaria a ser cobrada.
-  const scheduled = new Date(booking.scheduledAt)
-  const bookingMonth = `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}`
-  const now = new Date()
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  if (bookingMonth < currentMonth) {
-    try {
-      await recomputeMonthlyInvoice(booking.consultantId, bookingMonth)
-    } catch (e) {
-      console.error("[deliverables/complete] recompute failed:", e)
-    }
+  // Vídeo entregue → cobrança deste vídeo ao consultor da marcação.
+  // É o pagamento desta cobrança que liberta o download do ficheiro final.
+  try {
+    await syncBookingCharge(bookingId)
+  } catch (e) {
+    console.error("[deliverables/complete] syncBookingCharge failed:", e)
   }
 
   await prisma.notification.create({

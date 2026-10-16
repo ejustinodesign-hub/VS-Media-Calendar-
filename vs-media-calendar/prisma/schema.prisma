@@ -99,6 +99,52 @@ enum InvoiceStatus {
   OVERDUE
 }
 
+// ─── Cobrança vídeo a vídeo ───────────────────────────────────────────────
+// Substitui a faturação mensal: cada vídeo entregue e cada intro partilhada
+// gera a sua própria cobrança, paga individualmente. As MonthlyInvoice
+// existentes mantêm-se para o histórico de junho a setembro de 2026.
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum ChargeKind {
+  BOOKING // vídeo/serviços de uma marcação, cobrado ao consultor dela
+  INTRO   // intro de um consultor no vídeo de outro
+}
+
+model Charge {
+  id               String       @id @default(cuid())
+  consultantId     String
+  kind             ChargeKind
+  // BOOKING → bookingId preenchido; INTRO → deliverableId preenchido
+  bookingId        String?
+  deliverableId    String?
+  description      String
+  netAmount        Float
+  totalAmount      Float
+  status           ChargeStatus @default(PENDING)
+  paidAt           DateTime?
+  // Não é único: um pagamento pode liquidar várias cobranças de uma vez
+  stripeSessionId  String?
+  moloniDocumentId Int?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  consultant  User         @relation("ConsultantCharges", fields: [consultantId], references: [id], onDelete: Cascade)
+  booking     Booking?     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  // SetNull: o ficheiro expira ao fim de 30 dias, a cobrança tem de sobreviver
+  deliverable Deliverable? @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
+
+  // Um consultor não pode ser cobrado duas vezes pelo mesmo vídeo ou intro
+  @@unique([bookingId, consultantId])
+  @@unique([deliverableId, consultantId])
+  @@index([consultantId, status])
+  @@index([stripeSessionId])
+}
+
 enum NotificationType {
   BOOKING_CONFIRMED
   PAYMENT_COMPLETED
@@ -144,6 +190,7 @@ model User {
   bookingsAsConsultant   Booking[] @relation("ConsultantBookings")
   bookingsAsVideographer Booking[] @relation("VideographerBookings")
   invoices               MonthlyInvoice[]
+  charges                Charge[]        @relation("ConsultantCharges")
   sharedDeliverables     Deliverable[] @relation("TargetConsultantDeliverables")
   sharedDeliverables2    Deliverable[] @relation("SecondConsultantDeliverables")
   sharedDeliverables3    Deliverable[] @relation("ThirdConsultantDeliverables")
@@ -251,6 +298,7 @@ model Booking {
   services      BookingService[]
   payment       Payment?
   deliverables  Deliverable[]
+  charges       Charge[]
   notifications Notification[]
 }
 
@@ -329,6 +377,7 @@ model Deliverable {
   fourthConsultant  User?   @relation("FourthConsultantDeliverables", fields: [fourthConsultantId], references: [id], onDelete: SetNull)
   fifthConsultant   User?   @relation("FifthConsultantDeliverables", fields: [fifthConsultantId], references: [id], onDelete: SetNull)
   sixthConsultant   User?   @relation("SixthConsultantDeliverables", fields: [sixthConsultantId], references: [id], onDelete: SetNull)
+  charges           Charge[]
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────

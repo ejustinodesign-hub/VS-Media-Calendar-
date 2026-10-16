@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { syncBookingCharge } from "@/lib/charges"
 
 // PATCH: admin fecha (ou reabre) uma marcação sem depender da entrega do vídeo.
 // Concluída conta para faturação — a fatura do mês é recalculada para a
@@ -55,18 +55,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   })
 
-  // Só marcações FILE_DELIVERED/COMPLETED são faturadas — recalcular o mês
+  // Só marcações entregues/concluídas são cobradas — criar ou remover a cobrança
+  const charge = await syncBookingCharge(booking.id)
+  const invoiceWasPaid = charge?.status === "PAID"
   const scheduled = new Date(booking.scheduledAt)
   const month = `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}`
-  let invoiceWasPaid = false
-  if (booking.paymentType === "FLAT_FEE") {
-    const before = await prisma.monthlyInvoice.findFirst({
-      where: { consultantId: booking.consultantId, month },
-      select: { status: true },
-    })
-    const outcome = await recomputeMonthlyInvoice(booking.consultantId, month)
-    invoiceWasPaid = before?.status === "PAID" || outcome === "skipped-paid"
-  }
 
   if (completed) {
     try {

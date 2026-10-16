@@ -3,7 +3,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { del } from "@vercel/blob"
 import { IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { recomputeMonthlyInvoice } from "@/lib/invoices"
+import { syncIntroCharges, syncBookingCharge } from "@/lib/charges"
 import { INTRO_CONSULTANT_FIELDS, introConsultantData, MAX_INTRO_CONSULTANTS } from "@/lib/intros"
 
 function round2(n: number) {
@@ -62,16 +62,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     },
   })
 
-  const created = deliverable.createdAt
-  const month = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}`
+  const charges = await syncIntroCharges(id)
   const affected = new Set([...before, ...unique])
-  const skippedPaid: string[] = []
-  for (const consultantId of affected) {
-    const outcome = await recomputeMonthlyInvoice(consultantId, month)
-    if (outcome === "skipped-paid") skippedPaid.push(consultantId)
-  }
+  const skippedPaid = charges.filter((c) => c.status === "PAID").map((c) => c.consultantId)
 
-  return NextResponse.json({ ok: true, month, recomputed: affected.size, skippedPaid })
+  return NextResponse.json({ ok: true, recomputed: affected.size, skippedPaid })
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
@@ -107,37 +102,9 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   // Delete DB record
   await prisma.deliverable.delete({ where: { id } })
 
-  // Estornar a cobrança da intro: quando o ficheiro foi partilhado com consultores,
-  // cada um foi cobrado 25€ ÷ nº de consultores na fatura do mês do upload.
-  // Sem isto, apagar e reenviar uma intro acumulava cobranças na fatura.
-  // (Deliverables de backfill junho-2026 são geridos pelo próprio backfill.)
-  if (!deliverable.fileUrl.startsWith("backfill:")) {
-    const chargedIds = [
-      ...INTRO_CONSULTANT_FIELDS.map((f) => deliverable[f]),
-    ].filter(Boolean) as string[]
-
-    if (chargedIds.length > 0) {
-      const net = round2(ADDITIONAL_INTRO_PRICE / chargedIds.length)
-      const withIva = round2(net * (1 + IVA_RATE))
-      const created = deliverable.createdAt
-      const month = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}`
-
-      for (const consultantId of chargedIds) {
-        const invoice = await prisma.monthlyInvoice.findFirst({ where: { consultantId, month } })
-        if (invoice && invoice.status !== "PAID") {
-          await prisma.monthlyInvoice.update({
-            where: { id: invoice.id },
-            data: {
-              subtotal: Math.max(0, round2(invoice.subtotal - net)),
-              total: Math.max(0, round2(invoice.total - withIva)),
-            },
-          })
-        }
-      }
-    }
-  }
-
-  // If no deliverables remain for the booking, revert booking status to ACCEPTED
+  // As cobranças deste ficheiro desaparecem com ele (cascade). Se a marcação
+  // deixou de ter ficheiros, volta a não estar entregue e a cobrança do vídeo
+  // é removida — só se cobra o que foi entregue.
   if (deliverable.booking) {
     const remaining = await prisma.deliverable.count({
       where: { bookingId: deliverable.booking.id },
@@ -147,19 +114,11 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
         where: { id: deliverable.booking.id },
         data: { status: "ACCEPTED" },
       })
-      // Marcação deixou de estar entregue — se o mês já fechou, tirar a
-      // cobrança da fatura (só vídeos entregues são faturados)
-      const scheduled = new Date(deliverable.booking.scheduledAt)
-      const bookingMonth = `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}`
-      const now = new Date()
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-      if (bookingMonth < currentMonth) {
-        try {
-          await recomputeMonthlyInvoice(deliverable.booking.consultantId, bookingMonth)
-        } catch (e) {
-          console.error("[deliverables/delete] recompute failed:", e)
-        }
-      }
+    }
+    try {
+      await syncBookingCharge(deliverable.booking.id)
+    } catch (e) {
+      console.error("[deliverables/delete] syncBookingCharge failed:", e)
     }
   }
 

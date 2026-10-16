@@ -8,17 +8,16 @@ export interface DeliverableAccess {
   canView: boolean
   /** Pode descarregar o ficheiro final. */
   canDownload: boolean
-  /** Mês da fatura que cobre este ficheiro (YYYY-MM), quando aplicável. */
-  month: string | null
-  /** Porque é que o download está bloqueado, para mostrar ao consultor. */
-  reason: "ok" | "not-linked" | "unpaid" | "not-found"
+  /** Cobrança que desbloqueia este ficheiro, quando há uma por pagar. */
+  chargeId: string | null
+  reason: "ok" | "unpaid" | "not-found"
   fileUrl: string | null
   fileName: string | null
   mimeType: string | null
 }
 
 const DENIED: DeliverableAccess = {
-  canView: false, canDownload: false, month: null,
+  canView: false, canDownload: false, chargeId: null,
   reason: "not-found", fileUrl: null, fileName: null, mimeType: null,
 }
 
@@ -26,17 +25,20 @@ function monthOf(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
 }
 
+/** Faturas mensais congeladas: antes da passagem à cobrança vídeo a vídeo. */
+const LEGACY_MONTHS = ["2026-06", "2026-07", "2026-08", "2026-09"]
+
 /**
  * Decide o que um utilizador pode fazer com um ficheiro entregue.
  *
- * Regra de negócio: o consultor só descarrega o ficheiro final depois de
- * pagar a fatura que o inclui. A pré-visualização continua disponível para
- * ele poder ver o que está a pagar.
+ * O consultor só descarrega o ficheiro final depois de pagar a cobrança
+ * desse vídeo (ou dessa intro). A pré-visualização fica sempre disponível
+ * para ele ver o que está a pagar.
  *
  * - ADMIN e o videógrafo da marcação: acesso total.
- * - Marcações em comissão: não há fatura mensal, download livre (o consultor
- *   paga uma percentagem na venda).
- * - Intro de outro consultor: conta o mês em que a intro foi cobrada.
+ * - Marcações em comissão: não há cobrança, download livre.
+ * - Ficheiros dos meses congelados (jun–set/2026): vale a fatura mensal
+ *   antiga, que continua a ser paga pelo fluxo anterior.
  */
 export async function getDeliverableAccess(
   deliverableId: string,
@@ -60,16 +62,13 @@ export async function getDeliverableAccess(
     fileName: deliverable.fileName,
     mimeType: deliverable.mimeType,
   }
+  const allow = (chargeId: string | null = null): DeliverableAccess => ({
+    ...base, canView: true, canDownload: true, chargeId, reason: "ok",
+  })
 
-  // Admin e o videógrafo que filmou veem e descarregam sempre
-  if (user.role === "ADMIN") {
-    return { ...base, canView: true, canDownload: true, month: null, reason: "ok" }
-  }
+  if (user.role === "ADMIN") return allow()
   if (user.role === "VIDEOGRAPHER") {
-    const owns = deliverable.booking?.videographerId === user.id
-    return owns
-      ? { ...base, canView: true, canDownload: true, month: null, reason: "ok" }
-      : DENIED
+    return deliverable.booking?.videographerId === user.id ? allow() : DENIED
   }
 
   // Consultor: tem de estar ligado ao ficheiro
@@ -81,30 +80,43 @@ export async function getDeliverableAccess(
 
   if (!isIntroTarget && !isBookingConsultant) return DENIED
 
-  // Comissão: não é cobrada na fatura mensal, logo não há nada a pagar aqui
-  if (!isIntroTarget && deliverable.booking?.paymentType === "COMMISSION") {
-    return { ...base, canView: true, canDownload: true, month: null, reason: "ok" }
+  // Comissão: paga-se na venda, não há cobrança a desbloquear
+  if (!isIntroTarget && deliverable.booking?.paymentType === "COMMISSION") return allow()
+
+  // Cobrança deste ficheiro: a intro tem cobrança própria; o vídeo da
+  // marcação é cobrado através da marcação
+  const charge = isIntroTarget
+    ? await prisma.charge.findFirst({
+        where: { deliverableId: deliverable.id, consultantId: user.id },
+        select: { id: true, status: true },
+      })
+    : await prisma.charge.findFirst({
+        where: { bookingId: deliverable.booking!.id, consultantId: user.id, kind: "BOOKING" },
+        select: { id: true, status: true },
+      })
+
+  if (charge) {
+    return charge.status === "PAID"
+      ? allow(charge.id)
+      : { ...base, canView: true, canDownload: false, chargeId: charge.id, reason: "unpaid" }
   }
 
-  // Mês que cobre este ficheiro: a intro é cobrada no mês em que foi criada;
-  // o vídeo da marcação, no mês em que o serviço aconteceu
+  // Sem cobrança: ficheiro dos meses congelados → vale a fatura mensal antiga
   const month = isIntroTarget
     ? monthOf(new Date(deliverable.createdAt))
     : monthOf(new Date(deliverable.booking!.scheduledAt))
 
-  const invoice = await prisma.monthlyInvoice.findFirst({
-    where: { consultantId: user.id, month },
-    select: { status: true },
-  })
-
-  // Sem fatura ainda emitida significa que o valor continua por pagar
-  const paid = invoice?.status === "PAID"
-
-  return {
-    ...base,
-    canView: true,
-    canDownload: paid,
-    month,
-    reason: paid ? "ok" : "unpaid",
+  if (LEGACY_MONTHS.includes(month)) {
+    const invoice = await prisma.monthlyInvoice.findFirst({
+      where: { consultantId: user.id, month },
+      select: { status: true },
+    })
+    return invoice?.status === "PAID"
+      ? allow()
+      : { ...base, canView: true, canDownload: false, chargeId: null, reason: "unpaid" }
   }
+
+  // Fora dos meses congelados e sem cobrança emitida: nada a pagar ainda,
+  // mas também nada que autorize o download
+  return { ...base, canView: true, canDownload: false, chargeId: null, reason: "unpaid" }
 }

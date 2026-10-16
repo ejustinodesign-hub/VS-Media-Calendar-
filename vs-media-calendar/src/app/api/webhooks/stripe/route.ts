@@ -26,6 +26,70 @@ export async function POST(req: NextRequest) {
   if (event.type === "checkout.session.completed") {
     const stripeSession = event.data.object as Stripe.Checkout.Session
 
+    // Cobrança vídeo a vídeo: uma ou várias cobranças liquidadas de uma vez
+    const chargeIds = stripeSession.metadata?.chargeIds
+    if (chargeIds) {
+      const ids = chargeIds.split(",").filter(Boolean)
+      await prisma.charge.updateMany({
+        where: { id: { in: ids }, status: "PENDING" },
+        data: { status: "PAID", paidAt: new Date() },
+      })
+
+      const paid = await prisma.charge.findMany({
+        where: { id: { in: ids } },
+        include: {
+          consultant: {
+            select: { id: true, name: true, email: true, billingNif: true, billingName: true, billingAddress: true },
+          },
+        },
+      })
+
+      // Um documento Moloni por vídeo/intro pago
+      if (process.env.MOLONI_CLIENT_ID) {
+        for (const charge of paid) {
+          if (charge.moloniDocumentId) continue
+          try {
+            const moloniDocumentId = await createMoloniInvoice({
+              consultant: charge.consultant,
+              month: charge.createdAt.toISOString().slice(0, 7),
+              dueDate: charge.paidAt ?? new Date(),
+              lines: [{ description: charge.description, qty: 1, unitPrice: charge.netAmount }],
+            })
+            await prisma.charge.update({ where: { id: charge.id }, data: { moloniDocumentId } })
+          } catch (e) {
+            console.error(`[webhook] Moloni failed for charge ${charge.id}:`, e)
+          }
+        }
+      }
+
+      const consultant = paid[0]?.consultant
+      const total = paid.reduce((s, c) => s + c.totalAmount, 0)
+      if (consultant) {
+        try {
+          await Promise.all([
+            sendInvoicePaidEmail({
+              consultantName: consultant.name || consultant.email || "—",
+              consultantEmail: consultant.email || "",
+              month: `${paid.length} vídeo(s)`,
+              total,
+              invoiceId: paid[0].id,
+            }),
+            sendInvoicePaidConfirmationEmail({
+              consultantName: consultant.name || "—",
+              consultantEmail: consultant.email || "",
+              month: `${paid.length} vídeo(s)`,
+              total,
+              invoiceId: paid[0].id,
+            }),
+          ])
+        } catch (e) {
+          console.error("[webhook] charge paid email failed:", e)
+        }
+      }
+
+      return NextResponse.json({ ok: true })
+    }
+
     const invoiceId = stripeSession.metadata?.invoiceId
     if (invoiceId) {
       const invoice = await prisma.monthlyInvoice.update({
