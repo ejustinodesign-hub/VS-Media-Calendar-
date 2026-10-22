@@ -313,6 +313,8 @@ model MonthlyInvoice {
   paidAt           DateTime?
   stripeSessionId  String?       @unique
   moloniDocumentId Int?
+  // true enquanto o documento no Moloni for um rascunho (ainda não emitido)
+  moloniDraft      Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 

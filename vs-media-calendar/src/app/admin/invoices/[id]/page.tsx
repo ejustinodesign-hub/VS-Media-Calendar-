@@ -9,9 +9,10 @@ import { INTRO_CONSULTANT_FIELDS, introConsultantFilter, introConsultantSelect, 
 import { MarkPaidButton } from "../mark-paid-button"
 import { MoloniBackfillButton } from "../moloni-backfill-button"
 import { EditIntroShare } from "./edit-intro-share"
+import { syncMoloniDraft } from "@/lib/moloni"
 import {
   CheckCircle2, Clock, AlertCircle, ArrowLeft,
-  Car, MapPin, Package, FileText,
+  Car, MapPin, Package, FileText, FilePen,
 } from "lucide-react"
 import Link from "next/link"
 import type { ServiceType } from "@prisma/client"
@@ -48,6 +49,21 @@ export default async function InvoiceDetailPage({ params }: Props) {
   })
 
   if (!invoice) notFound()
+
+  // Rascunho no Moloni: confirmar se entretanto foi emitido (ou apagado) lá
+  let moloniSyncError: string | null = null
+  if (invoice.moloniDocumentId && invoice.moloniDraft) {
+    try {
+      const state = await syncMoloniDraft(invoice)
+      if (state === "issued") invoice.moloniDraft = false
+      if (state === "missing") {
+        invoice.moloniDocumentId = null
+        invoice.moloniDraft = false
+      }
+    } catch (e) {
+      moloniSyncError = e instanceof Error ? e.message : String(e)
+    }
+  }
 
   // Shared intro deliverables charged to this consultant in this month
   const [year, m] = invoice.month.split("-").map(Number)
@@ -190,7 +206,22 @@ export default async function InvoiceDetailPage({ params }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-slate-500 mb-0.5">Documento Moloni</p>
-                {invoice.moloniDocumentId ? (
+                {invoice.moloniDocumentId && invoice.moloniDraft ? (
+                  <div>
+                    <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+                      <FilePen className="w-3.5 h-3.5" />
+                      Rascunho (#{invoice.moloniDocumentId})
+                    </span>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Reveja e emita o documento no Moloni. O estado atualiza aqui automaticamente.
+                    </p>
+                    {moloniSyncError && (
+                      <p className="text-[11px] text-red-500 mt-0.5">
+                        Não foi possível confirmar o estado no Moloni: {moloniSyncError}
+                      </p>
+                    )}
+                  </div>
+                ) : invoice.moloniDocumentId ? (
                   <div className="flex items-center gap-2">
                     <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                       <FileText className="w-3.5 h-3.5" />

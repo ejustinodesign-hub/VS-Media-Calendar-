@@ -173,7 +173,7 @@ export default async function ConsultantInvoiceDetailPage({ params }: Props) {
             )}
 
             {/* Moloni PDF */}
-            {(invoice as any).moloniDocumentId && (
+            {invoice.moloniDocumentId && !invoice.moloniDraft && (
               <>
                 <div className="h-px bg-slate-100" />
                 <div className="flex items-center gap-2">

@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/prisma"
+
 export const MOLONI_API = "https://api.moloni.pt/v1"
 
 export async function getMoloniToken(): Promise<string> {
@@ -187,6 +189,9 @@ export interface MoloniInvoiceParams {
   month: string
   dueDate: Date
   lines: MoloniInvoiceLine[]
+  // true → cria o documento como rascunho no Moloni (status 0), para ser
+  // revisto e emitido manualmente lá. Por omissão o documento é emitido.
+  draft?: boolean
 }
 
 // Returns the Moloni payment_method_id for bank transfer.
@@ -250,7 +255,8 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     our_reference: "",
     your_reference: "",
     notes: "",
-    status: "1",
+    // 0 = rascunho, 1 = emitido (fechado)
+    status: params.draft ? "0" : "1",
   }
 
   if (paymentMethodId) {
@@ -284,4 +290,42 @@ export async function createMoloniInvoice(params: MoloniInvoiceParams): Promise<
     throw new Error(`Moloni invoice insert failed: ${JSON.stringify(data)}`)
   }
   return data.document_id as number
+}
+
+export type MoloniDocumentState = "draft" | "issued" | "missing"
+
+// Estado atual de um documento no Moloni: rascunho, emitido, ou inexistente
+// (ex.: o rascunho foi apagado no Moloni).
+export async function getMoloniDocumentState(documentId: number): Promise<MoloniDocumentState> {
+  const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)
+  const token = await getMoloniToken()
+  const res = await moloniFetch("invoiceReceipts/getOne", token, {
+    company_id: String(companyId),
+    document_id: String(documentId),
+  })
+  if (!res.ok) throw new Error(`Moloni getOne HTTP ${res.status}`)
+  const doc = await res.json()
+  if (!doc || typeof doc !== "object" || Array.isArray(doc) || !doc.document_id) return "missing"
+  return Number(doc.status) === 1 ? "issued" : "draft"
+}
+
+// Atualiza o estado de uma fatura mensal com rascunho no Moloni: se entretanto
+// foi emitida lá, deixa de ser rascunho; se foi apagada, desliga o documento
+// para se poder criar outro. Devolve o novo estado (ou null se não havia rascunho).
+export async function syncMoloniDraft(invoice: {
+  id: string
+  moloniDocumentId: number | null
+  moloniDraft: boolean
+}): Promise<MoloniDocumentState | null> {
+  if (!invoice.moloniDocumentId || !invoice.moloniDraft) return null
+  const state = await getMoloniDocumentState(invoice.moloniDocumentId)
+  if (state === "issued") {
+    await prisma.monthlyInvoice.update({ where: { id: invoice.id }, data: { moloniDraft: false } })
+  } else if (state === "missing") {
+    await prisma.monthlyInvoice.update({
+      where: { id: invoice.id },
+      data: { moloniDocumentId: null, moloniDraft: false },
+    })
+  }
+  return state
 }

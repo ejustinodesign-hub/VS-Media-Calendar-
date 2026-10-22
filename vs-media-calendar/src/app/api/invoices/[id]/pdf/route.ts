@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { getMoloniToken, MOLONI_API } from "@/lib/moloni"
+import { getMoloniToken, MOLONI_API, syncMoloniDraft } from "@/lib/moloni"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const invoice = await prisma.monthlyInvoice.findUnique({
     where: { id },
-    select: { consultantId: true, moloniDocumentId: true, month: true },
+    select: { id: true, consultantId: true, moloniDocumentId: true, moloniDraft: true, month: true },
   })
 
   if (!invoice) {
@@ -27,6 +27,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   if (!invoice.moloniDocumentId) {
     return NextResponse.json({ error: "Fatura ainda não emitida no Moloni" }, { status: 404 })
+  }
+
+  // Rascunho: só há PDF depois de emitido no Moloni
+  if (invoice.moloniDraft) {
+    const state = await syncMoloniDraft(invoice).catch(() => "draft" as const)
+    if (state !== "issued") {
+      return NextResponse.json({ error: "Fatura ainda não emitida no Moloni" }, { status: 404 })
+    }
   }
 
   const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)

@@ -6,7 +6,7 @@ import { SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import type { ServiceType } from "@prisma/client"
 import { introConsultantFilter, introSplitCount } from "@/lib/intros"
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   const userRole = (session?.user as any)?.role
   if (!session?.user || userRole !== "ADMIN") {
@@ -14,6 +14,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   const { id } = await params
+  // { draft: true } → cria como rascunho no Moloni em vez de emitir
+  const body = await req.json().catch(() => ({}))
+  const draft = body?.draft === true
 
   const invoice = await prisma.monthlyInvoice.findUnique({
     where: { id },
@@ -119,14 +122,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       month: invoice.month,
       dueDate,
       lines,
+      draft,
     })
 
     await prisma.monthlyInvoice.update({
       where: { id },
-      data: { moloniDocumentId },
+      data: { moloniDocumentId, moloniDraft: draft },
     })
 
-    return NextResponse.json({ ok: true, moloniDocumentId })
+    return NextResponse.json({ ok: true, moloniDocumentId, draft })
   } catch (e: any) {
     console.error("[moloni-backfill]", e)
     return NextResponse.json({ error: e?.message || String(e) }, { status: 500 })

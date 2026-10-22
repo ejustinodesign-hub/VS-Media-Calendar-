@@ -415,7 +415,7 @@ export default async function ConsultantPaymentsPage({
                         >
                           Ver detalhe
                         </Link>
-                        {(invoice as any).moloniDocumentId && (
+                        {invoice.moloniDocumentId && !invoice.moloniDraft && (
                           <a
                             href={`/api/invoices/${invoice.id}/pdf`}
                             target="_blank"
