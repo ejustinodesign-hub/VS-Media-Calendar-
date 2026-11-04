@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { Header } from "@/components/layout/header"
 import { formatPrice } from "@/lib/pricing"
 import { CHARGE_OVERDUE_DAYS } from "@/lib/charges"
-import { Video, Package, CheckCircle2, Clock, AlertCircle, Receipt } from "lucide-react"
+import { Video, Package, CheckCircle2, Clock, AlertCircle, Receipt, Download } from "lucide-react"
 import Link from "next/link"
 
 function daysSince(d: Date) {
@@ -134,6 +134,17 @@ export default async function AdminChargesPage({
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       {c.moloniDocumentId ? `Moloni #${c.moloniDocumentId}` : "Pago"}
                     </span>
+                  )}
+                  {c.status === "PAID" && c.moloniDocumentId && (
+                    <a
+                      href={`/api/charges/${c.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 border border-slate-200 text-slate-600 text-[11px] font-semibold rounded-lg hover:border-[#0f3460] hover:text-[#0f3460] transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      PDF
+                    </a>
                   )}
                   {c.status === "PENDING" && (
                     <Clock className="w-3.5 h-3.5 text-amber-500" />

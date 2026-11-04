@@ -329,3 +329,48 @@ export async function syncMoloniDraft(invoice: {
   }
   return state
 }
+
+// Devolve o PDF de um documento Moloni para download. O getPDFLink pode
+// responder com uma string JSON, um objeto JSON ou o URL em texto simples.
+export async function moloniPdfResponse(documentId: number, fileName: string): Promise<Response> {
+  const companyId = parseInt(process.env.MOLONI_COMPANY_ID!)
+  const token = await getMoloniToken()
+
+  const res = await moloniFetch("invoiceReceipts/getPDFLink", token, {
+    company_id: String(companyId),
+    document_id: String(documentId),
+  })
+
+  const raw = await res.text()
+  let pdfUrl: string | null = null
+  try {
+    const parsed = JSON.parse(raw)
+    if (typeof parsed === "string") pdfUrl = parsed
+    else pdfUrl = parsed?.url ?? parsed?.pdf_url ?? parsed?.link ?? null
+  } catch {
+    if (raw.startsWith("http")) pdfUrl = raw.trim()
+  }
+
+  if (!pdfUrl) {
+    return Response.json({ error: "Moloni não devolveu URL do PDF", raw }, { status: 502 })
+  }
+
+  // Buscar o PDF — com o token, caso o URL o exija
+  const urlWithToken = pdfUrl.includes("access_token")
+    ? pdfUrl
+    : `${pdfUrl}${pdfUrl.includes("?") ? "&" : "?"}access_token=${token}`
+  const pdfRes = await fetch(urlWithToken)
+  const contentType = pdfRes.headers.get("content-type") ?? ""
+
+  if (pdfRes.ok && contentType.includes("pdf")) {
+    return new Response(await pdfRes.arrayBuffer(), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+      },
+    })
+  }
+
+  // O URL não dá para ir buscar diretamente — redirecionar o browser
+  return Response.redirect(pdfUrl, 302)
+}

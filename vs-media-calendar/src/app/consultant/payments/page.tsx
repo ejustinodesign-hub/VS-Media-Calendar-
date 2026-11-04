@@ -7,7 +7,7 @@ import { introConsultantFilter, introConsultantSelect, introSplitCount, isPlaceh
 import { markOverdueInvoices } from "@/lib/invoices"
 import { getDeliverableAccess } from "@/lib/deliverable-access"
 import { PendingChargesList } from "./pending-charges-list"
-import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator, Lock } from "lucide-react"
+import { Receipt, CheckCircle2, Clock, AlertCircle, Percent, FileVideo, Download, Calculator, Lock, Package } from "lucide-react"
 import Link from "next/link"
 import { PayInvoiceButton } from "./pay-invoice-button"
 import { SalePriceForm } from "./sale-price-form"
@@ -101,6 +101,13 @@ export default async function ConsultantPaymentsPage({
     createdAt: c.createdAt.toISOString(),
   }))
   const chargesTotal = Math.round(charges.reduce((s, c) => s + c.totalAmount, 0) * 100) / 100
+
+  // Cobranças já pagas, com a fatura Moloni de cada uma
+  const paidCharges = await prisma.charge.findMany({
+    where: { consultantId, status: "PAID" },
+    orderBy: { paidAt: "desc" },
+    take: 50,
+  })
 
   const overdueCount = invoices.filter((i) => i.status === "OVERDUE").length
   const pendingCount = invoices.filter((i) => i.status === "PENDING").length
@@ -328,6 +335,49 @@ export default async function ConsultantPaymentsPage({
                   />
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pagamentos efetuados — cobranças vídeo a vídeo */}
+        {paidCharges.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Pagamentos efetuados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="divide-y divide-slate-100">
+                {paidCharges.map((c) => (
+                  <div key={c.id} className="py-3 flex items-center gap-3 flex-wrap">
+                    {c.kind === "INTRO"
+                      ? <Package className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      : <FileVideo className="w-4 h-4 text-[#0f3460] flex-shrink-0" />}
+                    <div className="flex-1 min-w-[180px]">
+                      <p className="text-sm font-medium text-slate-800">{c.description}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Pago a {new Date(c.paidAt ?? c.updatedAt).toLocaleDateString("pt-PT")}
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold text-slate-900">{formatPrice(c.totalAmount)}</p>
+                    {c.moloniDocumentId ? (
+                      <a
+                        href={`/api/charges/${c.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2.5 py-1.5 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                      >
+                        <Download className="w-3 h-3" />
+                        Fatura PDF
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">Fatura em processamento</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
