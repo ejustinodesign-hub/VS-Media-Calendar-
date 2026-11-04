@@ -7,14 +7,21 @@ import { Mail, Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react"
 interface Props {
   debtorCount: number
   totalDebt: number
+  // Rota que envia os lembretes; por omissão a das faturas mensais
+  endpoint?: string
+  label?: string
 }
 
 // Envia a cada consultor um email com TODAS as faturas por pagar e o total.
 // Pré-visualização primeiro — manda um exemplo só para o admin.
-export function SendOutstandingRemindersButton({ debtorCount, totalDebt }: Props) {
+export function SendOutstandingRemindersButton({
+  debtorCount,
+  endpoint = "/api/admin/invoices/send-outstanding-reminders",
+  label = "Enviar lembretes de dívida",
+}: Props) {
   const [state, setState] = useState<"idle" | "preview-loading" | "preview-done" | "sending" | "done">("idle")
   const [previewTo, setPreviewTo] = useState<string | null>(null)
-  const [result, setResult] = useState<{ sent: number; skipped: number; noEmail?: string[] } | null>(null)
+  const [result, setResult] = useState<{ sent: number; skipped: number; noEmail?: string[]; failed?: string[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
@@ -24,7 +31,7 @@ export function SendOutstandingRemindersButton({ debtorCount, totalDebt }: Props
     setState(preview ? "preview-loading" : "sending")
     setError(null)
     try {
-      const res = await fetch("/api/admin/invoices/send-outstanding-reminders", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ preview }),
@@ -35,7 +42,7 @@ export function SendOutstandingRemindersButton({ debtorCount, totalDebt }: Props
         setPreviewTo(data.sentTo)
         setState("preview-done")
       } else {
-        setResult({ sent: data.sent, skipped: data.skipped, noEmail: data.noEmail })
+        setResult({ sent: data.sent, skipped: data.skipped, noEmail: data.noEmail, failed: data.failed })
         setState("done")
         router.refresh()
       }
@@ -55,6 +62,7 @@ export function SendOutstandingRemindersButton({ debtorCount, totalDebt }: Props
             <p className="text-amber-700 mt-0.5">
               {result.skipped} não enviado(s)
               {result.noEmail?.length ? ` — sem email: ${result.noEmail.join(", ")}` : ""}
+              {result.failed?.length ? ` — falharam: ${result.failed.join(", ")}` : ""}
             </p>
           )}
           <button onClick={() => setState("idle")} className="underline font-semibold mt-1">Fechar</button>
@@ -100,7 +108,7 @@ export function SendOutstandingRemindersButton({ debtorCount, totalDebt }: Props
         {state === "preview-loading" || state === "sending"
           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
           : <Mail className="w-3.5 h-3.5" />}
-        {state === "preview-loading" ? "A preparar..." : state === "sending" ? "A enviar..." : "Enviar lembretes de dívida"}
+        {state === "preview-loading" ? "A preparar..." : state === "sending" ? "A enviar..." : label}
       </button>
       {error && (
         <span className="flex items-center gap-1 text-xs text-red-600">

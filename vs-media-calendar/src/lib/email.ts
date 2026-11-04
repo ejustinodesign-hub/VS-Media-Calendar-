@@ -673,3 +673,80 @@ export async function sendStatusUpdateEmail(
       : {}),
   })
 }
+
+/**
+ * Lembrete de cobranças por pagar (vídeo a vídeo): uma linha por vídeo/intro
+ * e o total. As que passam CHARGE_OVERDUE_DAYS bloqueiam novas marcações.
+ */
+export async function sendPendingChargesEmail({
+  consultantName,
+  consultantEmail,
+  charges,
+  total,
+  overdueDays,
+}: {
+  consultantName: string
+  consultantEmail: string
+  charges: { description: string; totalAmount: number; createdAt: Date; overdue: boolean }[]
+  total: number
+  overdueDays: number
+}) {
+  if (!consultantEmail || charges.length === 0) return
+
+  const plural = charges.length > 1
+  const anyOverdue = charges.some((c) => c.overdue)
+
+  const rows = charges
+    .map((c) => `
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+            <p style="margin:0;color:#1a1a2e;font-size:14px;font-weight:600;">${c.description}</p>
+            <p style="margin:2px 0 0;color:${c.overdue ? "#dc2626" : "#666"};font-size:12px;">
+              Entregue a ${new Date(c.createdAt).toLocaleDateString("pt-PT")}${c.overdue ? " · em atraso" : ""}
+            </p>
+          </td>
+          <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;vertical-align:top;">
+            <span style="color:#1a1a2e;font-size:14px;font-weight:700;">${formatAmount(c.totalAmount)}</span>
+          </td>
+        </tr>`)
+    .join("")
+
+  const content = `
+    <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">${plural ? "Vídeos por pagar" : "Vídeo por pagar"}</h2>
+    <p style="color:#666;margin:0 0 24px;">
+      Olá ${consultantName}, ${plural
+        ? `tem ${charges.length} vídeos/intros por pagar na plataforma.`
+        : "tem um vídeo/intro por pagar na plataforma."}
+    </p>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 20px;margin-bottom:8px;">
+      <table style="width:100%;border-collapse:collapse;">
+        ${rows}
+        <tr>
+          <td style="padding:12px 0 4px;color:#1a1a2e;font-size:14px;font-weight:700;">Total por pagar</td>
+          <td style="padding:12px 0 4px;text-align:right;color:#dc2626;font-size:18px;font-weight:700;">${formatAmount(total)}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="color:#666;font-size:14px;margin:16px 0 24px;">
+      O download de cada ficheiro final fica disponível assim que o respetivo pagamento for confirmado.
+      ${anyOverdue
+        ? `<strong style="color:#dc2626;">Há pagamentos com mais de ${overdueDays} dias — novas marcações estão bloqueadas até regularizar.</strong>`
+        : `Pagamentos com mais de ${overdueDays} dias bloqueiam novas marcações.`}
+    </p>
+
+    <a href="${APP_URL}/consultant/payments" style="display:inline-block;background:#0f3460;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;">Pagar agora</a>
+  `
+
+  const result = await getResend().emails.send({
+    from: FROM,
+    to: consultantEmail,
+    subject: plural
+      ? `${charges.length} vídeos por pagar — ${formatAmount(total)}`
+      : `Vídeo por pagar — ${formatAmount(total)}`,
+    html: emailBase(content),
+  })
+  console.log(`[email] sendPendingChargesEmail → ${consultantEmail} (${charges.length})`, result)
+  return result
+}

@@ -6,6 +6,7 @@ import { formatPrice } from "@/lib/pricing"
 import { CHARGE_OVERDUE_DAYS } from "@/lib/charges"
 import { Video, Package, CheckCircle2, Clock, AlertCircle, Receipt, Download } from "lucide-react"
 import Link from "next/link"
+import { SendOutstandingRemindersButton } from "../invoices/send-outstanding-reminders-button"
 
 function daysSince(d: Date) {
   return Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000)
@@ -74,12 +75,20 @@ export default async function AdminChargesPage({
 
         {filter === "PENDING" && debtors.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-500" />
                 <h3 className="font-bold text-slate-900 text-sm">Em dívida por consultor</h3>
               </div>
-              <p className="text-sm font-bold text-red-600">{formatPrice(total)}</p>
+              <div className="flex items-center gap-3 flex-wrap justify-end">
+                <SendOutstandingRemindersButton
+                  debtorCount={debtors.length}
+                  totalDebt={total}
+                  endpoint="/api/admin/charges/send-reminders"
+                  label="Enviar lembretes por email"
+                />
+                <p className="text-sm font-bold text-red-600">{formatPrice(total)}</p>
+              </div>
             </div>
             <div className="divide-y divide-slate-50">
               {debtors.map((d) => (
