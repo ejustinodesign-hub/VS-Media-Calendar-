@@ -57,6 +57,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       OR: introConsultantFilter(invoice.consultantId),
       createdAt: { gte: monthStart, lte: monthEnd },
       NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
+      // Intros já cobradas à parte (cobrança vídeo a vídeo) não pertencem à fatura mensal
+      charges: { none: { consultantId: invoice.consultantId } },
     },
     include: { booking: { select: { propertyAddress: true } } },
   })

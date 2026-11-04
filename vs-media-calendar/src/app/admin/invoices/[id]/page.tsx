@@ -9,6 +9,7 @@ import { INTRO_CONSULTANT_FIELDS, introConsultantFilter, introConsultantSelect, 
 import { MarkPaidButton } from "../mark-paid-button"
 import { MoloniBackfillButton } from "../moloni-backfill-button"
 import { EditIntroShare } from "./edit-intro-share"
+import { RecalculateInvoiceButton } from "./recalculate-invoice-button"
 import { syncMoloniDraft } from "@/lib/moloni"
 import {
   CheckCircle2, Clock, AlertCircle, ArrowLeft,
@@ -87,6 +88,8 @@ export default async function InvoiceDetailPage({ params }: Props) {
       OR: [...consultantFilter],
       createdAt: { gte: monthStart, lte: monthEnd },
       NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
+      // Intros já cobradas à parte (cobrança vídeo a vídeo) não pertencem à fatura mensal
+      charges: { none: { consultantId: invoice.consultantId } },
     },
     select: introSelect,
     orderBy: { createdAt: "asc" },
@@ -191,7 +194,12 @@ export default async function InvoiceDetailPage({ params }: Props) {
                   </p>
                 )}
               </div>
-              {invoice.status !== "PAID" && <MarkPaidButton invoiceId={invoice.id} />}
+              {invoice.status !== "PAID" && (
+                <div className="flex items-start gap-2">
+                  <RecalculateInvoiceButton invoiceId={invoice.id} month={invoice.month} />
+                  <MarkPaidButton invoiceId={invoice.id} />
+                </div>
+              )}
             </div>
 
             {invoice.dueDate && invoice.status !== "PAID" && (

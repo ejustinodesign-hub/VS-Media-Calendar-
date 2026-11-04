@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { del } from "@vercel/blob"
 import { IVA_RATE, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
 import { syncIntroCharges, syncBookingCharge } from "@/lib/charges"
+import { recomputeExistingInvoice } from "@/lib/invoices"
 import { INTRO_CONSULTANT_FIELDS, introConsultantData, MAX_INTRO_CONSULTANTS } from "@/lib/intros"
 
 function round2(n: number) {
@@ -99,12 +100,28 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     // Continue even if blob deletion fails (file may already be gone)
   }
 
+  // Cobranças por pagar desta intro saem com ela (as pagas ficam como histórico)
+  await prisma.charge.deleteMany({ where: { deliverableId: id, status: "PENDING" } })
+
   // Delete DB record
   await prisma.deliverable.delete({ where: { id } })
 
-  // As cobranças deste ficheiro desaparecem com ele (cascade). Se a marcação
-  // deixou de ter ficheiros, volta a não estar entregue e a cobrança do vídeo
-  // é removida — só se cobra o que foi entregue.
+  // Faturas mensais (fluxo antigo) que contavam esta intro: recalcular as que
+  // ainda estão por pagar, para o valor descer
+  const introConsultants = INTRO_CONSULTANT_FIELDS
+    .map((f) => deliverable[f])
+    .filter(Boolean) as string[]
+  const introMonth = deliverable.createdAt.toISOString().slice(0, 7)
+  for (const consultantId of introConsultants) {
+    try {
+      await recomputeExistingInvoice(consultantId, introMonth)
+    } catch (e) {
+      console.error("[deliverables/delete] recomputeExistingInvoice failed:", e)
+    }
+  }
+
+  // Se a marcação deixou de ter ficheiros, volta a não estar entregue e a
+  // cobrança do vídeo é removida — só se cobra o que foi entregue.
   if (deliverable.booking) {
     const remaining = await prisma.deliverable.count({
       where: { bookingId: deliverable.booking.id },
@@ -117,6 +134,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
     try {
       await syncBookingCharge(deliverable.booking.id)
+      await recomputeExistingInvoice(
+        deliverable.booking.consultantId,
+        deliverable.booking.scheduledAt.toISOString().slice(0, 7),
+      )
     } catch (e) {
       console.error("[deliverables/delete] syncBookingCharge failed:", e)
     }

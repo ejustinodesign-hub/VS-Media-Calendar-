@@ -64,20 +64,23 @@ export async function POST(req: NextRequest) {
 
       const consultant = paid[0]?.consultant
       const total = paid.reduce((s, c) => s + c.totalAmount, 0)
+      // O que foi pago, para o email (as cobranças vídeo a vídeo não têm mês)
+      const paidLabel = paid.length === 1 ? paid[0].description : `${paid.length} vídeos/intros`
       if (consultant) {
         try {
           await Promise.all([
             sendInvoicePaidEmail({
               consultantName: consultant.name || consultant.email || "—",
               consultantEmail: consultant.email || "",
-              month: `${paid.length} vídeo(s)`,
+              month: paidLabel,
               total,
               invoiceId: paid[0].id,
+              adminPath: "/admin/charges",
             }),
             sendInvoicePaidConfirmationEmail({
               consultantName: consultant.name || "—",
               consultantEmail: consultant.email || "",
-              month: `${paid.length} vídeo(s)`,
+              month: paidLabel,
               total,
               invoiceId: paid[0].id,
             }),

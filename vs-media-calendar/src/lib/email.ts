@@ -277,6 +277,16 @@ export async function sendAdminBookingNotificationEmail(data: BookingEmailData) 
   return result
 }
 
+/**
+ * "2026-10" → "outubro de 2026". Qualquer outro texto (ex.: a descrição de
+ * uma cobrança de vídeo) é devolvido tal como está.
+ */
+function periodLabel(month: string) {
+  if (!/^\d{4}-\d{2}$/.test(month)) return month
+  const [year, m] = month.split("-").map(Number)
+  return new Date(year, m - 1, 1).toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+}
+
 export async function sendInvoicePaidConfirmationEmail({
   consultantName,
   consultantEmail,
@@ -292,9 +302,7 @@ export async function sendInvoicePaidConfirmationEmail({
 }) {
   if (!consultantEmail) return
 
-  const [year, m] = month.split("-")
-  const monthLabel = new Date(Number(year), Number(m) - 1, 1)
-    .toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+  const monthLabel = periodLabel(month)
 
   const content = `
     <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Pagamento Confirmado</h2>
@@ -302,7 +310,7 @@ export async function sendInvoicePaidConfirmationEmail({
 
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Mês</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${monthLabel}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Referente a</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${monthLabel}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Total pago</td><td style="color:#16a34a;padding:6px 0;font-size:18px;font-weight:700;">${formatAmount(total)}</td></tr>
       </table>
     </div>
@@ -407,33 +415,34 @@ export async function sendInvoicePaidEmail({
   month,
   total,
   invoiceId,
+  adminPath,
 }: {
   consultantName: string
   consultantEmail: string
   month: string
   total: number
   invoiceId: string
+  // Para onde aponta o botão; por omissão a página da fatura mensal
+  adminPath?: string
 }) {
   const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
   if (!adminEmail) return
 
-  const [year, m] = month.split("-")
-  const monthLabel = new Date(Number(year), Number(m) - 1, 1)
-    .toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+  const monthLabel = periodLabel(month)
 
   const content = `
     <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Fatura Paga</h2>
-    <p style="color:#666;margin:0 0 24px;">Um consultor acabou de pagar a sua fatura mensal.</p>
+    <p style="color:#666;margin:0 0 24px;">Um consultor acabou de fazer um pagamento.</p>
 
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="color:#666;padding:6px 0;font-size:14px;width:40%;">Consultor</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${consultantName} <span style="color:#999;font-weight:400;">(${consultantEmail})</span></td></tr>
-        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Mês</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${monthLabel}</td></tr>
+        <tr><td style="color:#666;padding:6px 0;font-size:14px;">Referente a</td><td style="color:#1a1a2e;padding:6px 0;font-size:14px;font-weight:600;">${monthLabel}</td></tr>
         <tr><td style="color:#666;padding:6px 0;font-size:14px;">Total pago</td><td style="color:#16a34a;padding:6px 0;font-size:18px;font-weight:700;">${formatAmount(total)}</td></tr>
       </table>
     </div>
 
-    <a href="${APP_URL}/admin/invoices/${invoiceId}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Fatura</a>
+    <a href="${APP_URL}${adminPath ?? `/admin/invoices/${invoiceId}`}" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Fatura</a>
   `
 
   const result = await getResend().emails.send({

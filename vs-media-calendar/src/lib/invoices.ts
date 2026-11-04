@@ -61,6 +61,8 @@ export async function computeMonthBase(consultantId: string, month: string) {
       paymentType: "FLAT_FEE",
       status: { in: ["FILE_DELIVERED", "COMPLETED"] },
       scheduledAt: { gte: monthStart, lte: monthEnd },
+      // Vídeos já cobrados à parte (cobrança vídeo a vídeo) não entram na fatura mensal
+      charges: { none: { kind: "BOOKING" } },
     },
     include: { services: true },
   })
@@ -76,6 +78,8 @@ export async function computeMonthBase(consultantId: string, month: string) {
       OR: introConsultantFilter(consultantId),
       createdAt: { gte: monthStart, lte: monthEnd },
       NOT: { fileUrl: { startsWith: BACKFILL_PREFIX } },
+      // Intros já cobradas a este consultor à parte não entram na fatura mensal
+      charges: { none: { consultantId } },
     },
     select: introConsultantSelect,
   })
@@ -174,4 +178,18 @@ export async function recomputeMonthlyInvoice(consultantId: string, month: strin
   })
 
   return existing ? "updated" : "created"
+}
+
+/**
+ * Recalcula a fatura mensal do consultor só se ela já existir e não estiver
+ * paga. Usado quando algo que a fatura contava muda (ex.: uma intro apagada),
+ * sem criar faturas mensais novas.
+ */
+export async function recomputeExistingInvoice(consultantId: string, month: string) {
+  const existing = await prisma.monthlyInvoice.findFirst({
+    where: { consultantId, month, status: { not: "PAID" } },
+    select: { id: true },
+  })
+  if (!existing) return null
+  return recomputeMonthlyInvoice(consultantId, month)
 }

@@ -87,19 +87,31 @@ export async function POST(req: NextRequest) {
   let skipped = 0
   const noEmail: string[] = []
 
+  const failed: string[] = []
+
   for (const d of debtors) {
     if (!d.email) { skipped++; noEmail.push(d.name); continue }
     try {
-      await sendOutstandingBalanceEmail({
+      // O Resend aceita no máximo 10 pedidos por segundo — espaçar os envios
+      await new Promise((r) => setTimeout(r, 250))
+      const result = await sendOutstandingBalanceEmail({
         consultantName: d.name,
         consultantEmail: d.email,
         invoices: d.invoices,
         total: d.total,
       })
+      // O Resend devolve o erro na resposta em vez de lançar exceção
+      if (result?.error) {
+        console.error(`[outstanding-reminders] falhou para ${d.email}:`, result.error)
+        skipped++
+        failed.push(d.name)
+        continue
+      }
       sent++
     } catch (e) {
       console.error(`[outstanding-reminders] falhou para ${d.email}:`, e)
       skipped++
+      failed.push(d.name)
     }
   }
 
@@ -107,6 +119,7 @@ export async function POST(req: NextRequest) {
     sent,
     skipped,
     noEmail,
+    failed,
     consultants: debtors.length,
     totalDebt: round2(debtors.reduce((s, d) => s + d.total, 0)),
   })
