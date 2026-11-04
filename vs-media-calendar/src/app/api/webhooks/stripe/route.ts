@@ -3,7 +3,7 @@ import Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
 import { sendBookingConfirmationEmail, sendVideographerRequestEmail, sendInvoicePaidEmail, sendInvoicePaidConfirmationEmail } from "@/lib/email"
 import { SERVICE_LABELS, ADDITIONAL_INTRO_PRICE } from "@/lib/pricing"
-import { createMoloniInvoice } from "@/lib/moloni"
+import { createMoloniInvoice, moloniPdfAttachments } from "@/lib/moloni"
 import type { ServiceType } from "@prisma/client"
 import { introConsultantFilter, introSplitCount } from "@/lib/intros"
 
@@ -45,6 +45,10 @@ export async function POST(req: NextRequest) {
       })
 
       // Um documento Moloni por vídeo/intro pago
+      const moloniIds = new Map<string, number>()
+      for (const charge of paid) {
+        if (charge.moloniDocumentId) moloniIds.set(charge.id, charge.moloniDocumentId)
+      }
       if (process.env.MOLONI_CLIENT_ID) {
         for (const charge of paid) {
           if (charge.moloniDocumentId) continue
@@ -56,6 +60,7 @@ export async function POST(req: NextRequest) {
               lines: [{ description: charge.description, qty: 1, unitPrice: charge.netAmount }],
             })
             await prisma.charge.update({ where: { id: charge.id }, data: { moloniDocumentId } })
+            moloniIds.set(charge.id, moloniDocumentId)
           } catch (e) {
             console.error(`[webhook] Moloni failed for charge ${charge.id}:`, e)
           }
@@ -66,6 +71,19 @@ export async function POST(req: NextRequest) {
       const total = paid.reduce((s, c) => s + c.totalAmount, 0)
       // O que foi pago, para o email (as cobranças vídeo a vídeo não têm mês)
       const paidLabel = paid.length === 1 ? paid[0].description : `${paid.length} vídeos/intros`
+
+      // Faturas em PDF para anexar ao email do consultor
+      const paidDate = new Date().toISOString().slice(0, 10)
+      const attachments = consultant
+        ? await moloniPdfAttachments(
+            paid
+              .filter((c) => moloniIds.has(c.id))
+              .map((c, i, arr) => ({
+                documentId: moloniIds.get(c.id)!,
+                fileName: arr.length > 1 ? `fatura-${paidDate}-${i + 1}.pdf` : `fatura-${paidDate}.pdf`,
+              }))
+          )
+        : []
       if (consultant) {
         try {
           await Promise.all([
@@ -83,6 +101,7 @@ export async function POST(req: NextRequest) {
               month: paidLabel,
               total,
               invoiceId: paid[0].id,
+              attachments,
             }),
           ])
         } catch (e) {
@@ -112,29 +131,8 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Notify admin and consultant by email
-      try {
-        await Promise.all([
-          sendInvoicePaidEmail({
-            consultantName: invoice.consultant.name || invoice.consultant.email || "—",
-            consultantEmail: invoice.consultant.email || "",
-            month: invoice.month,
-            total: invoice.total,
-            invoiceId: invoice.id,
-          }),
-          sendInvoicePaidConfirmationEmail({
-            consultantName: invoice.consultant.name || "—",
-            consultantEmail: invoice.consultant.email || "",
-            month: invoice.month,
-            total: invoice.total,
-            invoiceId: invoice.id,
-          }),
-        ])
-      } catch (e) {
-        console.error("[webhook] Invoice paid email failed:", e)
-      }
-
       // Create Moloni document now that payment is confirmed
+      let moloniDocumentId = invoice.moloniDocumentId
       if (process.env.MOLONI_CLIENT_ID && !invoice.moloniDocumentId) {
         try {
           const [year, m] = invoice.month.split("-").map(Number)
@@ -146,6 +144,8 @@ export async function POST(req: NextRequest) {
               OR: introConsultantFilter(invoice.consultantId),
               createdAt: { gte: monthStart, lte: monthEnd },
               NOT: { fileUrl: { startsWith: "backfill:intro-junho-2026:" } },
+              // Intros já cobradas à parte não pertencem à fatura mensal
+              charges: { none: { consultantId: invoice.consultantId } },
             },
             include: { booking: { select: { propertyAddress: true } } },
           })
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
           const dueDate = invoice.dueDate ?? new Date()
 
           if (lines.length > 0) {
-            const moloniDocumentId = await createMoloniInvoice({
+            moloniDocumentId = await createMoloniInvoice({
               consultant: invoice.consultant,
               month: invoice.month,
               dueDate,
@@ -215,6 +215,33 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           console.error("[webhook] Moloni invoice creation failed:", e)
         }
+      }
+
+      // Notificar admin e consultor — depois da fatura, para seguir em anexo.
+      // Um rascunho ainda não é fatura: não se anexa.
+      const attachments = moloniDocumentId && !invoice.moloniDraft
+        ? await moloniPdfAttachments([{ documentId: moloniDocumentId, fileName: `fatura-${invoice.month}.pdf` }])
+        : []
+      try {
+        await Promise.all([
+          sendInvoicePaidEmail({
+            consultantName: invoice.consultant.name || invoice.consultant.email || "—",
+            consultantEmail: invoice.consultant.email || "",
+            month: invoice.month,
+            total: invoice.total,
+            invoiceId: invoice.id,
+          }),
+          sendInvoicePaidConfirmationEmail({
+            consultantName: invoice.consultant.name || "—",
+            consultantEmail: invoice.consultant.email || "",
+            month: invoice.month,
+            total: invoice.total,
+            invoiceId: invoice.id,
+            attachments,
+          }),
+        ])
+      } catch (e) {
+        console.error("[webhook] Invoice paid email failed:", e)
       }
 
       return NextResponse.json({ ok: true })

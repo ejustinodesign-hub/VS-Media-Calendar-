@@ -292,13 +292,15 @@ export async function sendInvoicePaidConfirmationEmail({
   consultantEmail,
   month,
   total,
-  invoiceId,
+  attachments = [],
 }: {
   consultantName: string
   consultantEmail: string
   month: string
   total: number
   invoiceId: string
+  // Fatura(s) Moloni em PDF
+  attachments?: { filename: string; content: Buffer }[]
 }) {
   if (!consultantEmail) return
 
@@ -315,6 +317,12 @@ export async function sendInvoicePaidConfirmationEmail({
       </table>
     </div>
 
+    <p style="color:#666;font-size:14px;margin:0 0 24px;">
+      ${attachments.length > 0
+        ? (attachments.length > 1 ? "Seguem em anexo as faturas." : "Segue em anexo a fatura.")
+        : "A fatura fica disponível para download na página de Pagamentos."}
+    </p>
+
     <a href="${APP_URL}/consultant/payments" style="display:inline-block;background:#0f3460;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">Ver Pagamentos</a>
   `
 
@@ -323,6 +331,7 @@ export async function sendInvoicePaidConfirmationEmail({
     to: consultantEmail,
     subject: `✅ Pagamento confirmado — ${monthLabel} · ${formatAmount(total)}`,
     html: emailBase(content),
+    ...(attachments.length > 0 ? { attachments } : {}),
   })
   console.log(`[email] sendInvoicePaidConfirmationEmail → ${consultantEmail}`, result)
   return result
