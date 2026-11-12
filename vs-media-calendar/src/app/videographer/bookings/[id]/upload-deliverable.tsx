@@ -10,15 +10,6 @@ import { MAX_INTRO_CONSULTANTS, INTRO_CONSULTANT_FIELDS, introConsultantData } f
 
 const INTRO_COUNT_OPTIONS = Array.from({ length: MAX_INTRO_CONSULTANTS }, (_, i) => i + 1)
 
-const INTRO_PRICE_NET = 25
-const IVA = 0.23
-
-function pricePerConsultant(count: number) {
-  const net = Math.round((INTRO_PRICE_NET / count) * 100) / 100
-  const gross = Math.round(net * (1 + IVA) * 100) / 100
-  return { net, gross }
-}
-
 interface DeliverableFile {
   id: string
   fileName: string
@@ -291,7 +282,7 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-slate-500">
-            Filmou uma intro personalizada para outros consultores? Os 25€ são divididos pelo número de consultores.
+            Filmou uma intro personalizada para outros consultores? Indique quantos consultores aparecem e quem são.
           </p>
 
           {introFiles.length > 0 && (
@@ -305,7 +296,6 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
           )}
 
           {introEntries.map(entry => {
-            const { gross } = pricePerConsultant(entry.count)
             const validIds = entry.consultantIds.filter(Boolean)
             const canUpload = entry.file && validIds.length === entry.count
             const usedIds = new Set(validIds)
@@ -325,7 +315,6 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
                   <p className="text-xs font-medium text-slate-500">Número de consultores</p>
                   <div className="flex gap-1.5">
                     {INTRO_COUNT_OPTIONS.map(n => {
-                      const { gross: g } = pricePerConsultant(n)
                       return (
                         <button key={n} onClick={() => setCount(entry.key, n)}
                           className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all border ${
@@ -335,18 +324,10 @@ export function UploadDeliverable({ bookingId, existingFiles, primaryConsultantI
                           }`}
                         >
                           {n}×
-                          <span className="block text-[10px] font-normal opacity-80 leading-none mt-0.5">
-                            {g.toFixed(2).replace(".", ",")}€
-                          </span>
                         </button>
                       )
                     })}
                   </div>
-                  {entry.count > 1 && (
-                    <p className="text-[10px] text-slate-400 text-center">
-                      25,00€ ÷ {entry.count} = {gross.toFixed(2).replace(".", ",")}€ c/ IVA por consultor
-                    </p>
-                  )}
                 </div>
 
                 {/* CTA option — only for eligible videographers */}
@@ -447,8 +428,6 @@ function FileRow({
   const names = showConsultantBadge
     ? ids.map(id => consultants.find(c => c.id === id)?.name || "Consultor")
     : []
-  const count = ids.length
-  const { gross } = count > 0 ? pricePerConsultant(count) : { gross: 0 }
 
   return (
     <div className="rounded-xl border border-emerald-200 overflow-hidden bg-emerald-50">
@@ -472,7 +451,7 @@ function FileRow({
           )}
           {names.length > 1 && (
             <p className="text-xs text-[#e94560] font-medium mt-0.5">
-              Intro partilhada ({names.length}×): {names.join(", ")} — {gross.toFixed(2).replace(".", ",")}€ cada
+              Intro partilhada ({names.length}×): {names.join(", ")}
             </p>
           )}
           {f.createdAt && (() => {

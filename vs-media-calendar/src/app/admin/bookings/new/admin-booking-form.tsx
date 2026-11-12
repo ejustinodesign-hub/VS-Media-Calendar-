@@ -16,7 +16,9 @@ interface Props {
   consultants: User[]
   // Omitido quando é o próprio videógrafo a criar a marcação (fica atribuída a ele)
   videographers?: User[]
-  activePrices: Record<string, number>
+  // Omitido quando quem cria não pode ver preços (videógrafo): nesse caso o
+  // formulário não mostra nenhum valor e os preços nem chegam ao browser
+  activePrices?: Record<string, number>
   // Só o admin pode criar marcações em modo comissão
   allowCommission?: boolean
   endpoint?: string
@@ -54,6 +56,7 @@ export function AdminBookingForm({
 }: Props) {
   const router = useRouter()
   const pickVideographer = !!videographers
+  const showPrices = !!activePrices
 
   const [paymentType, setPaymentType] = useState<"FLAT_FEE" | "COMMISSION">("FLAT_FEE")
   const [consultantId, setConsultantId]   = useState("")
@@ -86,7 +89,7 @@ export function AdminBookingForm({
   const hasDroneVideoSelected = selectedServices.includes("VIDEO_DRONE")
   const flatFeeTotal = selectedServices.reduce((sum, s) => {
     if (s === "PHOTO_DRONE" && hasDroneVideoSelected) return sum
-    return sum + (activePrices[s] ?? DEFAULT_PRICES[s] ?? 0)
+    return sum + (activePrices?.[s] ?? DEFAULT_PRICES[s] ?? 0)
   }, 0) + (hasTravelFee ? 50 : 0)
 
   const simValue = parseFloat(simPropertyValue.replace(",", ".")) || 0
@@ -275,7 +278,7 @@ export function AdminBookingForm({
         <div className="grid grid-cols-2 gap-2">
           {ALL_STANDARD_SERVICES.map((svc) => {
             const active = selectedServices.includes(svc)
-            const basePrice = activePrices[svc] ?? DEFAULT_PRICES[svc] ?? 0
+            const basePrice = activePrices?.[svc] ?? DEFAULT_PRICES[svc] ?? 0
             const isFree = svc === "PHOTO_DRONE" && hasDroneVideoSelected
             return (
               <button
@@ -289,7 +292,7 @@ export function AdminBookingForm({
                 }`}
               >
                 <span>{SERVICE_LABELS[svc]}</span>
-                {paymentType === "COMMISSION" ? (
+                {!showPrices ? null : paymentType === "COMMISSION" ? (
                   <span className="text-xs text-violet-500 font-semibold">Comissão</span>
                 ) : (
                   <span className={`text-xs ${isFree ? "text-emerald-600 font-semibold" : active ? "text-[#0f3460]" : "text-slate-400"}`}>
@@ -309,7 +312,7 @@ export function AdminBookingForm({
         <div className="pt-2 border-t border-slate-100">
           <p className="text-xs text-slate-500 font-medium mb-2 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-violet-500" />
-            Intros — gratuito para o consultor, cobrado aos consultores que aparecem
+            {showPrices ? "Intros — gratuito para o consultor, cobrado aos consultores que aparecem" : "Intros"}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {INTRO_SERVICES.map((svc) => {
@@ -326,7 +329,7 @@ export function AdminBookingForm({
                   }`}
                 >
                   <span>{SERVICE_LABELS[svc]}</span>
-                  <span className="text-xs text-violet-500 font-semibold">Gratuito</span>
+                  {showPrices && <span className="text-xs text-violet-500 font-semibold">Gratuito</span>}
                 </button>
               )
             })}
@@ -342,7 +345,7 @@ export function AdminBookingForm({
           onChange={(e) => setHasTravelFee(e.target.checked)}
           className="w-4 h-4 rounded border-slate-300 accent-[#0f3460]"
         />
-        <span className="text-sm text-slate-700">Taxa de deslocação <span className="text-slate-400">(+50€)</span></span>
+        <span className="text-sm text-slate-700">Taxa de deslocação{showPrices && <span className="text-slate-400"> (+50€)</span>}</span>
       </label>
 
       {/* Notes */}
@@ -358,7 +361,7 @@ export function AdminBookingForm({
       </div>
 
       {/* Total / commission note */}
-      {selectedServices.length > 0 && (
+      {showPrices && selectedServices.length > 0 && (
         paymentType === "FLAT_FEE" ? (
           <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between">
             <span className="text-sm text-slate-600">Total estimado (sem IVA)</span>
