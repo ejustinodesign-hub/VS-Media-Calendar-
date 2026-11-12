@@ -31,7 +31,7 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
       orderBy: { scheduledAt: "desc" },
     }),
     prisma.user.findMany({
-      where: { role: "VIDEOGRAPHER" },
+      where: { role: "VIDEOGRAPHER", active: true },
       select: { id: true, name: true },
     }),
   ])

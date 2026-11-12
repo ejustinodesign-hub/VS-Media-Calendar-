@@ -43,6 +43,7 @@ const consultantNav: NavItem[] = [
 
 const videographerNav: NavItem[] = [
   { href: "/videographer/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/videographer/bookings/new", label: "Nova Marcação", icon: CalendarPlus },
   { href: "/videographer/bookings", label: "Pedidos", icon: FileVideo },
   { href: "/videographer/schedule", label: "Agenda", icon: Calendar },
   { href: "/videographer/profile", label: "O Meu Perfil", icon: UserCircle },
@@ -194,8 +195,12 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
+            // Ativo é o item mais específico que corresponde ao caminho
+            // (em /bookings/new só "Nova Marcação", não também a lista)
+            const matches = (href: string) => pathname === href || pathname.startsWith(href + "/")
             const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/")
+              matches(item.href) &&
+              !navItems.some((o) => o.href.length > item.href.length && matches(o.href))
             const Icon = item.icon
             return (
               <motion.div

@@ -14,8 +14,19 @@ interface User {
 
 interface Props {
   consultants: User[]
-  videographers: User[]
+  // Omitido quando é o próprio videógrafo a criar a marcação (fica atribuída a ele)
+  videographers?: User[]
   activePrices: Record<string, number>
+  // Só o admin pode criar marcações em modo comissão
+  allowCommission?: boolean
+  endpoint?: string
+  // Página de detalhe para onde seguir depois de criar
+  redirectBase?: string
+  // Consultores com pagamentos em atraso — mostra um aviso ao escolher um deles
+  overdueConsultantIds?: string[]
+  submitLabel?: string
+  // Nota por baixo do campo da data
+  dateHint?: string
 }
 
 const ALL_SERVICES = [...VIDEO_SERVICES, ...PHOTO_SERVICES]
@@ -30,8 +41,19 @@ function formatEur(n: number) {
   return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n)
 }
 
-export function AdminBookingForm({ consultants, videographers, activePrices }: Props) {
+export function AdminBookingForm({
+  consultants,
+  videographers,
+  activePrices,
+  allowCommission = true,
+  endpoint = "/api/admin/bookings",
+  redirectBase = "/admin/bookings",
+  overdueConsultantIds = [],
+  submitLabel = "Criar Marcação",
+  dateHint,
+}: Props) {
   const router = useRouter()
+  const pickVideographer = !!videographers
 
   const [paymentType, setPaymentType] = useState<"FLAT_FEE" | "COMMISSION">("FLAT_FEE")
   const [consultantId, setConsultantId]   = useState("")
@@ -73,19 +95,19 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!consultantId || !videographerId || !selectedServices.length || !scheduledAt || !propertyAddress) {
+    if (!consultantId || (pickVideographer && !videographerId) || !selectedServices.length || !scheduledAt || !propertyAddress) {
       setError("Preenche todos os campos obrigatórios.")
       return
     }
     setSubmitting(true)
     setError("")
     try {
-      const res = await fetch("/api/admin/bookings", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           consultantId,
-          videographerId,
+          ...(pickVideographer ? { videographerId } : {}),
           scheduledAt: new Date(scheduledAt).toISOString(),
           services: selectedServices,
           propertyAddress,
@@ -98,7 +120,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Erro ao criar marcação")
-      router.push(`/admin/bookings/${data.bookingId}`)
+      router.push(`${redirectBase}/${data.bookingId}`)
       router.refresh()
     } catch (err: any) {
       setError(err.message)
@@ -111,7 +133,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
 
       {/* Payment type toggle */}
-      <div className="space-y-2">
+      {allowCommission && <div className="space-y-2">
         <label className="block text-sm font-semibold text-slate-700">Tipo de pagamento *</label>
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -145,7 +167,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
             </div>
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Commission simulator */}
       {paymentType === "COMMISSION" && (
@@ -185,7 +207,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
       )}
 
       {/* Consultant + Videographer */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className={pickVideographer ? "grid grid-cols-2 gap-4" : "space-y-2"}>
         <div className="space-y-1.5">
           <label className="block text-sm font-semibold text-slate-700">Consultor *</label>
           <select
@@ -200,7 +222,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
             ))}
           </select>
         </div>
-        <div className="space-y-1.5">
+        {videographers && <div className="space-y-1.5">
           <label className="block text-sm font-semibold text-slate-700">Videógrafo *</label>
           <select
             value={videographerId}
@@ -213,7 +235,12 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
               <option key={v.id} value={v.id}>{v.name || v.email}</option>
             ))}
           </select>
-        </div>
+        </div>}
+        {overdueConsultantIds.includes(consultantId) && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            Este consultor tem pagamentos em atraso. A marcação pode ser criada na mesma, mas convém avisá-lo para regularizar.
+          </p>
+        )}
       </div>
 
       {/* Date & time */}
@@ -226,6 +253,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
           required
           className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 bg-white focus:outline-none focus:border-[#0f3460]"
         />
+        {dateHint && <p className="text-xs text-slate-500">{dateHint}</p>}
       </div>
 
       {/* Property */}
@@ -363,7 +391,7 @@ export function AdminBookingForm({ consultants, videographers, activePrices }: P
           disabled={submitting}
           className="px-6 py-2.5 rounded-xl bg-[#0f3460] text-white text-sm font-semibold hover:bg-[#1a4a7a] disabled:opacity-50 transition-colors"
         >
-          {submitting ? "A criar…" : "Criar Marcação"}
+          {submitting ? "A criar…" : submitLabel}
         </button>
       </div>
     </form>

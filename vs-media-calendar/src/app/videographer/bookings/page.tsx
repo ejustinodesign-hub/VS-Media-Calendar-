@@ -4,7 +4,7 @@ import { Header } from "@/components/layout/header"
 import { Card, CardContent } from "@/components/ui/card"
 import { BookingStatusBadge } from "@/components/ui/badge"
 import Link from "next/link"
-import { Calendar, Clock } from "lucide-react"
+import { Calendar, CalendarPlus, Clock } from "lucide-react"
 
 export default async function VideographerBookingsPage() {
   const session = await auth()
@@ -19,7 +19,19 @@ export default async function VideographerBookingsPage() {
 
   return (
     <>
-      <Header title="Pedidos de Serviço" subtitle={`${bookings.length} no total`} />
+      <Header
+        title="Pedidos de Serviço"
+        subtitle={`${bookings.length} no total`}
+        action={
+          <Link
+            href="/videographer/bookings/new"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0f3460] text-white text-xs font-semibold hover:bg-[#1a4a7a] transition-colors"
+          >
+            <CalendarPlus className="w-3.5 h-3.5" />
+            Nova marcação
+          </Link>
+        }
+      />
       <div className="flex-1 p-6">
         {bookings.length === 0 ? (
           <Card>

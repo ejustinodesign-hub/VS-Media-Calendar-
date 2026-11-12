@@ -27,5 +27,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     data: updateData,
   })
 
+  // Desativar tira o acesso de imediato: sem isto, quem já tinha sessão
+  // iniciada continuava a entrar até a sessão expirar
+  if (active === false) {
+    await prisma.session.deleteMany({ where: { userId: id } })
+  }
+
   return NextResponse.json({ success: true, user })
 }

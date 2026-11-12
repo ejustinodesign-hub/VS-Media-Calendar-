@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       select: { id: true, name: true, email: true, teamType: true },
     }),
     prisma.user.findFirst({
-      where: { id: videographerId, role: "VIDEOGRAPHER" },
+      where: { id: videographerId, role: "VIDEOGRAPHER", active: true },
       select: { id: true, name: true, email: true },
     }),
   ])
