@@ -6,6 +6,8 @@ import { formatPrice } from "@/lib/pricing"
 import { CHARGE_OVERDUE_DAYS } from "@/lib/charges"
 import { Video, Package, CheckCircle2, Clock, AlertCircle, Receipt, Download } from "lucide-react"
 import Link from "next/link"
+import { OctoberJobsButton } from "./october-jobs-button"
+import { OCTOBER_BACKFILL, OCTOBER_BACKFILL_BOOKING_COUNT, OCTOBER_BACKFILL_MARKER } from "@/lib/october-backfill"
 import { SendOutstandingRemindersButton } from "../invoices/send-outstanding-reminders-button"
 
 function daysSince(d: Date) {
@@ -33,6 +35,14 @@ export default async function AdminChargesPage({
 
   const total = charges.reduce((s, c) => s + c.totalAmount, 0)
 
+  // Trabalhos de outubro feitos fora da plataforma: o botão desaparece
+  // quando todos já tiverem marcação e cobrança
+  const [octoberBookings, azeitaoCharges] = await Promise.all([
+    prisma.booking.count({ where: { notes: { startsWith: OCTOBER_BACKFILL_MARKER } } }),
+    prisma.charge.count({ where: { bookingId: OCTOBER_BACKFILL.existing.bookingId, kind: "BOOKING" } }),
+  ])
+  const octoberPending = octoberBookings < OCTOBER_BACKFILL_BOOKING_COUNT || azeitaoCharges === 0
+
   // Dívida acumulada por consultor
   const byConsultant = new Map<string, { name: string; count: number; total: number }>()
   if (filter === "PENDING") {
@@ -53,6 +63,8 @@ export default async function AdminChargesPage({
         subtitle={`${charges.length} ${filter === "PENDING" ? "por pagar" : "pagas"} · ${formatPrice(total)}`}
       />
       <div className="flex-1 p-6 space-y-6">
+
+        <OctoberJobsButton alreadyAdded={!octoberPending} />
 
         <div className="flex items-center gap-2">
           {[
